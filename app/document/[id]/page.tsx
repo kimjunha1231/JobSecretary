@@ -234,23 +234,23 @@ export default function DocumentDetail() {
                 {isEditing ? (
                     editForm.sections.map((section, index) => (
                         <div key={index} className="bg-surface border border-white/5 rounded-2xl overflow-hidden">
-                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                                <div className="flex items-center gap-3 flex-1">
-                                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/20 text-primary text-sm font-mono font-bold shrink-0">
+                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
+                                <div className="flex items-start gap-3 mb-3">
+                                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/20 text-primary text-sm font-mono font-bold shrink-0 mt-1">
                                         {index + 1}
                                     </span>
                                     <input
                                         type="text"
                                         value={section.title}
                                         onChange={e => updateSection(index, 'title', e.target.value)}
-                                        className="w-full bg-transparent border-none text-xl font-semibold text-white focus:outline-none focus:ring-0 placeholder-zinc-600"
+                                        className="flex-1 bg-transparent border-none text-xl font-semibold text-white focus:outline-none focus:ring-0 placeholder-zinc-600 break-words"
                                         placeholder="문항 제목"
                                     />
-                                    <span className="text-sm text-zinc-500 font-mono shrink-0">
+                                </div>
+                                <div className="flex items-center justify-between gap-3 pl-10">
+                                    <span className="text-sm text-zinc-500 font-mono">
                                         {section.content.length}자
                                     </span>
-                                </div>
-                                <div className="ml-4">
                                     <RefineManager
                                         text={section.content}
                                         onApply={(corrected) => updateSection(index, 'content', corrected)}
@@ -271,34 +271,38 @@ export default function DocumentDetail() {
                 ) : (
                     editForm.sections.map((section, index) => (
                         <div key={index} className="bg-surface border border-white/5 rounded-2xl overflow-hidden hover:border-primary/30 transition-colors shadow-sm group">
-                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                                <h3 className="text-xl font-semibold text-white flex items-center gap-3">
-                                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/20 text-primary text-sm font-mono font-bold">
+                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
+                                <div className="flex items-start gap-3 mb-3">
+                                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/20 text-primary text-sm font-mono font-bold shrink-0 mt-1">
                                         {index + 1}
                                     </span>
-                                    {section.title}
-                                    <span className="text-sm text-zinc-500 font-mono font-normal">
+                                    <h3 className="text-xl font-semibold text-white flex-1 break-words leading-relaxed">
+                                        {section.title}
+                                    </h3>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pl-10">
+                                    <span className="text-sm text-zinc-500 font-mono">
                                         {section.content.length}자
                                     </span>
-                                </h3>
-                                <div className="ml-auto flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleCopy(section.content, index)}
-                                        className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5 opacity-0 group-hover:opacity-100"
-                                        title="내용 복사"
-                                    >
-                                        {copiedIndex === index ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setAutoRefineIndex(index);
-                                            setIsEditing(true);
-                                        }}
-                                        className="text-zinc-500 hover:text-purple-400 transition-colors p-2 rounded-lg hover:bg-purple-500/10 opacity-0 group-hover:opacity-100"
-                                        title="AI 교정"
-                                    >
-                                        <Sparkles size={18} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleCopy(section.content, index)}
+                                            className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5 opacity-0 group-hover:opacity-100"
+                                            title="내용 복사"
+                                        >
+                                            {copiedIndex === index ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setAutoRefineIndex(index);
+                                                setIsEditing(true);
+                                            }}
+                                            className="text-zinc-500 hover:text-purple-400 transition-colors p-2 rounded-lg hover:bg-purple-500/10 opacity-0 group-hover:opacity-100"
+                                            title="AI 교정"
+                                        >
+                                            <Sparkles size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div className="p-8 text-zinc-300 leading-relaxed whitespace-pre-wrap text-lg">
