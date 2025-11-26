@@ -22,6 +22,7 @@ export function TagInput({ tags = [], onChange, placeholder = "태그 입력..."
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.nativeEvent.isComposing) return;
         if (e.key === 'Enter') {
             e.preventDefault();
             addTag();

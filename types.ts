@@ -9,8 +9,8 @@ export interface Document {
   content: string;
   status: 'pending' | 'pass' | 'fail';
   tags: string[];
-  created_at: string;
-  job_post_url?: string; // Optional, keeping it if needed for backward compat or future use
+  createdAt: string;
+  jobPostUrl?: string;
 }
 
 export interface ChatMessage {

@@ -1,31 +1,20 @@
 {
   "node": {
-    "007dd7041af0160a75f2c26ef60d02d7a1b0a5d4b6": {
-      "workers": {
-        "app/dashboard/page": {
-          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Fdocument.ts%22%2C%5B%5B%22007dd7041af0160a75f2c26ef60d02d7a1b0a5d4b6%22%2C%22getDocuments%22%5D%2C%5B%22400f721b16eaef7bd574f92a78814ab74cef6572ca%22%2C%22createDocument%22%5D%5D%5D%5D&__client_imported__=!",
-          "async": false
-        }
-      },
-      "layer": {
-        "app/dashboard/page": "rsc"
-      }
-    },
-    "400f721b16eaef7bd574f92a78814ab74cef6572ca": {
-      "workers": {
-        "app/dashboard/page": {
-          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Fdocument.ts%22%2C%5B%5B%22007dd7041af0160a75f2c26ef60d02d7a1b0a5d4b6%22%2C%22getDocuments%22%5D%2C%5B%22400f721b16eaef7bd574f92a78814ab74cef6572ca%22%2C%22createDocument%22%5D%5D%5D%5D&__client_imported__=!",
-          "async": false
-        }
-      },
-      "layer": {
-        "app/dashboard/page": "rsc"
-      }
-    },
     "40278ab1431b4038b0c5bf2c6fd9540e89f118d069": {
       "workers": {
         "app/write/page": {
-          "moduleId": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Fsearch.ts%22%2C%5B%5B%2240278ab1431b4038b0c5bf2c6fd9540e89f118d069%22%2C%22searchDocumentsByTags%22%5D%5D%5D%5D&__client_imported__=true!",
+          "moduleId": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Fsearch.ts%22%2C%5B%5B%2240278ab1431b4038b0c5bf2c6fd9540e89f118d069%22%2C%22searchDocumentsByTags%22%5D%5D%5D%2C%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Frefine.ts%22%2C%5B%5B%2240ce32114bb7ef776e67f4230455ae8a941edffccd%22%2C%22refineText%22%5D%5D%5D%5D&__client_imported__=true!",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/write/page": "action-browser"
+      }
+    },
+    "40ce32114bb7ef776e67f4230455ae8a941edffccd": {
+      "workers": {
+        "app/write/page": {
+          "moduleId": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Fsearch.ts%22%2C%5B%5B%2240278ab1431b4038b0c5bf2c6fd9540e89f118d069%22%2C%22searchDocumentsByTags%22%5D%5D%5D%2C%5B%22%2FUsers%2Fjunha%2Fcoding%2Fcareervault-ai%2Factions%2Frefine.ts%22%2C%5B%5B%2240ce32114bb7ef776e67f4230455ae8a941edffccd%22%2C%22refineText%22%5D%5D%5D%5D&__client_imported__=true!",
           "async": false
         }
       },

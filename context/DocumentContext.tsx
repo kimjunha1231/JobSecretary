@@ -1,13 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CoverLetter } from '../types';
+import { Document } from '../types';
 
 interface DocumentContextType {
-  documents: CoverLetter[];
-  addDocument: (doc: Omit<CoverLetter, 'id' | 'createdAt'>) => Promise<void>;
+  documents: Document[];
+  addDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'user_id' | 'status'>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
-  updateDocument: (id: string, updates: Partial<CoverLetter>) => Promise<void>;
+  updateDocument: (id: string, updates: Partial<Document>) => Promise<void>;
   stats: {
     total: number;
     companies: number;
@@ -20,13 +20,19 @@ interface DocumentContextType {
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [documents, setDocuments] = useState<CoverLetter[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshDocuments = async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/documents');
+
+      if (response.status === 401) {
+        setDocuments([]);
+        return;
+      }
+
       if (!response.ok) throw new Error('Failed to fetch documents');
       const data = await response.json();
 
@@ -55,7 +61,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     refreshDocuments();
   }, []);
 
-  const addDocument = async (doc: Omit<CoverLetter, 'id' | 'createdAt'>) => {
+  const addDocument = async (doc: Omit<Document, 'id' | 'createdAt' | 'user_id' | 'status'>) => {
     try {
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -87,7 +93,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const updateDocument = async (id: string, updates: Partial<CoverLetter>) => {
+  const updateDocument = async (id: string, updates: Partial<Document>) => {
     try {
       const response = await fetch(`/api/documents?id=${id}`, {
         method: 'PATCH',

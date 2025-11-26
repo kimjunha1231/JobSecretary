@@ -791,16 +791,6 @@ eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpac
 
 /***/ }),
 
-/***/ "(ssr)/./node_modules/motion-dom/dist/es/utils/transform.mjs":
-/*!*************************************************************!*\
-  !*** ./node_modules/motion-dom/dist/es/utils/transform.mjs ***!
-  \*************************************************************/
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
-
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   transform: () => (/* binding */ transform)\n/* harmony export */ });\n/* harmony import */ var _interpolate_mjs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./interpolate.mjs */ \"(ssr)/./node_modules/motion-dom/dist/es/utils/interpolate.mjs\");\n\n\nfunction transform(...args) {\n    const useImmediate = !Array.isArray(args[0]);\n    const argOffset = useImmediate ? 0 : -1;\n    const inputValue = args[0 + argOffset];\n    const inputRange = args[1 + argOffset];\n    const outputRange = args[2 + argOffset];\n    const options = args[3 + argOffset];\n    const interpolator = (0,_interpolate_mjs__WEBPACK_IMPORTED_MODULE_0__.interpolate)(inputRange, outputRange, options);\n    return useImmediate ? interpolator(inputValue) : interpolator;\n}\n\n\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKHNzcikvLi9ub2RlX21vZHVsZXMvbW90aW9uLWRvbS9kaXN0L2VzL3V0aWxzL3RyYW5zZm9ybS5tanMiLCJtYXBwaW5ncyI6Ijs7Ozs7QUFBZ0Q7O0FBRWhEO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0EseUJBQXlCLDZEQUFXO0FBQ3BDO0FBQ0E7O0FBRXFCIiwic291cmNlcyI6WyIvVXNlcnMvanVuaGEvY29kaW5nL2NhcmVlcnZhdWx0LWFpL25vZGVfbW9kdWxlcy9tb3Rpb24tZG9tL2Rpc3QvZXMvdXRpbHMvdHJhbnNmb3JtLm1qcyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBpbnRlcnBvbGF0ZSB9IGZyb20gJy4vaW50ZXJwb2xhdGUubWpzJztcblxuZnVuY3Rpb24gdHJhbnNmb3JtKC4uLmFyZ3MpIHtcbiAgICBjb25zdCB1c2VJbW1lZGlhdGUgPSAhQXJyYXkuaXNBcnJheShhcmdzWzBdKTtcbiAgICBjb25zdCBhcmdPZmZzZXQgPSB1c2VJbW1lZGlhdGUgPyAwIDogLTE7XG4gICAgY29uc3QgaW5wdXRWYWx1ZSA9IGFyZ3NbMCArIGFyZ09mZnNldF07XG4gICAgY29uc3QgaW5wdXRSYW5nZSA9IGFyZ3NbMSArIGFyZ09mZnNldF07XG4gICAgY29uc3Qgb3V0cHV0UmFuZ2UgPSBhcmdzWzIgKyBhcmdPZmZzZXRdO1xuICAgIGNvbnN0IG9wdGlvbnMgPSBhcmdzWzMgKyBhcmdPZmZzZXRdO1xuICAgIGNvbnN0IGludGVycG9sYXRvciA9IGludGVycG9sYXRlKGlucHV0UmFuZ2UsIG91dHB1dFJhbmdlLCBvcHRpb25zKTtcbiAgICByZXR1cm4gdXNlSW1tZWRpYXRlID8gaW50ZXJwb2xhdG9yKGlucHV0VmFsdWUpIDogaW50ZXJwb2xhdG9yO1xufVxuXG5leHBvcnQgeyB0cmFuc2Zvcm0gfTtcbiJdLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOlswXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///(ssr)/./node_modules/motion-dom/dist/es/utils/transform.mjs\n");
-
-/***/ }),
-
 /***/ "(ssr)/./node_modules/motion-dom/dist/es/value/index.mjs":
 /*!*********************************************************!*\
   !*** ./node_modules/motion-dom/dist/es/value/index.mjs ***!

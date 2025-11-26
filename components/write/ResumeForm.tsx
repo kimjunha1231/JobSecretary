@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Plus, Trash2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDraftStore } from '@/store/useDraftStore';
+import { useWriteStore } from '@/stores/useWriteStore';
 import { useDocuments } from '@/context/DocumentContext';
 import { TagInput } from '@/components/ui/tag-input';
+import RefineManager from './RefineManager';
 
 const LIMIT_OPTIONS = [300, 500, 700, 1000, 1500, 2000];
 
@@ -68,6 +70,7 @@ const LimitSelector: React.FC<{
 export default function ResumeForm() {
     const router = useRouter();
     const { addDocument } = useDocuments();
+    const { setSearchTags } = useWriteStore();
     const [isSaving, setIsSaving] = useState(false);
 
     const {
@@ -159,7 +162,10 @@ export default function ResumeForm() {
                 <label className="text-sm text-zinc-400 mb-2 block">태그</label>
                 <TagInput
                     tags={formData.tags}
-                    onChange={tags => setFormData({ tags })}
+                    onChange={tags => {
+                        setFormData({ tags });
+                        setSearchTags(tags); // Sync with search store
+                    }}
                     placeholder="태그를 입력하고 Enter를 누르세요 (예: 취미, 성장과정)"
                     className="bg-surface border-white/10"
                 />
@@ -222,13 +228,21 @@ export default function ResumeForm() {
                     </div>
                 </div>
 
-                <textarea
-                    value={currentSection.content}
-                    onChange={e => updateSection(currentSectionIndex, 'content', e.target.value)}
-                    className="w-full h-64 bg-zinc-900/50 border border-zinc-700 rounded-lg p-4 text-white focus:border-primary focus:outline-none resize-none"
-                    placeholder="내용을 입력하세요..."
-                    maxLength={currentSection.limit}
-                />
+                <div className="relative">
+                    <textarea
+                        value={currentSection.content}
+                        onChange={e => updateSection(currentSectionIndex, 'content', e.target.value)}
+                        className="w-full h-64 bg-zinc-900/50 border border-zinc-700 rounded-lg p-4 text-white focus:border-primary focus:outline-none resize-none"
+                        placeholder="내용을 입력하세요..."
+                        maxLength={currentSection.limit}
+                    />
+                    <div className="absolute bottom-4 right-4">
+                        <RefineManager
+                            text={currentSection.content}
+                            onApply={(corrected: string) => updateSection(currentSectionIndex, 'content', corrected)}
+                        />
+                    </div>
+                </div>
 
                 <div className="flex justify-between text-xs text-zinc-500">
                     <span>{currentSection.content.length} / {currentSection.limit}자</span>
@@ -242,7 +256,7 @@ export default function ResumeForm() {
                 <button
                     onClick={handleSave}
                     disabled={isSaving || !formData.company || sections.every(s => !s.content)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-black shadow-lg shadow-primary/20"
                 >
                     {isSaving ? (
                         <>

@@ -4,12 +4,20 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
+interface AlertState {
+    message: string;
+    type: 'success' | 'error' | null;
+}
+
 interface AuthContextType {
     user: User | null;
     session: Session | null;
     isLoading: boolean;
+    alert: AlertState;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
+    showAlert: (message: string, type: 'success' | 'error') => void;
+    hideAlert: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +26,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [alert, setAlert] = useState<AlertState>({ message: '', type: null });
+
+    const showAlert = (message: string, type: 'success' | 'error') => {
+        setAlert({ message, type });
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+            setAlert({ message: '', type: null });
+        }, 3000);
+    };
+
+    const hideAlert = () => {
+        setAlert({ message: '', type: null });
+    };
 
     useEffect(() => {
         // Check active session
@@ -36,6 +57,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
         });
 
+        // Check for login success param
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('login') === 'success') {
+                showAlert('로그인 되었습니다.', 'success');
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.delete('login');
+                window.history.replaceState({}, '', newUrl.toString());
+            }
+        }
+
         return () => subscription.unsubscribe();
     }, []);
 
@@ -48,18 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 },
             });
             if (error) throw error;
-            // Note: Redirect happens immediately, so alert might not be seen or needed here.
-            // But user asked for it. Since it redirects, maybe they mean "after login"?
-            // But "after login" happens in the callback or when session is restored.
-            // Let's just add it for now, but it might be fleeting.
-            // Actually, for OAuth, the user leaves the page.
-            // The user might mean "when I click login".
-            // Or maybe they mean "when I am successfully logged in".
-            // Given the flow, "successfully logged in" happens on the callback page or when the session is detected.
-            // However, `signOut` is an action we control fully.
         } catch (error) {
             console.error('Error signing in with Google:', error);
-            alert('로그인 중 오류가 발생했습니다.');
+            showAlert('로그인 중 오류가 발생했습니다.', 'error');
         }
     };
 
@@ -67,16 +90,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const { error } = await supabase.auth.signOut();
             if (error) throw error;
-            alert('로그아웃 되었습니다.');
+            showAlert('로그아웃 되었습니다.', 'success');
             window.location.href = '/'; // Force refresh and go to home
         } catch (error) {
             console.error('Error signing out:', error);
-            alert('로그아웃 중 오류가 발생했습니다.');
+            showAlert('로그아웃 중 오류가 발생했습니다.', 'error');
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, session, isLoading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, session, isLoading, alert, signInWithGoogle, signOut, showAlert, hideAlert }}>
             {children}
         </AuthContext.Provider>
     );
