@@ -41,18 +41,49 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { user, signInWithGoogle, signOut } = useAuth();
 
+  // Handle responsive sidebar state
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-zinc-100 flex font-sans overflow-hidden selection:bg-primary/30 selection:text-white">
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <motion.aside
         layout
         initial={false}
         animate={{
           width: isSidebarOpen ? 256 : 0,
+          x: isSidebarOpen ? 0 : -256,
           opacity: isSidebarOpen ? 1 : 0
         }}
         transition={{ type: "spring", stiffness: 260, damping: 32 }}
-        className="flex-shrink-0 border-r border-border bg-surface/50 backdrop-blur-xl flex flex-col justify-between h-screen sticky top-0 z-20 overflow-hidden"
+        className={`fixed inset-y-0 left-0 z-50 lg:static lg:z-auto border-r border-border bg-surface/95 backdrop-blur-xl flex flex-col justify-between h-screen overflow-hidden ${!isSidebarOpen && 'lg:w-0 lg:border-none'}`}
         style={{ pointerEvents: isSidebarOpen ? 'auto' : 'none' }}
         aria-hidden={!isSidebarOpen}
       >
@@ -141,7 +172,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <motion.main
         layout
         transition={{ type: "spring", stiffness: 260, damping: 32 }}
-        className="flex-1 relative overflow-y-auto h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background"
+        className="flex-1 relative overflow-y-auto h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background w-full"
       >
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
 
@@ -153,14 +184,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               onClick={() => setIsSidebarOpen(true)}
-              className="fixed top-6 left-6 z-[100] p-3 bg-surface border border-white/20 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all shadow-xl"
+              className="fixed top-6 left-6 z-[40] p-3 bg-surface border border-white/20 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all shadow-xl"
             >
               <PanelLeftOpen size={20} />
             </motion.button>
           )}
         </AnimatePresence>
 
-        <div className="max-w-7xl mx-auto p-8 relative z-10 h-full">
+        <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 h-full">
           {children}
         </div>
       </motion.main>

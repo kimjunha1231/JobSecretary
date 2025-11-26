@@ -1,7 +1,6 @@
 {
-  "/api/documents/route": "app/api/documents/route.js",
-  "/write/page": "app/write/page.js",
   "/archive/page": "app/archive/page.js",
-  "/page": "app/page.js",
-  "/document/[id]/page": "app/document/[id]/page.js"
+  "/write/page": "app/write/page.js",
+  "/document/[id]/page": "app/document/[id]/page.js",
+  "/page": "app/page.js"
 }

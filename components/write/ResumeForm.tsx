@@ -19,6 +19,10 @@ const LimitSelector: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
     const [customValue, setCustomValue] = useState(value.toString());
 
+    React.useEffect(() => {
+        setCustomValue(value.toString());
+    }, [value]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setCustomValue(val);
