@@ -48,6 +48,7 @@ export async function GET() {
             .from('documents')
             .select('*')
             .eq('user_id', user.id) // Filter by user_id
+            .order('position', { ascending: true })
             .order('created_at', { ascending: false });
 
         if (error) throw error;

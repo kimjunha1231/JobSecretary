@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Plus, Trash2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { useDraftStore } from '@/store/useDraftStore';
 import { useWriteStore } from '@/stores/useWriteStore';
 import { useDocuments } from '@/context/DocumentContext';
-import { TagInput } from '@/components/ui/tag-input';
+import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import RefineManager from './RefineManager';
 
 const LIMIT_OPTIONS = [300, 500, 700, 1000, 1500, 2000];
@@ -94,7 +95,17 @@ export default function ResumeForm() {
     };
 
     const handleSave = async () => {
-        if (isSaving || !formData.company || sections.every(s => !s.content)) return;
+        if (isSaving) return;
+
+        if (!formData.company) {
+            toast.error('회사명을 입력해주세요.');
+            return;
+        }
+
+        if (sections.every(s => !s.content)) {
+            toast.error('최소 하나의 문항 내용을 입력해주세요.');
+            return;
+        }
 
         const combinedContent = sections.map(s => {
             return `### ${s.title}\n${s.content}`;
@@ -112,6 +123,7 @@ export default function ResumeForm() {
             });
 
             clearDraft();
+            setSearchTags([]);
             router.push('/archive');
         } catch (error) {
             console.error('Failed to save document:', error);
@@ -160,16 +172,17 @@ export default function ResumeForm() {
 
             <div>
                 <label className="text-sm text-zinc-400 mb-2 block">태그</label>
-                <TagInput
+                <SmartTagInput
                     tags={formData.tags}
                     onChange={tags => {
                         setFormData({ tags });
                         setSearchTags(tags); // Sync with search store
                     }}
-                    placeholder="태그를 입력하고 Enter를 누르세요 (예: 취미, 성장과정)"
+                    placeholder="태그를 입력하거나 선택하세요 (예: 취미, 성장과정)"
                     className="bg-surface border-white/10"
                 />
             </div>
+
 
             <div className="flex items-center justify-between border-t border-white/10 pt-6">
                 <div className="flex items-center gap-2">
@@ -255,8 +268,8 @@ export default function ResumeForm() {
             <div className="pt-4">
                 <button
                     onClick={handleSave}
-                    disabled={isSaving || !formData.company || sections.every(s => !s.content)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-black shadow-lg shadow-primary/20"
+                    disabled={isSaving}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground hover:bg-indigo-600 hover:text-white rounded-lg transition-colors disabled:cursor-not-allowed disabled:text-black shadow-lg shadow-primary/20"
                 >
                     {isSaving ? (
                         <>
@@ -271,6 +284,6 @@ export default function ResumeForm() {
                     )}
                 </button>
             </div>
-        </div>
+        </div >
     );
 }

@@ -45,6 +45,7 @@ export async function getDocuments(): Promise<Document[]> {
     const { data, error } = await supabase
         .from('documents')
         .select('*')
+        .order('position', { ascending: true })
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -105,4 +106,47 @@ export async function createDocument(formData: FormData) {
     }
 
     return data;
+}
+
+export async function getUniqueTags(): Promise<string[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('documents')
+        .select('tags');
+
+    if (error) {
+        console.error('Error fetching tags:', error);
+        return [];
+    }
+
+    // Flatten tags and get unique values
+    const allTags = data.flatMap(doc => doc.tags || []);
+    const uniqueTags = Array.from(new Set(allTags)).sort();
+
+    return uniqueTags;
+}
+
+export async function updateDocumentOrder(items: { id: string; position: number }[]) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
+    // Update each item's position
+    // Note: Supabase doesn't support bulk update with different values easily in one query without a stored procedure or multiple requests.
+    // For a small number of items, parallel requests are okay.
+    const updates = items.map(({ id, position }) =>
+        supabase
+            .from('documents')
+            .update({ position })
+            .eq('id', id)
+            .eq('user_id', user.id)
+    );
+
+    await Promise.all(updates);
+
+    return { success: true };
 }

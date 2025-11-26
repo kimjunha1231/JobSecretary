@@ -12,7 +12,12 @@ export interface RefineResult {
 }
 
 export async function refineText(text: string): Promise<RefineResult | null> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  });
 
   const prompt = `
     너는 20년 경력의 대기업 인사담당자이자 자기소개서 첨삭 전문가야.
@@ -37,11 +42,20 @@ export async function refineText(text: string): Promise<RefineResult | null> {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
     const responseText = result.response.text();
 
-    // JSON 파싱 (마크다운 기호 제거)
-    const cleanedText = responseText.replace(/```json|```/g, "").trim();
+    // JSON 파싱 (마크다운 기호 제거 및 백슬래시 처리)
+    let cleanedText = responseText.replace(/```json|```/g, "").trim();
+
+    // 백슬래시가 하나만 있는 경우 이스케이프 처리 (JSON 파싱 에러 방지)
+    // 예: "팀\원" -> "팀\\원"
+    // 단, 이미 이스케이프된 경우(\\)나 유효한 이스케이프 시퀀스(\n, \t, \", \\)는 건드리지 않아야 함.
+    // 하지만 정규식으로 완벽하게 처리하기 어려우므로, 가장 흔한 케이스인 "한글\한글" 패턴만 처리 시도
+    cleanedText = cleanedText.replace(/([가-힣])\\([가-힣])/g, "$1\\\\$2");
+
     return JSON.parse(cleanedText) as RefineResult;
   } catch (error) {
     console.error("Refine Error:", error);

@@ -11,6 +11,7 @@ export interface Document {
   tags: string[];
   createdAt: string;
   jobPostUrl?: string;
+  position?: number;
 }
 
 export interface ChatMessage {

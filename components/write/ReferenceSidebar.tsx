@@ -5,7 +5,7 @@ import { useWriteStore } from '@/stores/useWriteStore';
 import { searchDocumentsByTags } from '@/actions/search';
 import { Search, Copy, Loader2, FileText, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TagInput } from '@/components/ui/tag-input';
+import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Badge } from '@/components/ui/badge';
 
 const getTagColor = (tag: string) => {
@@ -72,11 +72,12 @@ export default function ReferenceSidebar() {
             </div>
 
             <div className="mb-6">
-                <TagInput
+                <SmartTagInput
                     tags={searchTags}
                     onChange={setSearchTags}
                     placeholder="태그로 검색 (예: 리더십, 프로젝트)"
                     className="bg-zinc-900/50 border-white/10"
+                    allowCreate={false}
                 />
             </div>
 

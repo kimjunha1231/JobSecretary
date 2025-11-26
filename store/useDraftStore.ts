@@ -37,7 +37,7 @@ const initialFormData: FormData = {
 };
 
 const initialSections: Section[] = [
-    { title: '지원 동기', content: '', limit: 500 }
+    { title: '새 문항', content: '', limit: 500 }
 ];
 
 export const useDraftStore = create<DraftState>()(
@@ -58,7 +58,9 @@ export const useDraftStore = create<DraftState>()(
 
             addSection: () =>
                 set((state) => {
-                    const newSections = [...state.sections, { title: '새 문항', content: '', limit: 500 }];
+                    const lastSection = state.sections[state.sections.length - 1];
+                    const newLimit = lastSection ? lastSection.limit : 500;
+                    const newSections = [...state.sections, { title: '새 문항', content: '', limit: newLimit }];
                     return {
                         sections: newSections,
                         currentSectionIndex: newSections.length - 1
@@ -90,7 +92,7 @@ export const useDraftStore = create<DraftState>()(
             clearDraft: () =>
                 set({
                     formData: initialFormData,
-                    sections: initialSections,
+                    sections: [{ title: '새 문항', content: '', limit: 500 }],
                     currentSectionIndex: 0
                 })
         }),

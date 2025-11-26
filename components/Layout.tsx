@@ -97,7 +97,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   )}
                   <div className="flex flex-col">
                     <span className="text-xs font-medium text-white max-w-[100px] truncate">{user.user_metadata.full_name || user.email?.split('@')[0]}</span>
-                    <span className="text-[10px] text-zinc-500">무료 플랜</span>
                   </div>
                 </div>
                 <button

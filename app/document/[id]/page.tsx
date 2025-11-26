@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDocuments } from '@/context/DocumentContext';
-import { ArrowLeft, Calendar, Trash2, Building2, Edit2, Save, X, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Calendar, Trash2, Building2, Edit2, Save, X, Copy, Check, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { TagInput } from '@/components/ui/tag-input';
+import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Badge } from '@/components/ui/badge';
+import RefineManager from '@/components/write/RefineManager';
 
 interface Section {
     title: string;
@@ -30,6 +31,7 @@ export default function DocumentDetail() {
         sections: [] as Section[]
     });
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+    const [autoRefineIndex, setAutoRefineIndex] = useState<number | null>(null);
 
     useEffect(() => {
         if (doc) {
@@ -141,7 +143,7 @@ export default function DocumentDetail() {
                                     className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white focus:border-primary focus:outline-none text-sm"
                                     placeholder="채용 공고 링크 (선택)"
                                 />
-                                <TagInput
+                                <SmartTagInput
                                     tags={editForm.tags}
                                     onChange={tags => setEditForm(prev => ({ ...prev, tags }))}
                                     placeholder="태그 입력..."
@@ -200,7 +202,7 @@ export default function DocumentDetail() {
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="p-3 bg-primary text-white hover:bg-indigo-600 transition-all rounded-xl shadow-lg shadow-primary/20"
+                                    className="p-3 bg-indigo-600 text-white hover:bg-indigo-500 transition-all rounded-xl shadow-lg shadow-indigo-500/20"
                                     title="저장"
                                 >
                                     <Save size={20} />
@@ -232,8 +234,8 @@ export default function DocumentDetail() {
                 {isEditing ? (
                     editForm.sections.map((section, index) => (
                         <div key={index} className="bg-surface border border-white/5 rounded-2xl overflow-hidden">
-                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
-                                <div className="flex items-center gap-3">
+                            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                                <div className="flex items-center gap-3 flex-1">
                                     <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/20 text-primary text-sm font-mono font-bold shrink-0">
                                         {index + 1}
                                     </span>
@@ -243,6 +245,13 @@ export default function DocumentDetail() {
                                         onChange={e => updateSection(index, 'title', e.target.value)}
                                         className="w-full bg-transparent border-none text-xl font-semibold text-white focus:outline-none focus:ring-0 placeholder-zinc-600"
                                         placeholder="문항 제목"
+                                    />
+                                </div>
+                                <div className="ml-4">
+                                    <RefineManager
+                                        text={section.content}
+                                        onApply={(corrected) => updateSection(index, 'content', corrected)}
+                                        autoTrigger={autoRefineIndex === index}
                                     />
                                 </div>
                             </div>
@@ -266,13 +275,25 @@ export default function DocumentDetail() {
                                     </span>
                                     {section.title}
                                 </h3>
-                                <button
-                                    onClick={() => handleCopy(section.content, index)}
-                                    className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5 opacity-0 group-hover:opacity-100"
-                                    title="내용 복사"
-                                >
-                                    {copiedIndex === index ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
-                                </button>
+                                <div className="ml-auto flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleCopy(section.content, index)}
+                                        className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5 opacity-0 group-hover:opacity-100"
+                                        title="내용 복사"
+                                    >
+                                        {copiedIndex === index ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setAutoRefineIndex(index);
+                                            setIsEditing(true);
+                                        }}
+                                        className="text-zinc-500 hover:text-purple-400 transition-colors p-2 rounded-lg hover:bg-purple-500/10 opacity-0 group-hover:opacity-100"
+                                        title="AI 교정"
+                                    >
+                                        <Sparkles size={18} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="p-8 text-zinc-300 leading-relaxed whitespace-pre-wrap text-lg">
                                 <ReactMarkdown>{section.content}</ReactMarkdown>
