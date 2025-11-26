@@ -1,7 +1,7 @@
 'use server';
 
 import { GoogleGenAI } from "@google/genai";
-import { CoverLetter } from '../types';
+import { Document } from '../types';
 
 const getClient = () => {
   if (!process.env.API_KEY) {
@@ -13,7 +13,7 @@ const getClient = () => {
 
 export const generateInsight = async (
   query: string,
-  documents: CoverLetter[]
+  documents: Document[]
 ): Promise<{ text: string; relatedDocIds: string[] }> => {
   const ai = getClient();
 
