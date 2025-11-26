@@ -37,7 +37,7 @@ export function SortableDocumentCard({ doc, onDelete }: SortableDocumentCardProp
             {...attributes}
             {...listeners}
             onClick={() => router.push(`/document/${doc.id}`)}
-            className="bg-surface border border-white/5 rounded-xl p-5 hover:border-primary/50 transition-all cursor-pointer group relative touch-none"
+            className="bg-surface border border-white/5 rounded-xl p-5 hover:border-primary/50 transition-all cursor-pointer group relative"
         >
             <div className="flex items-start justify-between mb-4">
                 <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors">
