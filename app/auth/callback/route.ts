@@ -14,14 +14,19 @@ export async function GET(request: Request) {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
                 cookies: {
-                    get(name: string) {
-                        return cookieStore.get(name)?.value;
+                    getAll() {
+                        return cookieStore.getAll();
                     },
-                    set(name: string, value: string, options: CookieOptions) {
-                        cookieStore.set({ name, value, ...options });
-                    },
-                    remove(name: string, options: CookieOptions) {
-                        cookieStore.set({ name, value: '', ...options });
+                    setAll(cookiesToSet) {
+                        try {
+                            cookiesToSet.forEach(({ name, value, options }) =>
+                                cookieStore.set(name, value, options)
+                            );
+                        } catch {
+                            // The `setAll` method was called from a Server Component.
+                            // This can be ignored if you have middleware refreshing
+                            // user sessions.
+                        }
                     },
                 },
             }
@@ -32,28 +37,7 @@ export async function GET(request: Request) {
         if (!error && data.user) {
             console.log('🔐 User logged in:', data.user.email);
 
-            // Check if user has given consent
-            const { data: profile, error: profileError } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('user_id', data.user.id)
-                .single();
-
-            console.log('📋 Profile check:', {
-                exists: !!profile,
-                hasTerms: !!profile?.terms_accepted_at,
-                hasPrivacy: !!profile?.privacy_accepted_at,
-                error: profileError?.message
-            });
-
-            // If no profile or no consent, redirect to consent page
-            if (!profile || !profile.terms_accepted_at || !profile.privacy_accepted_at) {
-                console.log('➡️ Redirecting to consent page');
-                return NextResponse.redirect(`${origin}/auth/consent?new_user=true`);
-            }
-
-            console.log('✅ User has consent, proceeding to archive');
-            // Existing user with consent, proceed normally
+            // Directly redirect to the next URL (archive)
             const nextUrl = new URL(next, origin);
             nextUrl.searchParams.set('login', 'success');
             return NextResponse.redirect(nextUrl);
