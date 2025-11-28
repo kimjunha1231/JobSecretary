@@ -53,7 +53,17 @@ export async function getDocuments(): Promise<Document[]> {
         return [];
     }
 
-    return data as Document[];
+    return data.map((doc: any) => ({
+        ...doc,
+        createdAt: doc.created_at,
+        jobPostUrl: doc.job_post_url,
+        deadline: doc.deadline || undefined,
+        date: doc.date || undefined,
+        logo: doc.logo || undefined,
+        isFavorite: doc.is_favorite || false,
+        isArchived: doc.is_archived || false,
+        documentScreeningStatus: doc.document_screening_status as 'pass' | 'fail' | null || null,
+    })) as Document[];
 }
 
 export async function createDocument(formData: FormData) {
@@ -72,10 +82,14 @@ export async function createDocument(formData: FormData) {
     const company = formData.get('company') as string;
     const role = formData.get('role') as string;
     const content = formData.get('content') as string;
-    const tagsString = formData.get('tags') as string; // Assuming tags are passed as JSON string or comma-separated
+    const status = (formData.get('status') as string) || 'writing';
+    const deadline = formData.get('deadline') as string;
+    const date = formData.get('date') as string;
+    const tagsString = formData.get('tags') as string;
 
-    // Handle tags: if it's a JSON string, parse it. If it's comma-separated, split it.
-    // For simplicity, let's assume the form sends a JSON stringified array or we default to empty.
+    // Auto-generate logo (first letter of company)
+    const logo = company ? company.charAt(0).toUpperCase() : 'C';
+
     let tags: string[] = [];
     try {
         if (tagsString) {
@@ -94,8 +108,12 @@ export async function createDocument(formData: FormData) {
             company,
             role,
             content,
-            status: 'pending',
-            tags: tags,
+            status,
+            tags,
+            deadline,
+            date,
+            logo,
+            is_archived: false
         })
         .select()
         .single();
@@ -106,6 +124,86 @@ export async function createDocument(formData: FormData) {
     }
 
     return data;
+}
+
+export async function updateDocument(id: string, updates: Partial<Document>) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
+    const updateData: any = {};
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.company !== undefined) updateData.company = updates.company;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.content !== undefined) updateData.content = updates.content;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.jobPostUrl !== undefined) updateData.job_post_url = updates.jobPostUrl;
+    if (updates.position !== undefined) updateData.position = updates.position;
+    if (updates.deadline !== undefined) updateData.deadline = updates.deadline;
+    if (updates.date !== undefined) updateData.date = updates.date;
+    if (updates.logo !== undefined) updateData.logo = updates.logo;
+    if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+    if (updates.isArchived !== undefined) updateData.is_archived = updates.isArchived;
+    if (updates.documentScreeningStatus !== undefined) updateData.document_screening_status = updates.documentScreeningStatus;
+
+    const { data, error } = await supabase
+        .from('documents')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', user.id) // Ensure only the user's own documents can be updated
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating document:', error);
+        throw error;
+    }
+
+    return data;
+}
+
+export async function updateDocumentStatus(id: string, status: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('documents')
+        .update({ status })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error updating document status:', error);
+        throw new Error('Failed to update document status');
+    }
+
+    return { success: true };
+}
+
+export async function deleteDocument(id: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error deleting document:', error);
+        throw new Error('Failed to delete document');
+    }
+
+    return { success: true };
 }
 
 export async function getUniqueTags(): Promise<string[]> {
@@ -147,6 +245,46 @@ export async function updateDocumentOrder(items: { id: string; position: number 
     );
 
     await Promise.all(updates);
+
+    return { success: true };
+}
+
+export async function toggleDocumentFavorite(id: string, isFavorite: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('documents')
+        .update({ is_favorite: isFavorite })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error updating document favorite status:', error);
+        throw new Error(error.message);
+    }
+
+    return { success: true };
+}
+
+export async function archiveDocuments(ids: string[]) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('documents')
+        .update({ is_archived: true })
+        .in('id', ids)
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error archiving documents:', error);
+        throw new Error('Failed to archive documents');
+    }
 
     return { success: true };
 }

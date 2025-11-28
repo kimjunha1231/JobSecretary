@@ -12,6 +12,7 @@ interface FormData {
     role: string;
     jobPostUrl: string;
     tags: string[];
+    deadline?: string;
 }
 
 interface DraftState {
@@ -33,7 +34,8 @@ const initialFormData: FormData = {
     company: '',
     role: '',
     jobPostUrl: '',
-    tags: []
+    tags: [],
+    deadline: ''
 };
 
 const initialSections: Section[] = [

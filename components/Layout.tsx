@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Archive, PenTool, Command, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Archive, PenTool, Command, PanelLeftClose, PanelLeftOpen, LogOut, LayoutDashboard, FileText, Shield, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string }> = ({ to, icon, label }) => {
   const pathname = usePathname();
@@ -38,8 +39,10 @@ const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string }
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { user, signInWithGoogle, signOut } = useAuth();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { user, signInWithGoogle, signOut, showAlert } = useAuth();
 
   // Handle responsive sidebar state
   React.useEffect(() => {
@@ -57,6 +60,37 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const handleDeleteAccount = async () => {
+    try {
+      const response = await fetch('/api/account/delete', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete account');
+      }
+
+      showAlert('회원 탈퇴가 완료되었습니다. 모든 데이터가 삭제되었습니다.', 'success');
+
+      // Close modal immediately
+      setIsDeleteModalOpen(false);
+
+      // Refresh to update auth state
+      router.refresh();
+
+      // Redirect to home page after a short delay
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      showAlert('회원 탈퇴 중 오류가 발생했습니다.', 'error');
+      setIsDeleteModalOpen(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-zinc-100 flex font-sans overflow-hidden selection:bg-primary/30 selection:text-white">
@@ -93,7 +127,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <div className="w-8 h-8 rounded bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
                 <Command size={18} className="text-white" />
               </div>
-              <h1 className="font-bold text-lg tracking-tight">CoverLetter Vault</h1>
+              <h1 className="font-bold text-lg tracking-tight">JobSecretary</h1>
             </div>
             <button
               onClick={(e) => {
@@ -109,33 +143,60 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </div>
 
           <nav className="space-y-1">
-            <SidebarItem to="/archive" icon={<Archive size={18} />} label="아카이브" />
-            <SidebarItem to="/write" icon={<PenTool size={18} />} label="작성하기" />
+            <SidebarItem to="/dashboard" icon={<LayoutDashboard size={18} />} label="지원 현황" />
+            <SidebarItem to="/archive" icon={<Archive size={18} />} label="자기소개서 저장소" />
           </nav>
         </div>
 
         <div className="p-6 space-y-4 w-[256px]">
+          {/* Policy Links */}
+          <div className="space-y-1">
+            <Link
+              href="/policy/terms"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all duration-200"
+            >
+              <FileText size={14} />
+              <span>이용약관</span>
+            </Link>
+            <Link
+              href="/policy/privacy"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all duration-200"
+            >
+              <Shield size={14} />
+              <span>개인정보처리방침</span>
+            </Link>
+          </div>
+
           <div className="pt-4 border-t border-border/50">
             {user ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {user.user_metadata.avatar_url ? (
-                    <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full border border-zinc-600" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600 flex items-center justify-center text-xs font-bold">
-                      {user.email?.[0].toUpperCase()}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {user.user_metadata.avatar_url ? (
+                      <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full border border-zinc-600" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600 flex items-center justify-center text-xs font-bold">
+                        {user.email?.[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-white max-w-[100px] truncate">{user.user_metadata.full_name || user.email?.split('@')[0]}</span>
                     </div>
-                  )}
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-white max-w-[100px] truncate">{user.user_metadata.full_name || user.email?.split('@')[0]}</span>
                   </div>
+                  <button
+                    onClick={signOut}
+                    className="text-zinc-500 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded"
+                    title="로그아웃"
+                  >
+                    <LogOut size={14} />
+                  </button>
                 </div>
                 <button
-                  onClick={signOut}
-                  className="text-zinc-500 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded"
-                  title="로그아웃"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 border border-transparent hover:border-red-500/30"
                 >
-                  <LogOut size={14} />
+                  <UserX size={14} />
+                  <span>회원 탈퇴</span>
                 </button>
               </div>
             ) : (
@@ -191,10 +252,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           )}
         </AnimatePresence>
 
-        <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 h-full">
+        <div className="max-w-[1600px] mx-auto px-4 py-4 md:px-6 md:py-8 relative z-10 h-full">
           {children}
         </div>
-      </motion.main>
-    </div>
+      </motion.main >
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+      />
+    </div >
   );
 };

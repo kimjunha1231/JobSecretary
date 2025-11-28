@@ -7,7 +7,7 @@ export interface Document {
   company: string;
   role: string;
   content: string;
-  status: 'pending' | 'pass' | 'fail';
+  status: Status;
   tags: string[];
   createdAt: string;
   jobPostUrl?: string;
@@ -28,3 +28,27 @@ export interface BentoItemProps {
   children: React.ReactNode;
   icon?: React.ReactNode;
 }
+
+// Kanban Board Types
+export type Status = 'writing' | 'applied' | 'interview' | 'pass' | 'fail';
+
+export interface Document {
+  id: string;
+  title: string;
+  company: string;
+  role: string;
+  content: string;
+  status: Status;
+  tags: string[];
+  createdAt: string;
+  jobPostUrl?: string;
+  position?: number;
+  deadline?: string;
+  date?: string;
+  logo?: string;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  documentScreeningStatus?: 'pass' | 'fail' | null;
+}
+
+export interface Application extends Document { } // Alias for backward compatibility if needed

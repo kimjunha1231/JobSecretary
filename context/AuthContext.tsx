@@ -73,10 +73,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signInWithGoogle = async () => {
         try {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const redirectTo = isLocal
+                ? 'http://localhost:3000/auth/callback'
+                : `${window.location.origin}/auth/callback`;
+
+            console.log('Google Login Debug:', {
+                isLocal,
+                hostname: window.location.hostname,
+                origin: window.location.origin,
+                redirectTo
+            });
+
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
+                    redirectTo,
                 },
             });
             if (error) throw error;

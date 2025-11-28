@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Save, Plus, Trash2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDraftStore } from '@/store/useDraftStore';
@@ -9,6 +9,7 @@ import { useWriteStore } from '@/stores/useWriteStore';
 import { useDocuments } from '@/context/DocumentContext';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import RefineManager from './RefineManager';
+import StatusConfirmationDialog from './StatusConfirmationDialog';
 
 const LIMIT_OPTIONS = [300, 500, 700, 1000, 1500, 2000];
 
@@ -74,9 +75,14 @@ const LimitSelector: React.FC<{
 
 export default function ResumeForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const status = searchParams.get('status') || 'writing';
+    const fromArchive = searchParams.get('from') === 'archive';
     const { addDocument } = useDocuments();
     const { setSearchTags } = useWriteStore();
     const [isSaving, setIsSaving] = useState(false);
+    const [showStatusDialog, setShowStatusDialog] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
     const {
         formData,
@@ -111,6 +117,17 @@ export default function ResumeForm() {
             return;
         }
 
+        // If coming from archive, show status dialog
+        if (fromArchive) {
+            setShowStatusDialog(true);
+            return;
+        }
+
+        // Otherwise, save directly
+        await saveDocument(status);
+    };
+
+    const saveDocument = async (finalStatus: string, screeningStatus: 'pass' | 'fail' | null = null) => {
         const combinedContent = sections.map(s => {
             return `### ${s.title}\n${s.content}`;
         }).join('\n\n');
@@ -123,16 +140,34 @@ export default function ResumeForm() {
                 role: formData.role,
                 content: combinedContent,
                 jobPostUrl: formData.jobPostUrl,
-                tags: formData.tags
+                tags: formData.tags,
+                status: finalStatus as any,
+                deadline: formData.deadline,
+                isArchived: fromArchive, // Mark as archived only when saving from archive
+                documentScreeningStatus: screeningStatus
             });
 
             clearDraft();
             setSearchTags([]);
-            router.push('/archive');
+            toast.success('저장되었습니다!');
+
+            // Redirect based on source
+            if (fromArchive) {
+                router.push('/archive');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (error) {
             console.error('Failed to save document:', error);
+            toast.error('저장에 실패했습니다.');
             setIsSaving(false);
         }
+    };
+
+    const handleStatusConfirm = ({ finalStatus, documentStatus }: { finalStatus: string; documentStatus: 'pass' | 'fail' | null }) => {
+        setShowStatusDialog(false);
+        setSelectedStatus(finalStatus);
+        saveDocument(finalStatus, documentStatus);
     };
 
     const currentSection = sections[currentSectionIndex];
@@ -160,6 +195,15 @@ export default function ResumeForm() {
                         onChange={e => setFormData({ role: e.target.value })}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                         placeholder="지원 직무"
+                    />
+                </div>
+                <div className="flex flex-col gap-2 flex-[1.4] min-w-[260px]">
+                    <label className="text-sm text-zinc-400">마감일 (선택)</label>
+                    <input
+                        type="date"
+                        value={formData.deadline || ''}
+                        onChange={e => setFormData({ deadline: e.target.value })}
+                        className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors [color-scheme:dark]"
                     />
                 </div>
                 <div className="flex flex-col gap-2 flex-[1.4] min-w-[260px]">
@@ -236,12 +280,18 @@ export default function ResumeForm() {
                         className="flex-1 bg-transparent border-none text-xl font-semibold text-white focus:outline-none"
                         placeholder="문항 제목"
                     />
-                    <div className="flex items-center gap-2 text-sm text-zinc-400">
-                        <span>글자 수 제한:</span>
-                        <LimitSelector
-                            value={currentSection.limit}
-                            onChange={(val) => updateSection(currentSectionIndex, 'limit', val)}
+                    <div className="flex items-center gap-4">
+                        <RefineManager
+                            text={currentSection.content}
+                            onApply={(corrected: string) => updateSection(currentSectionIndex, 'content', corrected)}
                         />
+                        <div className="flex items-center gap-2 text-sm text-zinc-400">
+                            <span>글자 수 제한:</span>
+                            <LimitSelector
+                                value={currentSection.limit}
+                                onChange={(val) => updateSection(currentSectionIndex, 'limit', val)}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -253,12 +303,6 @@ export default function ResumeForm() {
                         placeholder="내용을 입력하세요..."
                         maxLength={currentSection.limit}
                     />
-                    <div className="absolute bottom-4 right-4">
-                        <RefineManager
-                            text={currentSection.content}
-                            onApply={(corrected: string) => updateSection(currentSectionIndex, 'content', corrected)}
-                        />
-                    </div>
                 </div>
 
                 <div className="flex justify-between text-xs text-zinc-500">
@@ -288,6 +332,13 @@ export default function ResumeForm() {
                     )}
                 </button>
             </div>
+
+            {/* Status Confirmation Dialog */}
+            <StatusConfirmationDialog
+                isOpen={showStatusDialog}
+                onClose={() => setShowStatusDialog(false)}
+                onConfirm={handleStatusConfirm}
+            />
         </div >
     );
 }

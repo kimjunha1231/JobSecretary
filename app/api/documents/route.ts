@@ -70,7 +70,24 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, company, role, content, jobPostUrl, status, tags } = body;
+        const {
+            title,
+            company,
+            role,
+            content,
+            jobPostUrl,
+            status,
+            tags,
+            deadline,
+            date,
+            logo,
+            position,
+            isArchived,
+            documentScreeningStatus
+        } = body;
+
+        // Auto-generate logo if not provided
+        const finalLogo = logo || (company ? company.charAt(0).toUpperCase() : 'C');
 
         const { data, error } = await supabase
             .from('documents')
@@ -82,8 +99,14 @@ export async function POST(request: NextRequest) {
                     role,
                     content,
                     job_post_url: jobPostUrl,
-                    status: status || 'pending',
+                    status: status || 'writing',
                     tags: tags || [],
+                    deadline,
+                    date,
+                    logo: finalLogo,
+                    position: position || 0,
+                    is_archived: Boolean(isArchived),
+                    document_screening_status: documentScreeningStatus ?? null
                 },
             ])
             .select()
@@ -146,7 +169,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, company, role, content, jobPostUrl, status, tags } = body;
+        const { title, company, role, content, jobPostUrl, status, tags, deadline, date, logo, position, isArchived, documentScreeningStatus } = body;
 
         const updates: any = {};
         if (title !== undefined) updates.title = title;
@@ -156,6 +179,12 @@ export async function PATCH(request: NextRequest) {
         if (jobPostUrl !== undefined) updates.job_post_url = jobPostUrl;
         if (status !== undefined) updates.status = status;
         if (tags !== undefined) updates.tags = tags;
+        if (deadline !== undefined) updates.deadline = deadline;
+        if (date !== undefined) updates.date = date;
+        if (logo !== undefined) updates.logo = logo;
+        if (position !== undefined) updates.position = position;
+        if (isArchived !== undefined) updates.is_archived = isArchived;
+        if (documentScreeningStatus !== undefined) updates.document_screening_status = documentScreeningStatus;
         updates.updated_at = new Date().toISOString();
 
         const { data, error } = await supabase

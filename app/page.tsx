@@ -34,11 +34,11 @@ export default function Home() {
                 </div>
 
                 <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
-                    CoverLetter Vault
+                    JobSecretary
                 </h1>
                 <p className="text-zinc-400 text-lg mb-10 leading-relaxed">
-                    AI와 함께하는 스마트한 자기소개서 관리.<br />
-                    합격하는 자소서를 위한 나만의 비밀 금고.
+                    AI 비서와 함께하는 스마트한 커리어 관리.<br />
+                    복잡한 취업 준비, 이제 JobSecretary에게 맡기세요.
                 </p>
 
                 <button

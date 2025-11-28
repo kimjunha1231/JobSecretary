@@ -5,7 +5,7 @@ import { Document } from '../types';
 
 interface DocumentContextType {
   documents: Document[];
-  addDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'user_id' | 'status'>) => Promise<void>;
+  addDocument: (doc: Omit<Document, 'id' | 'createdAt' | 'user_id'>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
   updateDocument: (id: string, updates: Partial<Document>) => Promise<void>;
   stats: {
@@ -15,6 +15,7 @@ interface DocumentContextType {
   };
   isLoading: boolean;
   refreshDocuments: () => Promise<void>;
+  archiveDocuments: (ids: string[]) => Promise<void>;
 }
 
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
@@ -45,8 +46,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         content: doc.content,
         createdAt: new Date(doc.created_at).toISOString().split('T')[0],
         jobPostUrl: doc.job_post_url,
-        status: doc.status || 'pending',
+        status: doc.status || 'writing',
         tags: doc.tags || [],
+        deadline: doc.deadline,
+        date: doc.date,
+        logo: doc.logo,
+        position: doc.position,
+        isFavorite: doc.is_favorite,
+        isArchived: doc.is_archived,
+        documentScreeningStatus: doc.document_screening_status,
       }));
 
       setDocuments(transformedData);
@@ -61,7 +69,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     refreshDocuments();
   }, []);
 
-  const addDocument = async (doc: Omit<Document, 'id' | 'createdAt' | 'user_id' | 'status'>) => {
+  const addDocument = async (doc: Omit<Document, 'id' | 'createdAt' | 'user_id'>) => {
     try {
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -110,6 +118,23 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const archiveDocuments = async (ids: string[]) => {
+    try {
+      const response = await fetch('/api/documents/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!response.ok) throw new Error('Failed to archive documents');
+
+      await refreshDocuments();
+    } catch (error) {
+      console.error('Error archiving documents:', error);
+      throw error;
+    }
+  };
+
   const stats = {
     total: documents.length,
     companies: new Set(documents.map(d => d.company)).size,
@@ -117,7 +142,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <DocumentContext.Provider value={{ documents, addDocument, deleteDocument, updateDocument, stats, isLoading, refreshDocuments }}>
+    <DocumentContext.Provider value={{ documents, addDocument, deleteDocument, updateDocument, archiveDocuments, stats, isLoading, refreshDocuments }}>
       {children}
     </DocumentContext.Provider>
   );
