@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ConsentModal } from '@/components/ConsentModal';
 import { useAuth } from '@/context/AuthContext';
 
-export default function ConsentPage() {
+function ConsentContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, showAlert } = useAuth();
@@ -82,5 +82,20 @@ export default function ConsentPage() {
         <div className="min-h-screen bg-neutral-950">
             <ConsentModal onConsent={handleConsent} isLoading={isLoading} />
         </div>
+    );
+}
+
+export default function ConsentPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-neutral-400 text-sm">로딩 중...</p>
+                </div>
+            </div>
+        }>
+            <ConsentContent />
+        </Suspense>
     );
 }

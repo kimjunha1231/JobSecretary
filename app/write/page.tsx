@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import ResumeForm from '@/components/write/ResumeForm';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
 import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function WritePage() {
+function WriteContent() {
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);
 
     return (
@@ -71,5 +71,20 @@ export default function WritePage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function WritePage() {
+    return (
+        <Suspense fallback={
+            <div className="w-full h-full flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-neutral-400 text-sm">로딩 중...</p>
+                </div>
+            </div>
+        }>
+            <WriteContent />
+        </Suspense>
     );
 }
