@@ -12,6 +12,7 @@ import { DocumentHeader } from '@/components/document/DocumentHeader';
 import { DocumentEditor } from '@/components/document/DocumentEditor';
 import { DocumentViewer } from '@/components/document/DocumentViewer';
 import { ReferenceDrawer } from '@/components/document/ReferenceDrawer';
+import { InterviewQuestionsModal } from '@/components/document/InterviewQuestionsModal';
 
 export default function DocumentDetail() {
     const params = useParams();
@@ -40,6 +41,7 @@ export default function DocumentDetail() {
     const [isSectionDeleteModalOpen, setIsSectionDeleteModalOpen] = useState(false);
     const [sectionDeleteIndex, setSectionDeleteIndex] = useState<number | null>(null);
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);
+    const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
 
     // Initialize search tags when doc loads
     useEffect(() => {
@@ -137,6 +139,7 @@ export default function DocumentDetail() {
                             onCancel={() => setIsEditing(false)}
                             onSave={handleSave}
                             onDelete={handleDelete}
+                            onShowInterviewQuestions={() => setIsInterviewModalOpen(true)}
                         />
                     </div>
 
@@ -196,6 +199,12 @@ export default function DocumentDetail() {
                 message="이 문항을 삭제하시겠습니까?"
                 confirmText="삭제"
                 variant="danger"
+            />
+
+            <InterviewQuestionsModal
+                isOpen={isInterviewModalOpen}
+                onClose={() => setIsInterviewModalOpen(false)}
+                documentContent={doc.content}
             />
         </div>
     );

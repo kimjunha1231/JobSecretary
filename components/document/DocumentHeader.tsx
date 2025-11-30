@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Calendar, Edit2, Save, Trash2, X } from 'lucide-react';
+import { Building2, Calendar, Edit2, Save, Trash2, X, MessageCircleQuestion } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Document, Status } from '@/types';
@@ -14,6 +14,7 @@ interface DocumentHeaderProps {
     onCancel: () => void;
     onSave: () => void;
     onDelete: () => void;
+    onShowInterviewQuestions: () => void;
 }
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -40,7 +41,8 @@ export function DocumentHeader({
     onEdit,
     onCancel,
     onSave,
-    onDelete
+    onDelete,
+    onShowInterviewQuestions
 }: DocumentHeaderProps) {
     return (
         <div className="flex items-start justify-between">
@@ -166,6 +168,13 @@ export function DocumentHeader({
                     </>
                 ) : (
                     <>
+                        <button
+                            onClick={onShowInterviewQuestions}
+                            className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all rounded-xl"
+                            title="예상 면접 질문"
+                        >
+                            <MessageCircleQuestion size={20} />
+                        </button>
                         <button
                             onClick={onEdit}
                             className="p-3 text-zinc-400 hover:text-white hover:bg-white/10 transition-all rounded-xl"
