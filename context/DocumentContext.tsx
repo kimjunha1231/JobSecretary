@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Document } from '../types';
 
 interface DocumentContextType {
@@ -135,11 +135,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: documents.length,
     companies: new Set(documents.map(d => d.company)).size,
     lastActive: documents.length > 0 ? documents[0].createdAt : 'N/A',
-  };
+  }), [documents]);
 
   return (
     <DocumentContext.Provider value={{ documents, addDocument, deleteDocument, updateDocument, archiveDocuments, stats, isLoading, refreshDocuments }}>

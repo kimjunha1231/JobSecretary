@@ -3,6 +3,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Document } from '@/types';
+import { z } from 'zod';
 
 // Helper to create Supabase Server Client
 async function createClient() {
@@ -21,8 +22,6 @@ async function createClient() {
                         cookieStore.set({ name, value, ...options });
                     } catch (error) {
                         // The `set` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
                     }
                 },
                 remove(name: string, options: CookieOptions) {
@@ -30,14 +29,31 @@ async function createClient() {
                         cookieStore.set({ name, value: '', ...options });
                     } catch (error) {
                         // The `delete` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
                     }
                 },
             },
         }
     );
 }
+
+// Zod Schemas
+const DocumentSchema = z.object({
+    title: z.string().min(1, "제목은 필수입니다."),
+    company: z.string().min(1, "회사명은 필수입니다."),
+    role: z.string().min(1, "직무는 필수입니다."),
+    content: z.string(),
+    status: z.enum(['writing', 'applied', 'interview', 'pass', 'fail']).default('writing'),
+    deadline: z.string().optional(),
+    date: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    jobPostUrl: z.string().url().optional().or(z.literal('')),
+    position: z.number().optional(),
+    isFavorite: z.boolean().optional(),
+    isArchived: z.boolean().optional(),
+    documentScreeningStatus: z.enum(['pass', 'fail']).nullable().optional(),
+});
+
+const UpdateDocumentSchema = DocumentSchema.partial();
 
 export async function getDocuments(): Promise<Document[]> {
     const supabase = await createClient();
@@ -69,7 +85,6 @@ export async function getDocuments(): Promise<Document[]> {
 export async function createDocument(formData: FormData) {
     const supabase = await createClient();
 
-    // Get current user
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -78,40 +93,54 @@ export async function createDocument(formData: FormData) {
         throw new Error('Unauthorized');
     }
 
-    const title = formData.get('title') as string;
-    const company = formData.get('company') as string;
-    const role = formData.get('role') as string;
-    const content = formData.get('content') as string;
-    const status = (formData.get('status') as string) || 'writing';
-    const deadline = formData.get('deadline') as string;
-    const date = formData.get('date') as string;
+    const rawData = {
+        title: formData.get('title') as string,
+        company: formData.get('company') as string,
+        role: formData.get('role') as string,
+        content: formData.get('content') as string,
+        status: (formData.get('status') as string) || 'writing',
+        deadline: formData.get('deadline') as string,
+        date: formData.get('date') as string,
+        tags: [] as string[],
+        jobPostUrl: formData.get('jobPostUrl') as string || undefined,
+    };
+
     const tagsString = formData.get('tags') as string;
-
-    // Auto-generate logo (first letter of company)
-    const logo = company ? company.charAt(0).toUpperCase() : 'C';
-
-    let tags: string[] = [];
     try {
         if (tagsString) {
-            tags = JSON.parse(tagsString);
+            rawData.tags = JSON.parse(tagsString);
         }
     } catch (e) {
         console.error("Failed to parse tags", e);
-        tags = [];
+        rawData.tags = [];
     }
+
+    // Validate with Zod
+    const validationResult = DocumentSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
+        console.error("Validation Error:", validationResult.error);
+        throw new Error(validationResult.error.errors[0].message);
+    }
+
+    const validatedData = validationResult.data;
+
+    // Auto-generate logo (first letter of company)
+    const logo = validatedData.company ? validatedData.company.charAt(0).toUpperCase() : 'C';
 
     const { data, error } = await supabase
         .from('documents')
         .insert({
             user_id: user.id,
-            title,
-            company,
-            role,
-            content,
-            status,
-            tags,
-            deadline,
-            date,
+            title: validatedData.title,
+            company: validatedData.company,
+            role: validatedData.role,
+            content: validatedData.content,
+            status: validatedData.status,
+            tags: validatedData.tags,
+            deadline: validatedData.deadline,
+            date: validatedData.date,
+            job_post_url: validatedData.jobPostUrl,
             logo,
             is_archived: false
         })
@@ -134,27 +163,41 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
         throw new Error('Unauthorized');
     }
 
+    // Validate with Zod
+    const validationResult = UpdateDocumentSchema.safeParse(updates);
+
+    if (!validationResult.success) {
+        console.error("Validation Error:", validationResult.error);
+        throw new Error(validationResult.error.errors[0].message);
+    }
+
+    const validatedUpdates = validationResult.data;
+
     const updateData: any = {};
-    if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.company !== undefined) updateData.company = updates.company;
-    if (updates.role !== undefined) updateData.role = updates.role;
-    if (updates.content !== undefined) updateData.content = updates.content;
-    if (updates.status !== undefined) updateData.status = updates.status;
-    if (updates.tags !== undefined) updateData.tags = updates.tags;
-    if (updates.jobPostUrl !== undefined) updateData.job_post_url = updates.jobPostUrl;
-    if (updates.position !== undefined) updateData.position = updates.position;
-    if (updates.deadline !== undefined) updateData.deadline = updates.deadline;
-    if (updates.date !== undefined) updateData.date = updates.date;
-    if (updates.logo !== undefined) updateData.logo = updates.logo;
-    if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
-    if (updates.isArchived !== undefined) updateData.is_archived = updates.isArchived;
-    if (updates.documentScreeningStatus !== undefined) updateData.document_screening_status = updates.documentScreeningStatus;
+    if (validatedUpdates.title !== undefined) updateData.title = validatedUpdates.title;
+    if (validatedUpdates.company !== undefined) updateData.company = validatedUpdates.company;
+    if (validatedUpdates.role !== undefined) updateData.role = validatedUpdates.role;
+    if (validatedUpdates.content !== undefined) updateData.content = validatedUpdates.content;
+    if (validatedUpdates.status !== undefined) updateData.status = validatedUpdates.status;
+    if (validatedUpdates.tags !== undefined) updateData.tags = validatedUpdates.tags;
+    if (validatedUpdates.jobPostUrl !== undefined) updateData.job_post_url = validatedUpdates.jobPostUrl;
+    if (validatedUpdates.position !== undefined) updateData.position = validatedUpdates.position;
+    if (validatedUpdates.deadline !== undefined) updateData.deadline = validatedUpdates.deadline;
+    if (validatedUpdates.date !== undefined) updateData.date = validatedUpdates.date;
+    if (validatedUpdates.isFavorite !== undefined) updateData.is_favorite = validatedUpdates.isFavorite;
+    if (validatedUpdates.isArchived !== undefined) updateData.is_archived = validatedUpdates.isArchived;
+    if (validatedUpdates.documentScreeningStatus !== undefined) updateData.document_screening_status = validatedUpdates.documentScreeningStatus;
+
+    // Logo update if company changes
+    if (validatedUpdates.company) {
+        updateData.logo = validatedUpdates.company.charAt(0).toUpperCase();
+    }
 
     const { data, error } = await supabase
         .from('documents')
         .update(updateData)
         .eq('id', id)
-        .eq('user_id', user.id) // Ensure only the user's own documents can be updated
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -218,7 +261,6 @@ export async function getUniqueTags(): Promise<string[]> {
         return [];
     }
 
-    // Flatten tags and get unique values
     const allTags = data.flatMap(doc => doc.tags || []);
     const uniqueTags = Array.from(new Set(allTags)).sort();
 
@@ -233,9 +275,6 @@ export async function updateDocumentOrder(items: { id: string; position: number 
         throw new Error('Unauthorized');
     }
 
-    // Update each item's position
-    // Note: Supabase doesn't support bulk update with different values easily in one query without a stored procedure or multiple requests.
-    // For a small number of items, parallel requests are okay.
     const updates = items.map(({ id, position }) =>
         supabase
             .from('documents')

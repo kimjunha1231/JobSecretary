@@ -4,8 +4,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Document } from '@/types';
 import { Calendar, Briefcase, Trash2, Star } from 'lucide-react';
-import { useState } from 'react';
-import { toggleDocumentFavorite } from '@/actions/document';
 import { useRouter } from 'next/navigation';
 
 interface KanbanCardProps {
@@ -16,8 +14,6 @@ interface KanbanCardProps {
 
 export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps) {
     const router = useRouter();
-    const [isFavorite, setIsFavorite] = useState(application.isFavorite || false);
-
     const {
         attributes,
         listeners,
@@ -32,18 +28,6 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
         transition,
     };
 
-    const handleToggleFavorite = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const newStatus = !isFavorite;
-        setIsFavorite(newStatus);
-        try {
-            await toggleDocumentFavorite(application.id, newStatus);
-        } catch (error) {
-            console.error('Failed to toggle favorite:', error);
-            setIsFavorite(!newStatus); // Revert on error
-        }
-    };
-
     if (isOverlay) {
         return (
             <div
@@ -53,13 +37,6 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
                 <div className="absolute top-2 right-2 p-1.5 text-zinc-600 opacity-0">
                     <Trash2 size={14} />
                 </div>
-
-                {/* Favorite Button (Visible in Overlay) */}
-                <button
-                    className={`absolute top-2 right-8 p-1.5 rounded transition-colors ${isFavorite ? 'text-yellow-400' : 'text-zinc-600'}`}
-                >
-                    <Star size={14} fill={isFavorite ? "currentColor" : "none"} />
-                </button>
 
                 {/* Company Logo & Name */}
                 <div className="flex items-start justify-between mb-3">
@@ -145,15 +122,6 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
                 title="삭제"
             >
                 <Trash2 size={14} />
-            </button>
-
-            {/* Favorite Button */}
-            <button
-                onClick={handleToggleFavorite}
-                className={`absolute top-2 right-8 p-1.5 rounded transition-colors z-10 opacity-0 group-hover:opacity-100 ${isFavorite ? 'text-yellow-400 opacity-100' : 'text-zinc-600 hover:text-yellow-400 hover:bg-yellow-400/10'}`}
-                title={isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
-            >
-                <Star size={14} fill={isFavorite ? "currentColor" : "none"} />
             </button>
 
             {/* Company Logo & Name */}

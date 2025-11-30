@@ -5,11 +5,11 @@ import ResumeForm from '@/components/write/ResumeForm';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
 import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWriteStore } from '@/stores/useWriteStore';
+import { useDraftStore } from '@/store/useDraftStore';
 
 function WriteContent() {
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);
-    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching } = useWriteStore();
+    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching } = useDraftStore();
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col relative">

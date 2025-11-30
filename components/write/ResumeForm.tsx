@@ -2,76 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Save, Plus, Trash2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDraftStore } from '@/store/useDraftStore';
-import { useWriteStore } from '@/stores/useWriteStore';
 import { useDocuments } from '@/context/DocumentContext';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
+import { LimitSelector } from '@/components/ui/LimitSelector';
 import RefineManager from './RefineManager';
 import StatusConfirmationDialog from './StatusConfirmationDialog';
-
-const LIMIT_OPTIONS = [300, 500, 700, 1000, 1500, 2000];
-
-const LimitSelector: React.FC<{
-    value: number;
-    onChange: (value: number) => void;
-}> = ({ value, onChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [customValue, setCustomValue] = useState(value.toString());
-
-    React.useEffect(() => {
-        setCustomValue(value.toString());
-    }, [value]);
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        setCustomValue(val);
-        const num = parseInt(val);
-        if (!isNaN(num) && num > 0) {
-            onChange(num);
-        }
-    };
-
-    const handleSelectOption = (option: number) => {
-        setCustomValue(option.toString());
-        onChange(option);
-        setIsOpen(false);
-    };
-
-    return (
-        <div className="relative">
-            <div className="flex items-center gap-2">
-                <input
-                    type="number"
-                    value={customValue}
-                    onChange={handleInputChange}
-                    className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:border-primary focus:outline-none"
-                    min="1"
-                />
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="p-1 hover:bg-zinc-800 rounded transition-colors"
-                >
-                    <ChevronDown size={16} className="text-zinc-400" />
-                </button>
-            </div>
-            {isOpen && (
-                <div className="absolute top-full mt-1 bg-zinc-900 border border-zinc-700 rounded shadow-lg z-10">
-                    {LIMIT_OPTIONS.map(option => (
-                        <button
-                            key={option}
-                            onClick={() => handleSelectOption(option)}
-                            className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-800 transition-colors"
-                        >
-                            {option}자
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
 
 export default function ResumeForm() {
     const router = useRouter();
@@ -79,7 +17,6 @@ export default function ResumeForm() {
     const status = searchParams.get('status') || 'writing';
     const fromArchive = searchParams.get('from') === 'archive';
     const { addDocument } = useDocuments();
-    const { setSearchTags } = useWriteStore();
     const [isSaving, setIsSaving] = useState(false);
     const [showStatusDialog, setShowStatusDialog] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -93,7 +30,8 @@ export default function ResumeForm() {
         addSection,
         removeSection,
         updateSection,
-        clearDraft
+        clearDraft,
+        setSearchTags // Now from the same store
     } = useDraftStore();
 
     const goToPrevSection = () => {
@@ -112,15 +50,11 @@ export default function ResumeForm() {
             return;
         }
 
-
-
-        // If coming from archive, show status dialog
         if (fromArchive) {
             setShowStatusDialog(true);
             return;
         }
 
-        // Otherwise, save directly
         await saveDocument(status);
     };
 
@@ -140,7 +74,7 @@ export default function ResumeForm() {
                 tags: formData.tags,
                 status: finalStatus as any,
                 deadline: formData.deadline,
-                isArchived: fromArchive, // Mark as archived only when saving from archive
+                isArchived: fromArchive,
                 documentScreeningStatus: screeningStatus
             });
 
@@ -148,7 +82,6 @@ export default function ResumeForm() {
             setSearchTags([]);
             toast.success('저장되었습니다!');
 
-            // Redirect based on source
             if (fromArchive) {
                 router.push('/archive');
             } else {
@@ -168,8 +101,6 @@ export default function ResumeForm() {
     };
 
     const currentSection = sections[currentSectionIndex];
-
-
 
     return (
         <div className="space-y-6">
@@ -221,13 +152,12 @@ export default function ResumeForm() {
                     tags={formData.tags}
                     onChange={tags => {
                         setFormData({ tags });
-                        setSearchTags(tags); // Sync with search store
+                        setSearchTags(tags);
                     }}
                     placeholder="태그를 입력하거나 선택하세요 (예: 취미, 성장과정)"
                     className="bg-surface border-white/10"
                 />
             </div>
-
 
             <div className="flex items-center justify-between border-t border-white/10 pt-6">
                 <div className="flex items-center gap-2">
@@ -330,7 +260,6 @@ export default function ResumeForm() {
                 </button>
             </div>
 
-            {/* Status Confirmation Dialog */}
             <StatusConfirmationDialog
                 isOpen={showStatusDialog}
                 onClose={() => setShowStatusDialog(false)}

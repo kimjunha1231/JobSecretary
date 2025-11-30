@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+export interface RecommendedDoc {
+    id: string;
+    companyName: string;
+    originalContent: string;
+    subtitle?: string;
+    aiAdvice: string;
+    similarityScore: number;
+    tags?: string[];
+}
+
 interface Section {
     title: string;
     content: string;
@@ -16,9 +26,15 @@ interface FormData {
 }
 
 interface DraftState {
+    // Form Data
     formData: FormData;
     sections: Section[];
     currentSectionIndex: number;
+
+    // Search State (Merged from useWriteStore)
+    searchTags: string[];
+    searchResults: RecommendedDoc[];
+    isSearching: boolean;
 
     // Actions
     setFormData: (formData: Partial<FormData>) => void;
@@ -28,6 +44,11 @@ interface DraftState {
     removeSection: (index: number) => void;
     updateSection: (index: number, field: keyof Section, value: string | number) => void;
     clearDraft: () => void;
+
+    // Search Actions
+    setSearchTags: (tags: string[]) => void;
+    setSearchResults: (docs: RecommendedDoc[]) => void;
+    setIsSearching: (isSearching: boolean) => void;
 }
 
 const initialFormData: FormData = {
@@ -45,10 +66,15 @@ const initialSections: Section[] = [
 export const useDraftStore = create<DraftState>()(
     persist(
         (set, get) => ({
+            // Initial State
             formData: initialFormData,
             sections: initialSections,
             currentSectionIndex: 0,
+            searchTags: [],
+            searchResults: [],
+            isSearching: false,
 
+            // Form Actions
             setFormData: (newFormData) =>
                 set((state) => ({
                     formData: { ...state.formData, ...newFormData }
@@ -95,12 +121,22 @@ export const useDraftStore = create<DraftState>()(
                 set({
                     formData: initialFormData,
                     sections: [{ title: '새 문항', content: '', limit: 500 }],
-                    currentSectionIndex: 0
-                })
+                    currentSectionIndex: 0,
+                    searchTags: [],
+                    searchResults: [],
+                    isSearching: false
+                }),
+
+            // Search Actions
+            setSearchTags: (tags) => set({ searchTags: tags }),
+            setSearchResults: (docs) => set({ searchResults: docs }),
+            setIsSearching: (isSearching) => set({ isSearching }),
         }),
         {
             name: 'careervault-draft-storage',
             storage: createJSONStorage(() => localStorage),
+            // Optionally, we might want to exclude search state from persistence
+            // partialize: (state) => ({ formData: state.formData, sections: state.sections, currentSectionIndex: state.currentSectionIndex }),
         }
     )
 );

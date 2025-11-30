@@ -55,7 +55,7 @@ export function SortableDocumentCard({ doc, onDelete, onToggleFavorite }: Sortab
                                 e.stopPropagation();
                                 onToggleFavorite(doc.id, !doc.isFavorite);
                             }}
-                            className={`text-zinc-600 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity ${doc.isFavorite ? 'text-yellow-400 opacity-100' : ''}`}
+                            className={`hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity ${doc.isFavorite ? 'text-yellow-400 opacity-100' : 'text-zinc-600'}`}
                             onPointerDown={(e) => e.stopPropagation()}
                         >
                             <Star size={16} fill={doc.isFavorite ? "currentColor" : "none"} />
