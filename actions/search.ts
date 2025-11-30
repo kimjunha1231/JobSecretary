@@ -2,7 +2,7 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { RecommendedDoc } from '@/stores/useWriteStore';
+import { RecommendedDoc } from '@/store/useDraftStore';
 
 async function createClient() {
     const cookieStore = await cookies();

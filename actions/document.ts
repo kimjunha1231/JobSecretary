@@ -120,7 +120,7 @@ export async function createDocument(formData: FormData) {
 
     if (!validationResult.success) {
         console.error("Validation Error:", validationResult.error);
-        throw new Error(validationResult.error.errors[0].message);
+        throw new Error(validationResult.error.issues[0].message);
     }
 
     const validatedData = validationResult.data;
@@ -168,7 +168,7 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
 
     if (!validationResult.success) {
         console.error("Validation Error:", validationResult.error);
-        throw new Error(validationResult.error.errors[0].message);
+        throw new Error(validationResult.error.issues[0].message);
     }
 
     const validatedUpdates = validationResult.data;

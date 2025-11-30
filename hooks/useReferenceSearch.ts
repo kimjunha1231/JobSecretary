@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RecommendedDoc } from '@/stores/useWriteStore';
+import { useDraftStore, RecommendedDoc } from '@/store/useDraftStore';
 
 export function useReferenceSearch(initialTags: string[] = []) {
     const [searchTags, setSearchTags] = useState<string[]>(initialTags);

@@ -2,7 +2,7 @@ import React from 'react';
 import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
-import { RecommendedDoc } from '@/stores/useWriteStore';
+import { RecommendedDoc } from '@/store/useDraftStore';
 
 interface ReferenceDrawerProps {
     isOpen: boolean;
