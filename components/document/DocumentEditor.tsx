@@ -1,7 +1,10 @@
-import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Trash2, PenTool } from 'lucide-react';
 import RefineManager from '@/components/write/RefineManager';
 import { Section } from '@/hooks/useDocumentForm';
+import { AutoDraftModal } from '@/components/write/AutoDraftModal';
+import { useDocuments } from '@/context/DocumentContext';
+import { useParams } from 'next/navigation';
 
 interface DocumentEditorProps {
     sections: Section[];
@@ -18,6 +21,20 @@ export function DocumentEditor({
     onRemoveSection,
     autoRefineIndex
 }: DocumentEditorProps) {
+    const [autoDraftIndex, setAutoDraftIndex] = useState<number | null>(null);
+    const { documents } = useDocuments();
+    const params = useParams();
+    const id = params?.id as string;
+    const doc = documents.find(d => d.id === id);
+
+    const handleDraftGenerated = (draft: string) => {
+        if (autoDraftIndex === null) return;
+
+        const currentContent = sections[autoDraftIndex].content;
+        const newContent = currentContent ? `${currentContent}\n\n${draft}` : draft;
+        onUpdateSection(autoDraftIndex, 'content', newContent);
+    };
+
     return (
         <div className="space-y-8">
             {sections.map((section, index) => (
@@ -46,11 +63,20 @@ export function DocumentEditor({
                             <span className="text-sm text-zinc-500 font-mono">
                                 {section.content.length}자
                             </span>
-                            <RefineManager
-                                text={section.content}
-                                onApply={(corrected) => onUpdateSection(index, 'content', corrected)}
-                                autoTrigger={autoRefineIndex === index}
-                            />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setAutoDraftIndex(index)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
+                                >
+                                    <PenTool size={14} />
+                                    <span>AI 초안 작성</span>
+                                </button>
+                                <RefineManager
+                                    text={section.content}
+                                    onApply={(corrected) => onUpdateSection(index, 'content', corrected)}
+                                    autoTrigger={autoRefineIndex === index}
+                                />
+                            </div>
                         </div>
                     </div>
                     <div className="p-8">
@@ -70,6 +96,17 @@ export function DocumentEditor({
                 <Plus size={20} />
                 문항 추가하기
             </button>
+
+            {doc && (
+                <AutoDraftModal
+                    isOpen={autoDraftIndex !== null}
+                    onClose={() => setAutoDraftIndex(null)}
+                    onDraftGenerated={handleDraftGenerated}
+                    company={doc.company}
+                    role={doc.role}
+                    question={autoDraftIndex !== null ? sections[autoDraftIndex].title : ''}
+                />
+            )}
         </div>
     );
 }

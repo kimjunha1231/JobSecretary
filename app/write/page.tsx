@@ -3,22 +3,25 @@
 import React, { useState, Suspense } from 'react';
 import ResumeForm from '@/components/write/ResumeForm';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
-import { BookOpen, X } from 'lucide-react';
+import { AiSidebar } from '@/components/AiSidebar';
+import { BookOpen, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraftStore } from '@/store/useDraftStore';
 
 function WriteContent() {
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);
-    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching } = useDraftStore();
+    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching, formData } = useDraftStore();
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col relative">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-0">
                 {/* Left Side: Resume Form */}
                 <div className="col-span-1 lg:col-span-9 h-full overflow-y-auto pr-2 lg:pr-4 custom-scrollbar pb-20 lg:pb-6">
-                    <div className="mb-6 lg:mb-8">
-                        <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">자기소개서 작성</h1>
-                        <p className="text-zinc-400 text-sm lg:text-base">태그를 활용하여 과거 자소서를 참고하며 작성하세요</p>
+                    <div className="mb-6 lg:mb-8 flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">자기소개서 작성</h1>
+                            <p className="text-zinc-400 text-sm lg:text-base">태그를 활용하여 과거 자소서를 참고하며 작성하세요</p>
+                        </div>
                     </div>
                     <ResumeForm />
                 </div>
@@ -36,13 +39,15 @@ function WriteContent() {
                 </div>
             </div>
 
-            {/* Mobile Reference Sidebar Toggle */}
-            <button
-                onClick={() => setIsReferenceOpen(true)}
-                className="lg:hidden fixed bottom-6 right-6 z-30 w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
-            >
-                <BookOpen size={20} />
-            </button>
+            {/* Mobile Floating Action Buttons */}
+            <div className="lg:hidden fixed bottom-6 right-6 z-30 flex flex-col gap-4">
+                <button
+                    onClick={() => setIsReferenceOpen(true)}
+                    className="w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+                >
+                    <BookOpen size={20} />
+                </button>
+            </div>
 
             {/* Mobile Reference Sidebar Drawer */}
             <AnimatePresence>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Save, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronLeft, ChevronRight, PenTool } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDraftStore } from '@/store/useDraftStore';
 import { useDocuments } from '@/context/DocumentContext';
@@ -10,6 +10,7 @@ import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { LimitSelector } from '@/components/ui/LimitSelector';
 import RefineManager from './RefineManager';
 import StatusConfirmationDialog from './StatusConfirmationDialog';
+import { AutoDraftModal } from './AutoDraftModal';
 
 export default function ResumeForm() {
     const router = useRouter();
@@ -20,6 +21,7 @@ export default function ResumeForm() {
     const [isSaving, setIsSaving] = useState(false);
     const [showStatusDialog, setShowStatusDialog] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [isAutoDraftOpen, setIsAutoDraftOpen] = useState(false);
 
     const {
         formData,
@@ -98,6 +100,12 @@ export default function ResumeForm() {
         setShowStatusDialog(false);
         setSelectedStatus(finalStatus);
         saveDocument(finalStatus, documentStatus);
+    };
+
+    const handleDraftGenerated = (draft: string) => {
+        const currentContent = sections[currentSectionIndex].content;
+        const newContent = currentContent ? `${currentContent}\n\n${draft}` : draft;
+        updateSection(currentSectionIndex, 'content', newContent);
     };
 
     const currentSection = sections[currentSectionIndex];
@@ -208,6 +216,13 @@ export default function ResumeForm() {
                         placeholder="문항 제목"
                     />
                     <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setIsAutoDraftOpen(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
+                        >
+                            <PenTool size={14} />
+                            <span>AI 초안 작성</span>
+                        </button>
                         <RefineManager
                             text={currentSection.content}
                             onApply={(corrected: string) => updateSection(currentSectionIndex, 'content', corrected)}
@@ -264,6 +279,15 @@ export default function ResumeForm() {
                 isOpen={showStatusDialog}
                 onClose={() => setShowStatusDialog(false)}
                 onConfirm={handleStatusConfirm}
+            />
+
+            <AutoDraftModal
+                isOpen={isAutoDraftOpen}
+                onClose={() => setIsAutoDraftOpen(false)}
+                onDraftGenerated={handleDraftGenerated}
+                company={formData.company}
+                role={formData.role}
+                question={currentSection.title}
             />
         </div >
     );

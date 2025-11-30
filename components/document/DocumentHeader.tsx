@@ -1,9 +1,11 @@
 import React from 'react';
 import { Building2, Calendar, Edit2, Save, Trash2, X, MessageCircleQuestion } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Document, Status } from '@/types';
 import { DocumentFormState } from '@/hooks/useDocumentForm';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DocumentHeaderProps {
     doc: Document;
@@ -44,9 +46,38 @@ export function DocumentHeader({
     onDelete,
     onShowInterviewQuestions
 }: DocumentHeaderProps) {
+    const handleShowInterviewQuestions = () => {
+        if (!doc.content) {
+            toast.error('자기소개서 내용이 없습니다.');
+            return;
+        }
+
+        const sections = doc.content.split('### ').filter(section => section.trim().length > 0);
+
+        if (sections.length < 2) {
+            toast.error('자기소개서 항목이 2개 이상이어야 합니다.');
+            return;
+        }
+
+        const isValid = sections.every(section => {
+            const lines = section.split('\n');
+            // Remove title (first line) and trim whitespace
+            const content = lines.slice(1).join('\n').trim();
+            return content.length >= 500;
+        });
+
+        if (!isValid) {
+            toast.error('각 항목의 내용이 500자 이상이어야 합니다.');
+            return;
+        }
+
+        onShowInterviewQuestions();
+    };
+
     return (
         <div className="flex items-start justify-between">
             <div className="flex-1 mr-8">
+                {/* ... (existing content) ... */}
                 {isEditing ? (
                     <div className="space-y-4">
                         <div className="flex flex-col gap-1 w-full">
@@ -149,48 +180,83 @@ export function DocumentHeader({
             </div>
 
             <div className="flex gap-2">
-                {isEditing ? (
-                    <>
-                        <button
-                            onClick={onCancel}
-                            className="p-3 text-zinc-400 hover:text-white hover:bg-white/10 transition-all rounded-xl"
-                            title="취소"
-                        >
-                            <X size={20} />
-                        </button>
-                        <button
-                            onClick={onSave}
-                            className="p-3 bg-indigo-600 text-white hover:bg-indigo-500 transition-all rounded-xl shadow-lg shadow-indigo-500/20"
-                            title="저장"
-                        >
-                            <Save size={20} />
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <button
-                            onClick={onShowInterviewQuestions}
-                            className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all rounded-xl"
-                            title="예상 면접 질문"
-                        >
-                            <MessageCircleQuestion size={20} />
-                        </button>
-                        <button
-                            onClick={onEdit}
-                            className="p-3 text-zinc-400 hover:text-white hover:bg-white/10 transition-all rounded-xl"
-                            title="수정"
-                        >
-                            <Edit2 size={20} />
-                        </button>
-                        <button
-                            onClick={onDelete}
-                            className="p-3 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-all rounded-xl"
-                            title="삭제"
-                        >
-                            <Trash2 size={20} />
-                        </button>
-                    </>
-                )}
+                <TooltipProvider>
+                    {isEditing ? (
+                        <>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={onCancel}
+                                        className="p-3 text-zinc-400 hover:text-white hover:bg-white/10 transition-all rounded-xl"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>취소</p>
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={onSave}
+                                        className="p-3 bg-indigo-600 text-white hover:bg-indigo-500 transition-all rounded-xl shadow-lg shadow-indigo-500/20"
+                                    >
+                                        <Save size={20} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>저장</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </>
+                    ) : (
+                        <>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={handleShowInterviewQuestions}
+                                        className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all rounded-xl"
+                                    >
+                                        <MessageCircleQuestion size={20} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>예상 면접 질문</p>
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={onEdit}
+                                        className="p-3 text-zinc-400 hover:text-white hover:bg-white/10 transition-all rounded-xl"
+                                    >
+                                        <Edit2 size={20} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>수정</p>
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={onDelete}
+                                        className="p-3 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-all rounded-xl"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>삭제</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </>
+                    )}
+                </TooltipProvider>
             </div>
         </div>
     );

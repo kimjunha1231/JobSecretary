@@ -125,3 +125,63 @@ export const generateQuestions = async (
     return "질문 생성 중 오류가 발생했습니다.";
   }
 };
+
+export const generateDraft = async (
+  company: string,
+  role: string,
+  question: string,
+  keywords: string,
+  documents: Document[],
+  charLimit: number = 700
+): Promise<string> => {
+  const ai = getClient();
+
+  // RAG: Construct context from past documents
+  const contextData = documents.map(doc => `
+    ---
+    Content: ${doc.content}
+    ---
+  `).join('\n');
+
+  const systemInstruction = `당신은 전문적인 자기소개서 작성 도우미입니다. 
+  사용자의 과거 자기소개서 스타일과 경험을 참고하여, 새로운 질문에 대한 초안을 작성해 주세요.
+  
+  규칙:
+  1. **반드시 한국어로 작성하세요.**
+  2. **키워드가 제공되면 해당 키워드를 중심으로 작성하고, 제공되지 않으면 질문의 의도를 파악하여 가장 적절한 내용을 스스로 구성하세요.**
+  3. **[중요] 목표 글자 수(${charLimit}자)를 반드시 준수하세요.** (오차 범위 ±10% 이내 필수)
+     - 내용이 너무 짧으면 구체적인 예시를 추가하여 늘리세요.
+     - 내용이 너무 길면 불필요한 수식어를 제거하여 줄이세요.
+  4. **절대 Markdown 헤더(예: #, ##, ###)나 볼드체(**)를 사용하지 마세요.**
+  5. 오직 줄바꿈(엔터)으로만 문단을 구분하세요.
+  6. 너무 뻔하거나 추상적인 표현보다는 구체적인 경험을 서술하는 톤으로 작성하세요.
+  `;
+
+  const prompt = `
+  지원 회사: ${company}
+  지원 직무: ${role}
+  문항(질문): ${question}
+  핵심 키워드/소재: ${keywords || "없음 (질문에 맞춰 자유롭게 작성)"}
+  목표 글자 수: ${charLimit}자 (±10% 이내 준수 요망)
+  
+  참고할 과거 자소서 데이터:
+  ${contextData}
+  
+  위 정보를 바탕으로 자기소개서 초안을 작성해 주세요. 헤더 없이 줄글로만 작성해 주세요.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.7,
+      }
+    });
+
+    return response.text || "초안을 생성할 수 없습니다.";
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    return "초안 생성 중 오류가 발생했습니다.";
+  }
+};

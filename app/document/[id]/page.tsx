@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDocuments } from '@/context/DocumentContext';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
+import { AiSidebar } from '@/components/AiSidebar';
 import { useDocumentForm } from '@/hooks/useDocumentForm';
 import { useReferenceSearch } from '@/hooks/useReferenceSearch';
 import { DocumentHeader } from '@/components/document/DocumentHeader';
@@ -117,13 +118,15 @@ export default function DocumentDetail() {
             <div className={isEditing ? 'grid grid-cols-1 lg:grid-cols-12 gap-6' : ''}>
                 <div className={isEditing ? 'col-span-1 lg:col-span-9' : ''}>
                     <div className="mb-10">
-                        <button
-                            onClick={() => router.back()}
-                            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6 group"
-                        >
-                            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                            <span>목록으로</span>
-                        </button>
+                        <div className="flex items-center justify-between mb-6">
+                            <button
+                                onClick={() => router.back()}
+                                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group"
+                            >
+                                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                                <span>목록으로</span>
+                            </button>
+                        </div>
 
                         <DocumentHeader
                             doc={doc}
@@ -170,12 +173,14 @@ export default function DocumentDetail() {
             </div>
 
             {isEditing && (
-                <ReferenceDrawer
-                    isOpen={isReferenceOpen}
-                    onOpen={() => setIsReferenceOpen(true)}
-                    onClose={() => setIsReferenceOpen(false)}
-                    searchProps={searchProps}
-                />
+                <>
+                    <ReferenceDrawer
+                        isOpen={isReferenceOpen}
+                        onOpen={() => setIsReferenceOpen(true)}
+                        onClose={() => setIsReferenceOpen(false)}
+                        searchProps={searchProps}
+                    />
+                </>
             )}
 
             <ConfirmationModal
