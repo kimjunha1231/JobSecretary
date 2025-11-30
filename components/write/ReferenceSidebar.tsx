@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useWriteStore } from '@/stores/useWriteStore';
 import { searchDocumentsByTags } from '@/actions/search';
 import { Search, Copy, Loader2, FileText, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Badge } from '@/components/ui/badge';
+import { RecommendedDoc } from '@/stores/useWriteStore';
 
 const getTagColor = (tag: string) => {
     const colors = [
@@ -26,8 +26,23 @@ const getTagColor = (tag: string) => {
     return colors[Math.abs(hash) % colors.length];
 };
 
-export default function ReferenceSidebar() {
-    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching } = useWriteStore();
+interface ReferenceSidebarProps {
+    searchTags: string[];
+    setSearchTags: (tags: string[]) => void;
+    searchResults: RecommendedDoc[];
+    setSearchResults: (results: RecommendedDoc[]) => void;
+    isSearching: boolean;
+    setIsSearching: (isSearching: boolean) => void;
+}
+
+export default function ReferenceSidebar({
+    searchTags,
+    setSearchTags,
+    searchResults,
+    setSearchResults,
+    isSearching,
+    setIsSearching
+}: ReferenceSidebarProps) {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -175,3 +190,4 @@ export default function ReferenceSidebar() {
         </div>
     );
 }
+

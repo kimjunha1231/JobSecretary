@@ -5,9 +5,11 @@ import ResumeForm from '@/components/write/ResumeForm';
 import ReferenceSidebar from '@/components/write/ReferenceSidebar';
 import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useWriteStore } from '@/stores/useWriteStore';
 
 function WriteContent() {
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);
+    const { searchTags, searchResults, isSearching, setSearchTags, setSearchResults, setIsSearching } = useWriteStore();
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col relative">
@@ -23,7 +25,14 @@ function WriteContent() {
 
                 {/* Right Side: Reference Sidebar (Desktop) */}
                 <div className="hidden lg:block lg:col-span-3 h-full border-l border-white/10 pl-4 min-h-0">
-                    <ReferenceSidebar />
+                    <ReferenceSidebar
+                        searchTags={searchTags}
+                        setSearchTags={setSearchTags}
+                        searchResults={searchResults}
+                        setSearchResults={setSearchResults}
+                        isSearching={isSearching}
+                        setIsSearching={setIsSearching}
+                    />
                 </div>
             </div>
 
@@ -63,7 +72,14 @@ function WriteContent() {
                                     </button>
                                 </div>
                                 <div className="flex-1 min-h-0">
-                                    <ReferenceSidebar />
+                                    <ReferenceSidebar
+                                        searchTags={searchTags}
+                                        setSearchTags={setSearchTags}
+                                        searchResults={searchResults}
+                                        setSearchResults={setSearchResults}
+                                        isSearching={isSearching}
+                                        setIsSearching={setIsSearching}
+                                    />
                                 </div>
                             </div>
                         </motion.div>
