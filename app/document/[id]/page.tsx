@@ -127,7 +127,12 @@ export default function DocumentDetail() {
                             doc={doc}
                             isEditing={isEditing}
                             form={form}
-                            onUpdateField={updateField}
+                            onUpdateField={(key, value) => {
+                                updateField(key, value);
+                                if (key === 'tags') {
+                                    searchProps.setSearchTags(value as string[]);
+                                }
+                            }}
                             onEdit={() => setIsEditing(true)}
                             onCancel={() => setIsEditing(false)}
                             onSave={handleSave}
