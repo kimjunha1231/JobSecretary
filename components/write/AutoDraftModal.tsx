@@ -98,9 +98,9 @@ export const AutoDraftModal: React.FC<AutoDraftModalProps> = ({
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-lg bg-surface border border-white/10 rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
+                            className="w-full max-w-lg bg-surface border border-white/10 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto"
                         >
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between p-6 sticky top-0 z-10 bg-surface/50 backdrop-blur-md border-b border-white/10">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center">
                                         <Sparkles size={16} className="text-white" />
@@ -112,7 +112,7 @@ export const AutoDraftModal: React.FC<AutoDraftModalProps> = ({
                                 </button>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-6 p-6">
                                 <div>
                                     <label className="block text-sm text-zinc-400 mb-2">
                                         참고할 태그 선택 (선택 사항)
