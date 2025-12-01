@@ -37,8 +37,8 @@ export default function Home() {
                     JobSecretary
                 </h1>
                 <p className="text-zinc-400 text-lg mb-10 leading-relaxed">
-                    AI 비서와 함께하는 스마트한 커리어 관리.<br />
-                    복잡한 취업 준비, 이제 JobSecretary에게 맡기세요.
+                    AI 통합 채용 관리 플랫폼, JobSecretary.<br />
+                    자기소개서 관리부터 면접 준비까지, 당신의 취업 성공을 위한 AI 비서입니다.
                 </p>
 
                 <button
