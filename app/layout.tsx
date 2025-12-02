@@ -17,7 +17,7 @@ export const metadata: Metadata = {
         default: "JobSecretary - AI 통합 채용 관리 플랫폼 | 자기소개서 & 면접 준비",
         template: "%s | JobSecretary",
     },
-    description: "자기소개서 관리부터 AI 첨삭, AI 면접 예상 질문 생성까지. 취업 준비의 모든 과정을 JobSecretary와 함께 체계적으로 관리하세요.",
+    description: "자소서 관리, AI 첨삭, 면접 준비를 한 번에. JobSecretary는 당신의 취업 성공을 위한 가장 완벽한 AI 채용 관리 비서입니다.",
     keywords: [
         "JobSecretary", "잡세크리터리",
         "AI 자소서", "자기소개서 관리", "AI 자기소개서", "AI 자기소개서 첨삭",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     },
     openGraph: {
         title: "JobSecretary - AI 통합 채용 관리 플랫폼",
-        description: "자기소개서 관리, AI 첨삭, 면접 준비를 한 번에. 당신의 취업 성공 파트너 JobSecretary.",
+        description: "자소서 관리, AI 첨삭, 면접 준비를 한 번에. JobSecretary는 당신의 취업 성공을 위한 가장 완벽한 AI 채용 관리 비서입니다.",
         url: "https://jobsecretary.lat",
         siteName: "JobSecretary",
         locale: "ko_KR",
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     twitter: {
         card: "summary_large_image",
         title: "JobSecretary - AI 통합 채용 관리 플랫폼",
-        description: "자기소개서 관리, AI 첨삭, 면접 준비를 한 번에. 당신의 취업 성공 파트너 JobSecretary.",
+        description: "자소서 관리, AI 첨삭, 면접 준비를 한 번에. JobSecretary는 당신의 취업 성공을 위한 가장 완벽한 AI 채용 관리 비서입니다.",
         creator: "@JobSecretary",
     },
     robots: {
