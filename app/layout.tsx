@@ -12,22 +12,59 @@ import { Analytics } from "@vercel/analytics/next";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+    metadataBase: new URL("https://jobsecretary.lat"),
     title: {
-        default: "JobSecretary - AI 통합 채용 관리 플랫폼",
+        default: "JobSecretary - AI 통합 채용 관리 플랫폼 | 자기소개서 & 면접 준비",
         template: "%s | JobSecretary",
     },
-    description: "자기소개서 관리, AI 자기소개서, AI 자기소개서 첨삭 등 취업 준비의 모든 것을 해결하는 AI 통합 채용 관리 플랫폼 JobSecretary입니다.",
-    keywords: ["JobSecretary", "잡세크리터리", "AI 자소서", "자기소개서 관리", "AI 자기소개서", "AI 자기소개서 첨삭", "채용 관리 플랫폼", "취업 준비", "이력서", "면접 준비", "AI 면접", "채용 공고"],
+    description: "자기소개서 관리부터 AI 첨삭, AI 면접 예상 질문 생성까지. 취업 준비의 모든 과정을 JobSecretary와 함께 체계적으로 관리하세요.",
+    keywords: [
+        "JobSecretary", "잡세크리터리",
+        "AI 자소서", "자기소개서 관리", "AI 자기소개서", "AI 자기소개서 첨삭",
+        "채용 관리 플랫폼", "취업 준비", "이력서", "면접 준비", "AI 면접",
+        "자소서 작성", "자소서 예시", "합격 자소서", "취업 비서", "채용 공고 관리"
+    ],
+    authors: [{ name: "JobSecretary Team" }],
+    creator: "JobSecretary",
+    publisher: "JobSecretary",
+    formatDetection: {
+        email: false,
+        address: false,
+        telephone: false,
+    },
+    verification: {
+        google: "google26279c742f669463", // Existing verification code found in file list
+        other: {
+            "naver-site-verification": "YOUR_NAVER_VERIFICATION_CODE", // Placeholder for user to replace
+        },
+    },
+    alternates: {
+        canonical: "/",
+    },
     openGraph: {
         title: "JobSecretary - AI 통합 채용 관리 플랫폼",
-        description: "자기소개서 관리, AI 자기소개서, AI 자기소개서 첨삭 등 취업 준비의 모든 것을 해결하는 AI 통합 채용 관리 플랫폼 JobSecretary입니다.",
-        type: "website",
-        locale: "ko_KR",
+        description: "자기소개서 관리, AI 첨삭, 면접 준비를 한 번에. 당신의 취업 성공 파트너 JobSecretary.",
+        url: "https://jobsecretary.lat",
         siteName: "JobSecretary",
+        locale: "ko_KR",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "JobSecretary - AI 통합 채용 관리 플랫폼",
+        description: "자기소개서 관리, AI 첨삭, 면접 준비를 한 번에. 당신의 취업 성공 파트너 JobSecretary.",
+        creator: "@JobSecretary",
     },
     robots: {
         index: true,
         follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            "max-video-preview": -1,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+        },
     },
 };
 
