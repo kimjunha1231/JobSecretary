@@ -41,21 +41,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
-        });
+        // Mock user for video recording
+        const mockUser: any = {
+            id: 'mock-user-id',
+            aud: 'authenticated',
+            role: 'authenticated',
+            email: 'demo@jobsecretary.lat',
+            email_confirmed_at: new Date().toISOString(),
+            phone: '',
+            confirmed_at: new Date().toISOString(),
+            last_sign_in_at: new Date().toISOString(),
+            app_metadata: { provider: 'google', providers: ['google'] },
+            user_metadata: {
+                full_name: 'Demo User',
+                avatar_url: 'https://ui-avatars.com/api/?name=Demo+User&background=random'
+            },
+            identities: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
 
-        // Listen for auth changes
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
-        });
+        const mockSession: any = {
+            access_token: 'mock-token',
+            token_type: 'bearer',
+            expires_in: 3600,
+            refresh_token: 'mock-refresh-token',
+            user: mockUser,
+            expires_at: Math.floor(Date.now() / 1000) + 3600
+        };
+
+        setSession(mockSession);
+        setUser(mockUser);
+        setIsLoading(false);
 
         // Check for login success param
         if (typeof window !== 'undefined') {
@@ -67,8 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 window.history.replaceState({}, '', newUrl.toString());
             }
         }
-
-        return () => subscription.unsubscribe();
     }, []);
 
     const signInWithGoogle = async () => {
