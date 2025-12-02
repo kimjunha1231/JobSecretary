@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Archive, PenTool, Command, PanelLeftClose, PanelLeftOpen, LogOut, LayoutDashboard, FileText, Shield, UserX } from 'lucide-react';
+import { Archive, PenTool, Command, PanelLeftClose, PanelLeftOpen, LogOut, LayoutDashboard, FileText, Shield, UserX, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { DeleteAccountModal } from './DeleteAccountModal';
@@ -165,6 +165,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <Shield size={14} />
               <span>개인정보처리방침</span>
             </Link>
+            <a
+              href="mailto:rlawnsgk0610@gmail.com"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all duration-200"
+            >
+              <Mail size={14} />
+              <span>문의 : rlawnsgk0610@gmail.com</span>
+            </a>
           </div>
 
           <div className="pt-4 border-t border-border/50">
