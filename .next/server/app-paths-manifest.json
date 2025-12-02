@@ -1,5 +1,10 @@
 {
-  "/page": "app/page.js",
+  "/api/documents/route": "app/api/documents/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/write/page": "app/write/page.js"
+  "/page": "app/page.js",
+  "/write/page": "app/write/page.js",
+  "/archive/page": "app/archive/page.js",
+  "/policy/privacy/page": "app/policy/privacy/page.js",
+  "/document/[id]/page": "app/document/[id]/page.js"
 }

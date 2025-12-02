@@ -14,7 +14,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
     metadataBase: new URL("https://jobsecretary.lat"),
     title: {
-        default: "JobSecretary - AI 통합 채용 관리 플랫폼",
+        default: "JobSecretary - AI 통합 채용 관리 플랫폼 | 자기소개서 & 면접 준비",
         template: "%s | JobSecretary",
     },
     description: "자소서 관리, AI 첨삭, 면접 준비를 한 번에. JobSecretary는 당신의 취업 성공을 위한 가장 완벽한 AI 채용 관리 비서입니다.",
