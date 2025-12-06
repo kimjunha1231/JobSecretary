@@ -1,11 +1,13 @@
-import React from 'react';
-import { Building2, Calendar, Edit2, Save, Trash2, X, MessageCircleQuestion } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Building2, Calendar, Edit2, Save, Trash2, X, MessageCircleQuestion, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { SmartTagInput } from '@/components/ui/smart-tag-input';
 import { Document, Status } from '@/types';
 import { DocumentFormState } from '@/hooks/useDocumentForm';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PdfDocument } from './PdfDocument';
 
 interface DocumentHeaderProps {
     doc: Document;
@@ -46,6 +48,12 @@ export function DocumentHeader({
     onDelete,
     onShowInterviewQuestions
 }: DocumentHeaderProps) {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
     const handleShowInterviewQuestions = () => {
         if (!doc.content) {
             toast.error('자기소개서 내용이 없습니다.');
@@ -77,7 +85,6 @@ export function DocumentHeader({
     return (
         <div className="flex items-start justify-between">
             <div className="flex-1 mr-8">
-                {/* ... (existing content) ... */}
                 {isEditing ? (
                     <div className="space-y-4">
                         <div className="flex flex-col gap-1 w-full">
@@ -213,6 +220,27 @@ export function DocumentHeader({
                         </>
                     ) : (
                         <>
+                            {isClient && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="inline-block">
+                                            <PDFDownloadLink
+                                                document={<PdfDocument doc={doc} />}
+                                                fileName={`${doc.company}_${doc.role}_자기소개서.pdf`}
+                                                className="p-3 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all rounded-xl flex items-center justify-center"
+                                            >
+                                                {({ loading }) => (
+                                                    loading ? <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" /> : <Download size={20} />
+                                                )}
+                                            </PDFDownloadLink>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>PDF 다운로드</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <button
