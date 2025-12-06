@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 export interface Section {
     title: string;
     content: string;
+    limit: number;
 }
 
 export interface DocumentFormState {
@@ -36,12 +37,21 @@ export function useDocumentForm(doc: Document | undefined) {
                 .filter(s => s.trim())
                 .map(s => {
                     const titleMatch = s.match(/^### (.*)(\n|$)/);
-                    const title = titleMatch ? titleMatch[1].trim() : '무제';
+                    let title = titleMatch ? titleMatch[1].trim() : '무제';
+
+                    // Parse limit from title if exists (e.g. "Title (500자)")
+                    let limit = 500;
+                    const limitMatch = title.match(/\((\d+)자\)$/);
+                    if (limitMatch) {
+                        limit = parseInt(limitMatch[1]);
+                        title = title.replace(/\s*\(\d+자\)$/, '');
+                    }
+
                     const content = s.replace(/^### .*\n?/, '').trim();
-                    return { title, content };
+                    return { title, content, limit };
                 });
 
-            const finalSections = parsedSections.length > 0 ? parsedSections : [{ title: '자기소개서', content: doc.content }];
+            const finalSections = parsedSections.length > 0 ? parsedSections : [{ title: '자기소개서', content: doc.content, limit: 500 }];
 
             setForm({
                 company: doc.company,
@@ -68,7 +78,7 @@ export function useDocumentForm(doc: Document | undefined) {
     const addSection = () => {
         setForm(prev => ({
             ...prev,
-            sections: [...prev.sections, { title: '', content: '' }]
+            sections: [...prev.sections, { title: '', content: '', limit: 500 }]
         }));
     };
 
@@ -83,7 +93,8 @@ export function useDocumentForm(doc: Document | undefined) {
         if (!doc) return;
 
         const combinedContent = form.sections.map(s => {
-            return `### ${s.title}\n${s.content}`;
+            const titleWithLimit = s.limit ? `${s.title} (${s.limit}자)` : s.title;
+            return `### ${titleWithLimit}\n${s.content}`;
         }).join('\n\n');
 
         try {

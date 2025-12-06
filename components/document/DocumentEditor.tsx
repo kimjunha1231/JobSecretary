@@ -5,6 +5,7 @@ import { Section } from '@/hooks/useDocumentForm';
 import { AutoDraftModal } from '@/components/write/AutoDraftModal';
 import { useDocuments } from '@/context/DocumentContext';
 import { useParams } from 'next/navigation';
+import { LimitSelector } from '@/components/ui/LimitSelector';
 
 interface DocumentEditorProps {
     sections: Section[];
@@ -60,10 +61,20 @@ export function DocumentEditor({
                             </button>
                         </div>
                         <div className="flex items-center justify-between gap-3 pl-10">
-                            <span className="text-sm text-zinc-500 font-mono">
-                                {section.content.length}자
-                            </span>
+                            <div className="flex items-center gap-2 text-sm text-zinc-500 font-mono">
+                                <span>{section.content.length} / {section.limit}자</span>
+                                <span className={section.content.length > section.limit ? 'text-red-400' : ''}>
+                                    ({section.limit - section.content.length}자 남음)
+                                </span>
+                            </div>
                             <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 text-sm text-zinc-400 mr-2">
+                                    <span>글자 수:</span>
+                                    <LimitSelector
+                                        value={section.limit}
+                                        onChange={(val) => onUpdateSection(index, 'limit', val.toString())}
+                                    />
+                                </div>
                                 <button
                                     onClick={() => setAutoDraftIndex(index)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
@@ -85,10 +96,12 @@ export function DocumentEditor({
                             onChange={e => onUpdateSection(index, 'content', e.target.value)}
                             className="w-full h-64 bg-zinc-900/50 border border-zinc-700 rounded-lg p-4 text-zinc-300 leading-relaxed focus:border-primary focus:outline-none resize-none"
                             placeholder="내용을 입력하세요..."
+                            maxLength={section.limit}
                         />
                     </div>
                 </div>
             ))}
+            {/* ... rest of the component */}
             <button
                 onClick={onAddSection}
                 className="w-full py-4 border-2 border-dashed border-zinc-700 rounded-2xl text-zinc-400 hover:text-white hover:border-zinc-500 hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-medium"
