@@ -52,7 +52,7 @@ export const generateInsight = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-lite',
+      model: 'gemini-2.5-flash-lite',
       contents: query,
       config: {
         systemInstruction: systemInstruction,
@@ -111,7 +111,7 @@ export const generateQuestions = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-lite', // Use cheaper model for simple task
+      model: 'gemini-2.5-flash-lite', // Use cheaper model for simple task
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
@@ -172,7 +172,7 @@ export const generateDraft = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-lite',
+      model: 'gemini-2.5-flash-lite',
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
