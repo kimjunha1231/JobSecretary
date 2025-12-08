@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.API_KEY!);
 
 export async function generateInterviewQuestions(content: string): Promise<string[]> {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.0-flash-lite",
         generationConfig: {
             responseMimeType: "application/json"
         }

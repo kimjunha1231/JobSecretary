@@ -13,7 +13,7 @@ export interface RefineResult {
 
 export async function refineText(text: string): Promise<RefineResult | null> {
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.0-flash-lite",
     generationConfig: {
       responseMimeType: "application/json"
     }
