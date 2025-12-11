@@ -1,8 +1,7 @@
 # JobSecretary: AI-Powered Career Asset Management System
 
 > **"Scalable Architecture for Personalized Career Data"**
-
-1인 개발의 효율성(Antigravity)을 넘어, **지속 가능한 확장성(Sustainability)**과 **유지보수성(Maintainability)**을 고려한 엔터프라이즈급 아키텍처로 재설계된 채용 관리 플랫폼입니다.
+채용 관리 플랫폼입니다.
 
 ## 1. 프로젝트 개요 (Overview)
 
