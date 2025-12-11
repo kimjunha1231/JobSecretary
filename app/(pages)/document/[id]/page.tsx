@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDocuments, useDeleteDocument } from '@/entities/document';
+import { useDocuments, useDocument, useDeleteDocument } from '@/entities/document';
 import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { ConfirmationModal } from '@/shared/ui';
 import { ReferenceSidebar, ReferenceDrawer } from '@/features/reference-search';
@@ -15,12 +15,9 @@ export default function DocumentDetail() {
     const params = useParams();
     const id = params?.id as string;
     const router = useRouter();
-    const { data: documents = [], isLoading } = useDocuments();
+    const { data: doc, isLoading } = useDocument(id);
     const deleteDocumentMutation = useDeleteDocument();
 
-    const doc = documents.find(d => d.id === id);
-
-    // Hooks
     const {
         form,
         updateField,
@@ -28,7 +25,7 @@ export default function DocumentDetail() {
         addSection,
         removeSection,
         saveDocument
-    } = useDocumentForm(doc);
+    } = useDocumentForm(doc || undefined);
 
     const searchProps = useReferenceSearch();
 

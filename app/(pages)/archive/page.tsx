@@ -26,8 +26,13 @@ import { SortableDocumentCard } from '@/entities/document';
 import { DateRangeFilter, ConfirmationModal } from '@/shared/ui';
 import { useArchiveFilters } from '@/features/document-archive';
 
+import { Document } from '@/types';
+
+const EMPTY_LIST: Document[] = [];
+
 export default function Archive() {
-    const { data: archivedDocuments = [] } = useArchivedDocuments();
+    const { data } = useArchivedDocuments();
+    const archivedDocuments = data || EMPTY_LIST;
     const deleteDocumentMutation = useDeleteDocument();
     const [items, setItems] = useState(archivedDocuments);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -106,23 +111,23 @@ export default function Archive() {
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
+
         if (over && active.id !== over.id) {
-            setItems((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id);
-                const newIndex = items.findIndex((item) => item.id === over.id);
+            const oldIndex = items.findIndex((item) => item.id === active.id);
+            const newIndex = items.findIndex((item) => item.id === over.id);
 
-                const newItems = arrayMove(items, oldIndex, newIndex);
+            const newItems = arrayMove(items, oldIndex, newIndex);
 
-                // Update positions in backend
-                const updates = newItems.map((item, index) => ({
-                    id: item.id,
-                    position: index
-                }));
-                updateDocumentOrder(updates).catch(error => {
-                    console.error('Failed to update order:', error);
-                });
+            setItems(newItems);
 
-                return newItems;
+            // Update positions in backend
+            const updates = newItems.map((item, index) => ({
+                id: item.id,
+                position: index
+            }));
+
+            updateDocumentOrder(updates).catch(error => {
+                console.error('Failed to update order:', error);
             });
         }
         setActiveId(null);

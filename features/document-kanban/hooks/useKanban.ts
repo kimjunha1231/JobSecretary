@@ -20,9 +20,11 @@ const COLUMNS: { status: Status | 'result'; title: string; color: string }[] = [
     { status: 'interview', title: '면접', color: 'orange' },
     { status: 'result', title: '결과', color: 'green' },
 ];
+const EMPTY_LIST: Document[] = [];
 
 export function useKanban() {
-    const { data: documents = [] } = useDocuments();
+    const { data } = useDocuments();
+    const documents = data || EMPTY_LIST;
     const updateDocumentMutation = useUpdateDocument();
     const deleteDocumentMutation = useDeleteDocument();
     const archiveDocumentsMutation = useArchiveDocuments();
