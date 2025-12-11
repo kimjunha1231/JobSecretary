@@ -1,4 +1,4 @@
-# CareerVault: AI-Powered Career Asset Management System
+# JobSecretary: AI-Powered Career Asset Management System
 
 > **"Scalable Architecture for Personalized Career Data"**
 
@@ -6,11 +6,11 @@
 
 ## 1. 프로젝트 개요 (Overview)
 
-CareerVault는 파편화된 취업 준비 과정(자소서 작성, 공고 관리, 일정 추적)을 통합하고, AI 기술을 활용해 개인의 커리어 데이터를 자산화하는 솔루션입니다.
+JobSecretary는 파편화된 취업 준비 과정(자소서 작성, 공고 관리, 일정 추적)을 통합하고, AI 기술을 활용해 개인의 커리어 데이터를 자산화하는 솔루션입니다.
 
 초기 MVP 단계에서는 빠른 개발 속도에 집중했으나, 기능이 고도화됨에 따라 복잡해지는 상태 관리와 대규모 데이터 처리, UI/로직의 결합도 증가 문제를 해결하기 위해 아키텍처를 전면 리팩토링했습니다.
 
-- **Live Demo**: [https://coverlettervault.vercel.app](https://coverlettervault.vercel.app)
+- **Live Demo**: [https://jobsecretary.lat](https://jobsecretary.lat)
 - **Tech Stack**: Next.js 14+, TypeScript, Supabase, TanStack Query, Tailwind CSS, Shadcn/UI
 
 ---
@@ -83,7 +83,7 @@ CareerVault는 파편화된 취업 준비 과정(자소서 작성, 공고 관리
 **Clone the repository**
 
 ```bash
-git clone https://github.com/kimjunha1231/CareerSecretary.git
+git clone https://github.com/kimjunha1231/JobSecretary.git
 ```
 
 **Install dependencies**
