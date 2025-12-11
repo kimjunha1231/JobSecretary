@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Document } from '@/types';
+import { Document } from '@/shared/types';
 import { Calendar, Briefcase, Trash2, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 

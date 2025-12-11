@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Archive, Command, PanelLeftClose, LogOut, LayoutDashboard, FileText, Shield, UserX, Mail, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/store/useAuthStore';
+import { useAuth } from '@/shared/store/useAuthStore';
 import { DeleteAccountModal } from '@/features/auth';
 
 const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string }> = ({ to, icon, label }) => {

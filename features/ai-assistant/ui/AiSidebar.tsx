@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDocuments } from '@/entities/document';
 import { generateInsight, generateQuestions } from '@/features/ai-assistant';
-import { ChatMessage } from '@/types';
+import { ChatMessage } from '@/shared/types';
 import { Send, Sparkles, Loader2, User, X, MessageSquare, HelpCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';

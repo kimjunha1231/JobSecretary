@@ -12,7 +12,7 @@ interface AuthState {
     session: Session | null;
     isLoading: boolean;
     alert: AlertState;
-    
+
     // Actions
     setUser: (user: User | null) => void;
     setSession: (session: Session | null) => void;
@@ -47,11 +47,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     signInWithGoogle: async () => {
         try {
-            const isLocal = typeof window !== 'undefined' && 
+            const isLocal = typeof window !== 'undefined' &&
                 (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
             const redirectTo = isLocal
-                ? 'http://localhost:3000/auth/callback'
-                : `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`;
+                ? 'http://localhost:3000/api/auth/callback'
+                : `${typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/callback`;
 
             console.log('Google Login Debug:', {
                 isLocal,

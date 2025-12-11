@@ -1,7 +1,7 @@
 'use server';
 
 import { GoogleGenAI } from "@google/genai";
-import { Document } from '@/types';
+import { Document } from '@/shared/types';
 
 const getClient = () => {
   if (!process.env.API_KEY) {

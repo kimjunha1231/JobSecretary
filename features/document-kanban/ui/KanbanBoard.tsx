@@ -15,7 +15,7 @@ import { ResultSelectionModal } from './ResultSelectionModal';
 import { ArchiveModal } from './ArchiveModal';
 import { DeleteConfirmationModal, ConfirmationModal } from '@/shared/ui';
 import { useKanban } from '@/features/document-kanban';
-import { Status } from '@/types';
+import { Status } from '@/shared/types';
 
 const COLUMNS: { status: Status | 'result'; title: string; color: string }[] = [
     { status: 'writing', title: '작성 중', color: 'blue' },

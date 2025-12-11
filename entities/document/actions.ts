@@ -2,7 +2,7 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { Document } from '@/types';
+import { Document } from '@/shared/types';
 import { z } from 'zod';
 
 // Helper to create Supabase Server Client

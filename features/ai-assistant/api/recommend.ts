@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '@/shared/api';
-import { RecommendedDoc } from '@/store/useDraftStore';
+import { RecommendedDoc } from '@/shared/store/useDraftStore';
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY!);
 

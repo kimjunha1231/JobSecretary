@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Document, Status } from '@/types';
+import { Document, Status } from '@/shared/types';
 import { KanbanCard } from './KanbanCard';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { supabase } from '@/shared/api';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/shared/store/useAuthStore';
 
 export function AuthInitializer() {
     const { setSession, setIsLoading, showAlert } = useAuthStore();

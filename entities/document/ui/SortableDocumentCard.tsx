@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { FileText, Trash2, Calendar, Star } from 'lucide-react';
-import { Document } from '@/types';
+import { Document } from '@/shared/types';
 import { useRouter } from 'next/navigation';
 import { toggleDocumentFavorite } from '@/entities/document';
 import { ConfirmationModal } from '@/shared/ui';

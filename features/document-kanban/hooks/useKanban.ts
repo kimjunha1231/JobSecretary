@@ -11,7 +11,7 @@ import {
     useDroppable,
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { Document, Status } from '@/types';
+import { Document, Status } from '@/shared/types';
 import { useDocuments, useUpdateDocument, useDeleteDocument, useArchiveDocuments } from '@/entities/document';
 
 const COLUMNS: { status: Status | 'result'; title: string; color: string }[] = [

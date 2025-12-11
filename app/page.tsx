@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/store/useAuthStore';
+import { useAuth } from '@/shared/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Command } from 'lucide-react';

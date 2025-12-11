@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Check, XCircle } from 'lucide-react';
-import { Status } from '@/types';
+import { Status } from '@/shared/types';
 
 interface ResultSelectionModalProps {
     isOpen: boolean;

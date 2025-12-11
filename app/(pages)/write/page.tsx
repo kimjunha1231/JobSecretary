@@ -6,7 +6,7 @@ import { ReferenceSidebar } from '@/features/reference-search';
 import { AiSidebar } from '@/features/ai-assistant';
 import { BookOpen, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDraftStore } from '@/store/useDraftStore';
+import { useDraftStore } from '@/shared/store/useDraftStore';
 
 function WriteContent() {
     const [isReferenceOpen, setIsReferenceOpen] = useState(false);

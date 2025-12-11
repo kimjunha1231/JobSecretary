@@ -5,7 +5,7 @@ import { Search, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SmartTagInput } from '@/shared/ui';
 import { searchDocumentsByTags } from '@/features/reference-search';
-import { RecommendedDoc } from '@/store/useDraftStore';
+import { RecommendedDoc } from '@/shared/store/useDraftStore';
 
 interface ReferenceSidebarProps {
     searchTags: string[];

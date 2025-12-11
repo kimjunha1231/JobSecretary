@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Save, Plus, Trash2, ChevronLeft, ChevronRight, PenTool } from 'lucide-react';
 import { toast } from 'sonner';
-import { useDraftStore } from '@/store/useDraftStore';
+import { useDraftStore } from '@/shared/store/useDraftStore';
 import { useAddDocument } from '@/entities/document';
 import { SmartTagInput, LimitSelector } from '@/shared/ui';
 import { RefineManager } from '@/features/ai-assistant';

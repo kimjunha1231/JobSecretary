@@ -26,7 +26,7 @@ import { SortableDocumentCard } from '@/entities/document';
 import { DateRangeFilter, ConfirmationModal } from '@/shared/ui';
 import { useArchiveFilters } from '@/features/document-archive';
 
-import { Document } from '@/types';
+import { Document } from '@/shared/types';
 
 const EMPTY_LIST: Document[] = [];
 

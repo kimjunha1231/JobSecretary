@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, Calendar, Edit2, Save, Trash2, X, MessageCircleQuestion, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, SmartTagInput, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui';
-import { Document, Status } from '@/types';
+import { Document, Status } from '@/shared/types';
 import { DocumentFormState } from '@/features/document-editor';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { PdfDocument } from '@/entities/document';
