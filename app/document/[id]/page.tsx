@@ -2,24 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDocuments } from '@/context/DocumentContext';
+import { useDocuments, useDeleteDocument } from '@/entities/document';
 import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
-import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-import ReferenceSidebar from '@/components/write/ReferenceSidebar';
-import { AiSidebar } from '@/components/AiSidebar';
-import { useDocumentForm } from '@/hooks/useDocumentForm';
-import { useReferenceSearch } from '@/hooks/useReferenceSearch';
-import { DocumentHeader } from '@/components/document/DocumentHeader';
-import { DocumentEditor } from '@/components/document/DocumentEditor';
-import { DocumentViewer } from '@/components/document/DocumentViewer';
-import { ReferenceDrawer } from '@/components/document/ReferenceDrawer';
-import { InterviewQuestionsModal } from '@/components/document/InterviewQuestionsModal';
+import { ConfirmationModal } from '@/shared/ui';
+import { ReferenceSidebar, ReferenceDrawer } from '@/features/reference-search';
+import { AiSidebar } from '@/features/ai-assistant';
+import { useDocumentForm } from '@/features/document-editor';
+import { useReferenceSearch } from '@/features/reference-search';
+import { DocumentHeader, DocumentEditor, DocumentViewer, InterviewQuestionsModal } from '@/features/document-editor';
 
 export default function DocumentDetail() {
     const params = useParams();
     const id = params?.id as string;
     const router = useRouter();
-    const { documents, deleteDocument, isLoading } = useDocuments();
+    const { data: documents = [], isLoading } = useDocuments();
+    const deleteDocumentMutation = useDeleteDocument();
 
     const doc = documents.find(d => d.id === id);
 
@@ -86,7 +83,7 @@ export default function DocumentDetail() {
     };
 
     const confirmDocDelete = async () => {
-        await deleteDocument(doc.id);
+        await deleteDocumentMutation.mutateAsync(doc.id);
         router.push('/archive');
         setIsDocDeleteModalOpen(false);
     };

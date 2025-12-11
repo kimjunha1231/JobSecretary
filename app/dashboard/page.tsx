@@ -1,5 +1,5 @@
 import React from 'react';
-import { KanbanBoard } from '@/components/dashboard/KanbanBoard';
+import { KanbanBoard } from '@/features/document-kanban';
 
 export const dynamic = 'force-dynamic';
 

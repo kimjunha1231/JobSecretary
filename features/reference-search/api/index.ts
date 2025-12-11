@@ -1,0 +1,2 @@
+export { searchDocumentsByTags } from './search';
+

@@ -35,3 +35,7 @@ out/
 
 # Temporary
 temp-repo/
+
+# Test outputs
+test-results/
+playwright-report/

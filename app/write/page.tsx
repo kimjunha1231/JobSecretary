@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, Suspense } from 'react';
-import ResumeForm from '@/components/write/ResumeForm';
-import ReferenceSidebar from '@/components/write/ReferenceSidebar';
-import { AiSidebar } from '@/components/AiSidebar';
+import { ResumeForm } from '@/features/document-write';
+import { ReferenceSidebar } from '@/features/reference-search';
+import { AiSidebar } from '@/features/ai-assistant';
 import { BookOpen, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraftStore } from '@/store/useDraftStore';

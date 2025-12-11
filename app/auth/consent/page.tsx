@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ConsentModal } from '@/components/ConsentModal';
-import { useAuth } from '@/context/AuthContext';
+import { ConsentModal } from '@/features/auth';
+import { useAuth } from '@/store/useAuthStore';
 
 function ConsentContent() {
     const router = useRouter();

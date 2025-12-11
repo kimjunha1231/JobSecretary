@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { DocumentProvider } from "@/context/DocumentContext";
-import { AuthProvider } from "@/context/AuthContext";
-import { Layout } from "@/components/Layout";
-import { Toaster } from "@/components/ui/sonner";
-import { GlobalAlert } from "@/components/GlobalAlert";
-import InAppBrowserGuard from "@/components/InAppBrowserGuard";
+import { Toaster, GlobalAlert } from "@/shared/ui";
+import { AuthInitializer } from "@/shared/ui/AuthInitializer";
+import InAppBrowserGuard from "@/features/auth/ui/InAppBrowserGuard";
 import { Analytics } from "@vercel/analytics/next";
+import { QueryProvider } from "./providers";
+import { MainLayout } from "./main-layout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -77,15 +76,14 @@ export default function RootLayout({
         <html lang="ko" className="dark" suppressHydrationWarning>
             <body className={inter.className} suppressHydrationWarning={true}>
                 <InAppBrowserGuard />
-                <AuthProvider>
-                    <DocumentProvider>
-                        <Layout>
-                            {children}
-                        </Layout>
-                        <GlobalAlert />
-                        <Toaster />
-                    </DocumentProvider>
-                </AuthProvider>
+                <QueryProvider>
+                    <AuthInitializer />
+                    <MainLayout>
+                        {children}
+                    </MainLayout>
+                    <GlobalAlert />
+                    <Toaster />
+                </QueryProvider>
                 <Analytics />
                 <script
                     type="application/ld+json"

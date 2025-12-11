@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useDocuments } from '@/context/DocumentContext';
-import { updateDocumentOrder, toggleDocumentFavorite } from '@/actions/document';
+import { useArchivedDocuments, useDeleteDocument, toggleDocumentFavorite, updateDocumentOrder } from '@/entities/document';
 import { Trash2, Search, FileText, PenTool, Calendar, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -23,14 +22,14 @@ import {
     sortableKeyboardCoordinates,
     rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { SortableDocumentCard } from '@/components/SortableDocumentCard';
-import { DateRangeFilter } from '@/components/DateRangeFilter';
-import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-import { useArchiveFilters } from '@/hooks/useArchiveFilters';
+import { SortableDocumentCard } from '@/entities/document';
+import { DateRangeFilter, ConfirmationModal } from '@/shared/ui';
+import { useArchiveFilters } from '@/features/document-archive';
 
 export default function Archive() {
-    const { documents, deleteDocument } = useDocuments();
-    const [items, setItems] = useState(documents.filter(doc => doc.isArchived));
+    const { data: archivedDocuments = [] } = useArchivedDocuments();
+    const deleteDocumentMutation = useDeleteDocument();
+    const [items, setItems] = useState(archivedDocuments);
     const [activeId, setActiveId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(9);
@@ -70,8 +69,8 @@ export default function Archive() {
     );
 
     React.useEffect(() => {
-        setItems(documents.filter(doc => doc.isArchived));
-    }, [documents]);
+        setItems(archivedDocuments);
+    }, [archivedDocuments]);
 
     // Reset page when filters change
     React.useEffect(() => {
@@ -79,7 +78,7 @@ export default function Archive() {
     }, [searchTerm, statusFilter, screeningFilter, startDate, endDate, selectedTags]);
 
     // Extract all unique tags
-    const allTags = Array.from(new Set(documents.flatMap(doc => doc.tags || []))).sort();
+    const allTags = Array.from(new Set(archivedDocuments.flatMap(doc => doc.tags || []))).sort();
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
@@ -174,8 +173,8 @@ export default function Archive() {
                 <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 flex flex-col items-center justify-center">
                     <span className="text-zinc-400 text-sm mb-1">서류 합격률</span>
                     <span className="text-3xl font-bold text-emerald-400">
-                        {documents.length > 0
-                            ? Math.round((documents.filter(doc => doc.documentScreeningStatus === 'pass').length / documents.length) * 100)
+                        {archivedDocuments.length > 0
+                            ? Math.round((archivedDocuments.filter(doc => doc.documentScreeningStatus === 'pass').length / archivedDocuments.length) * 100)
                             : 0}%
                     </span>
                 </div>
@@ -183,10 +182,10 @@ export default function Archive() {
                     <span className="text-zinc-400 text-sm mb-1">서류 합격 / 전체 공고</span>
                     <div className="flex items-end gap-1">
                         <span className="text-3xl font-bold text-white">
-                            {documents.filter(doc => doc.documentScreeningStatus === 'pass').length}
+                            {archivedDocuments.filter(doc => doc.documentScreeningStatus === 'pass').length}
                         </span>
                         <span className="text-zinc-500 text-lg mb-1">/</span>
-                        <span className="text-zinc-500 text-lg mb-1">{documents.length}</span>
+                        <span className="text-zinc-500 text-lg mb-1">{archivedDocuments.length}</span>
                     </div>
                 </div>
             </div>
@@ -389,7 +388,7 @@ export default function Archive() {
                                         <SortableDocumentCard
                                             key={doc.id}
                                             doc={doc}
-                                            onDelete={deleteDocument}
+                                            onDelete={(id) => deleteDocumentMutation.mutate(id)}
                                             onToggleFavorite={handleToggleFavorite}
                                         />
                                     ))}
@@ -537,7 +536,7 @@ export default function Archive() {
                 }}
                 onConfirm={() => {
                     if (inlineDeleteTargetId) {
-                        deleteDocument(inlineDeleteTargetId);
+                        deleteDocumentMutation.mutate(inlineDeleteTargetId);
                         setInlineDeleteTargetId(null);
                     }
                 }}
