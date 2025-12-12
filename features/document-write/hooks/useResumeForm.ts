@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useDraftStore } from '@/shared/store/useDraftStore';
 import { useAddDocument } from '@/entities/document';
+import { Status } from '@/shared/types';
 
 export const useResumeForm = () => {
     const router = useRouter();
@@ -53,7 +54,7 @@ export const useResumeForm = () => {
                 content: combinedContent,
                 jobPostUrl: formData.jobPostUrl,
                 tags: formData.tags,
-                status: finalStatus as any,
+                status: finalStatus as Status,
                 deadline: formData.deadline,
                 isArchived: fromArchive,
                 documentScreeningStatus: screeningStatus

@@ -50,7 +50,7 @@ export async function searchDocumentsByTags(tags: string[]): Promise<Recommended
 
         if (error) throw error;
 
-        return (data || []).map((doc: any) => ({
+        return (data || []).map((doc) => ({
             id: doc.id,
             companyName: doc.company,
             originalContent: doc.content,
