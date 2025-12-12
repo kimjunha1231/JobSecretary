@@ -2,7 +2,7 @@
 
 import { Search, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SmartTagInput } from '@/shared/ui';
+import { SmartTagInput } from '@/entities/document';
 import { ReferenceSearchProps } from '../types';
 import { useReferenceSidebar } from '../hooks';
 

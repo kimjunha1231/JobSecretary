@@ -2,7 +2,7 @@
 
 
 import { useAuth } from '@/entities/user';
-import { Alert, AlertDescription, AlertTitle } from './alert';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/ui';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
 export const GlobalAlert = () => {

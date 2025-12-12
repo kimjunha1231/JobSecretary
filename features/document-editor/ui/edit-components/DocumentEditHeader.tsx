@@ -1,5 +1,6 @@
 import { Building2, Calendar, Save, X } from 'lucide-react';
-import { SmartTagInput, TooltipButton, TooltipProvider } from '@/shared/ui';
+import { TooltipButton, TooltipProvider } from '@/shared/ui';
+import { SmartTagInput } from '@/entities/document';
 import { Status } from '@/shared/types';
 import { DocumentFormState, DocumentEditHeaderProps } from '@/features/document-editor';
 

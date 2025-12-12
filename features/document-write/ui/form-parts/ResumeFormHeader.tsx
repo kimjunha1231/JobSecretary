@@ -1,4 +1,4 @@
-import { SmartTagInput } from '@/shared/ui';
+import { SmartTagInput } from '@/entities/document';
 import { useDraftStore } from '@/entities/draft';
 
 interface ResumeFormHeaderProps {

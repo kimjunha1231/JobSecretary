@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { X, Plus, Check, Loader2 } from 'lucide-react';
-import { Badge } from './badge';
+import { Badge } from '@/shared/ui';
 import { getUniqueTags } from '@/entities/document';
 import { cn } from '@/shared/lib/utils';
 

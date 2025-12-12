@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Toaster, GlobalAlert } from "@/shared/ui";
+import { Toaster } from "@/shared/ui";
+import { GlobalAlert } from "@/widgets/GlobalAlert";
 import { AuthInitializer, InAppBrowserGuard } from "@/features/auth/ui";
 import { Analytics } from "@vercel/analytics/next";
 import { QueryProvider } from "./providers";
