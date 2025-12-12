@@ -98,6 +98,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                             }}
                             className="text-zinc-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded z-10"
                             title="사이드바 닫기"
+                            aria-label="사이드바 닫기"
                         >
                             <PanelLeftClose size={18} />
                         </button>
@@ -145,7 +146,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         {user.user_metadata.avatar_url ? (
-                                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full border border-zinc-600" />
+                                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full border border-zinc-600" loading="lazy" />
                                         ) : (
                                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600 flex items-center justify-center text-xs font-bold">
                                                 {user.email?.[0].toUpperCase()}
@@ -159,6 +160,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                                         onClick={signOut}
                                         className="text-zinc-500 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded"
                                         title="로그아웃"
+                                        aria-label="로그아웃"
                                     >
                                         <LogOut size={14} />
                                     </button>

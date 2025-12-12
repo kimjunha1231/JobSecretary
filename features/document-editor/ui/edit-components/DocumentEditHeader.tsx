@@ -2,23 +2,8 @@ import { Building2, Calendar, Save, X } from 'lucide-react';
 import { TooltipButton, TooltipProvider } from '@/shared/ui';
 import { SmartTagInput } from '@/entities/document';
 import { Status } from '@/shared/types';
+import { STATUS_LABELS, STATUS_BADGE_CLASSES } from '@/shared/config';
 import { DocumentFormState, DocumentEditHeaderProps } from '@/features/document-editor';
-
-const STATUS_LABELS: Record<Status, string> = {
-    writing: '작성 중',
-    applied: '지원 완료',
-    interview: '면접 진행 중',
-    pass: '합격',
-    fail: '불합격'
-};
-
-const STATUS_BADGE_CLASSES: Record<Status, string> = {
-    writing: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    applied: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    interview: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    pass: 'bg-green-500/10 text-green-400 border-green-500/20',
-    fail: 'bg-red-500/10 text-red-400 border-red-500/20'
-};
 
 export function DocumentEditHeader({
     form,

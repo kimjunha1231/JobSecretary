@@ -10,7 +10,7 @@ interface ResumeSectionEditorProps {
         limit: number;
     };
     index: number;
-    updateSection: (index: number, key: 'title' | 'content' | 'limit', value: any) => void;
+    updateSection: (index: number, key: 'title' | 'content' | 'limit', value: string | number) => void;
     isAutoDraftOpen: boolean;
     setIsAutoDraftOpen: (isOpen: boolean) => void;
     handleDraftGenerated: (draft: string) => void;

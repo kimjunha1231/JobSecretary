@@ -130,7 +130,7 @@ export function useAddDocument() {
                     deadline: doc.deadline,
                     job_post_url: doc.jobPostUrl,
                     logo,
-                    is_archived: false,
+                    is_archived: doc.isArchived ?? false,
                     is_favorite: false,
                 })
                 .select()

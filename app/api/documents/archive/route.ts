@@ -1,44 +1,10 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { NextResponse } from 'next/server';
-
-async function createClient() {
-    const cookieStore = await cookies();
-
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value;
-                },
-                set(name: string, value: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value, ...options });
-                    } catch (error) {
-                        // The `set` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
-                },
-                remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options });
-                    } catch (error) {
-                        // The `delete` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
-                },
-            },
-        }
-    );
-}
+import { logger } from "@/shared/lib";
 
 export async function POST(request: Request) {
     try {
-        const supabase = await createClient();
+        const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -58,13 +24,13 @@ export async function POST(request: Request) {
             .eq('user_id', user.id);
 
         if (error) {
-            console.error('Error archiving documents:', error);
+            logger.error('Error archiving documents:', error);
             return new NextResponse('Internal Server Error', { status: 500 });
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error in archive API:', error);
+        logger.error('Error in archive API:', error);
         return new NextResponse('Internal Server Error', { status: 500 });
     }
 }

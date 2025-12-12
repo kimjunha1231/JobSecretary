@@ -1,12 +1,8 @@
 import { Status } from '@/shared/types';
+import { STATUS_LABELS } from '@/shared/config';
 
-export const STATUS_LABELS: Record<Status, string> = {
-    writing: '작성 중',
-    applied: '지원 완료',
-    interview: '면접',
-    pass: '합격',
-    fail: '불합격'
-};
+// Re-export for convenience
+export { STATUS_LABELS };
 
 export const STATUS_BADGE_STYLES: Record<Status, string> = {
     writing: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',

@@ -1,4 +1,5 @@
 import { Save } from 'lucide-react';
+import { Spinner } from '@/shared/ui';
 
 interface ResumeActionsProps {
     onSave: () => void;
@@ -15,7 +16,7 @@ export function ResumeActions({ onSave, isSaving }: ResumeActionsProps) {
             >
                 {isSaving ? (
                     <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <Spinner size="sm" className="border-white/30 border-t-white" />
                         <span>저장 중...</span>
                     </>
                 ) : (

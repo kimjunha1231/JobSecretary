@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { documentService } from '@/entities/document/server/document.service';
+import { logger } from "@/shared/lib";
 
 export async function GET() {
     try {
         const data = await documentService.getDocuments();
         return NextResponse.json(data);
     } catch (error: any) {
-        console.error('Error fetching documents:', error);
+        logger.error('Error fetching documents:', error);
         if (error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -19,12 +20,12 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const data = await documentService.createDocument(body);
         return NextResponse.json(data);
-    } catch (error: any) {
-        console.error('Error creating document:', error);
-        if (error.message === 'Unauthorized') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        return NextResponse.json({ error: 'Failed to create document' }, { status: 500 });
+    } catch (error: unknown) {
+        logger.error('Error creating document:', error);
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : 'Unknown error' },
+            { status: 500 }
+        );
     }
 }
 
@@ -40,7 +41,7 @@ export async function DELETE(request: NextRequest) {
         await documentService.deleteDocument(id);
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error('Error deleting document:', error);
+        logger.error('Error deleting document:', error);
         if (error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -60,15 +61,11 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json();
         const data = await documentService.updateDocument(id, body);
         return NextResponse.json(data);
-    } catch (error: any) {
-        console.error('Error updating document:', error);
-        if (error.message === 'Unauthorized') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        return NextResponse.json({
-            error: 'Failed to update document',
-            details: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
+    } catch (error: unknown) {
+        logger.error('Error updating document:', error);
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : 'Unknown error' },
+            { status: 500 }
+        );
     }
 }
-

@@ -3,6 +3,7 @@
 import { Search, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SmartTagInput } from '@/entities/document';
+import { Spinner } from '@/shared/ui';
 import { ReferenceSearchProps } from '../types';
 import { useReferenceSidebar } from '../hooks';
 
@@ -38,7 +39,7 @@ export default function ReferenceSidebar({
             <div className="flex-1 overflow-y-auto custom-scrollbar -mr-2 pr-2">
                 {isSearching ? (
                     <div className="flex flex-col items-center justify-center py-10 text-zinc-500">
-                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+                        <Spinner className="mb-2" />
                         <p className="text-sm">검색 중...</p>
                     </div>
                 ) : searchResults.length > 0 ? (

@@ -1,1 +1,1 @@
-export { useCopyToClipboard } from './useCopyToClipboard';
+// No hooks exported - file kept for future use

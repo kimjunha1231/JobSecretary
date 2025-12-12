@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { logger } from "@/shared/lib";
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
         const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error && data.user) {
-            console.log('🔐 User logged in:', data.user.email);
+            logger.info('🔐 User logged in:', data.user.email);
 
             // Directly redirect to the next URL (archive)
             const nextUrl = new URL(next, origin);

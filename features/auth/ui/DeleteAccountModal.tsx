@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Spinner } from '@/shared/ui';
 import { DeleteAccountModalProps } from '../types';
 import { useDeleteAccountForm } from '../hooks';
 
@@ -98,7 +99,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                         >
                             {isDeleting ? (
                                 <>
-                                    <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                                    <Spinner size="sm" className="border-neutral-400 border-t-transparent" />
                                     삭제 중...
                                 </>
                             ) : (

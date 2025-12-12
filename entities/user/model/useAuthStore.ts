@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/shared/api';
+import { logger } from "@/shared/lib";
 
 interface AlertState {
     message: string;
@@ -53,7 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 ? 'http://localhost:3000/api/auth/callback'
                 : `${typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/callback`;
 
-            console.log('Google Login Debug:', {
+            logger.info('Google Login Debug:', {
                 isLocal,
                 hostname: typeof window !== 'undefined' ? window.location.hostname : '',
                 origin: typeof window !== 'undefined' ? window.location.origin : '',
@@ -68,7 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
             if (error) throw error;
         } catch (error) {
-            console.error('Error signing in with Google:', error);
+            logger.error('Error signing in with Google:', error);
             get().showAlert('로그인 중 오류가 발생했습니다.', 'error');
         }
     },
@@ -82,7 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 window.location.href = '/'; // Force refresh and go to home
             }
         } catch (error) {
-            console.error('Error signing out:', error);
+            logger.error('Error signing out:', error);
             get().showAlert('로그아웃 중 오류가 발생했습니다.', 'error');
         }
     },

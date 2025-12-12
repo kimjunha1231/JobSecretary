@@ -7,13 +7,22 @@ export const STATUS_LABELS: Record<string, string> = {
   fail: '불합격',
 };
 
-// Status colors
+// Status colors (for kanban cards)
 export const STATUS_COLORS: Record<string, string> = {
   writing: 'bg-yellow-500/20 text-yellow-400',
   applied: 'bg-blue-500/20 text-blue-400',
   interview: 'bg-purple-500/20 text-purple-400',
   pass: 'bg-green-500/20 text-green-400',
   fail: 'bg-red-500/20 text-red-400',
+};
+
+// Status badge classes (for document headers/cards)
+export const STATUS_BADGE_CLASSES: Record<string, string> = {
+  writing: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  applied: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  interview: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  pass: 'bg-green-500/10 text-green-400 border-green-500/20',
+  fail: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
 // Common tags

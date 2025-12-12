@@ -1,40 +1,9 @@
 'use server';
 
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { Document } from '@/shared/types';
+import { logger } from '@/shared/lib';
 import { z } from 'zod';
-
-// Helper to create Supabase Server Client
-async function createClient() {
-    const cookieStore = await cookies();
-
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value;
-                },
-                set(name: string, value: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value, ...options });
-                    } catch (error) {
-                        // The `set` method was called from a Server Component.
-                    }
-                },
-                remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options });
-                    } catch (error) {
-                        // The `delete` method was called from a Server Component.
-                    }
-                },
-            },
-        }
-    );
-}
 
 // Zod Schemas
 const DocumentSchema = z.object({
@@ -56,7 +25,7 @@ const DocumentSchema = z.object({
 const UpdateDocumentSchema = DocumentSchema.partial();
 
 export async function getDocuments(): Promise<Document[]> {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
         .from('documents')
@@ -65,7 +34,7 @@ export async function getDocuments(): Promise<Document[]> {
         .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('Error fetching documents:', error);
+        logger.error('Error fetching documents:', error);
         return [];
     }
 
@@ -83,7 +52,7 @@ export async function getDocuments(): Promise<Document[]> {
 }
 
 export async function createDocument(formData: FormData) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
 
     const {
         data: { user },
@@ -111,7 +80,7 @@ export async function createDocument(formData: FormData) {
             rawData.tags = JSON.parse(tagsString);
         }
     } catch (e) {
-        console.error("Failed to parse tags", e);
+        logger.error("Failed to parse tags", e);
         rawData.tags = [];
     }
 
@@ -119,7 +88,7 @@ export async function createDocument(formData: FormData) {
     const validationResult = DocumentSchema.safeParse(rawData);
 
     if (!validationResult.success) {
-        console.error("Validation Error:", validationResult.error);
+        logger.error("Validation Error:", validationResult.error);
         throw new Error(validationResult.error.issues[0].message);
     }
 
@@ -142,13 +111,13 @@ export async function createDocument(formData: FormData) {
             date: validatedData.date,
             job_post_url: validatedData.jobPostUrl,
             logo,
-            is_archived: false
+            is_archived: validatedData.isArchived ?? false
         })
         .select()
         .single();
 
     if (error) {
-        console.error('Error creating document:', error);
+        logger.error('Error creating document:', error);
         throw new Error('Failed to create document');
     }
 
@@ -156,7 +125,7 @@ export async function createDocument(formData: FormData) {
 }
 
 export async function updateDocument(id: string, updates: Partial<Document>) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -167,13 +136,13 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
     const validationResult = UpdateDocumentSchema.safeParse(updates);
 
     if (!validationResult.success) {
-        console.error("Validation Error:", validationResult.error);
+        logger.error("Validation Error:", validationResult.error);
         throw new Error(validationResult.error.issues[0].message);
     }
 
     const validatedUpdates = validationResult.data;
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (validatedUpdates.title !== undefined) updateData.title = validatedUpdates.title;
     if (validatedUpdates.company !== undefined) updateData.company = validatedUpdates.company;
     if (validatedUpdates.role !== undefined) updateData.role = validatedUpdates.role;
@@ -202,7 +171,7 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
         .single();
 
     if (error) {
-        console.error('Error updating document:', error);
+        logger.error('Error updating document:', error);
         throw error;
     }
 
@@ -210,7 +179,7 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
 }
 
 export async function updateDocumentStatus(id: string, status: string) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
@@ -222,7 +191,7 @@ export async function updateDocumentStatus(id: string, status: string) {
         .eq('user_id', user.id);
 
     if (error) {
-        console.error('Error updating document status:', error);
+        logger.error('Error updating document status:', error);
         throw new Error('Failed to update document status');
     }
 
@@ -230,7 +199,7 @@ export async function updateDocumentStatus(id: string, status: string) {
 }
 
 export async function deleteDocument(id: string) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
@@ -242,7 +211,7 @@ export async function deleteDocument(id: string) {
         .eq('user_id', user.id);
 
     if (error) {
-        console.error('Error deleting document:', error);
+        logger.error('Error deleting document:', error);
         throw new Error('Failed to delete document');
     }
 
@@ -250,14 +219,14 @@ export async function deleteDocument(id: string) {
 }
 
 export async function getUniqueTags(): Promise<string[]> {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
         .from('documents')
         .select('tags');
 
     if (error) {
-        console.error('Error fetching tags:', error);
+        logger.error('Error fetching tags:', error);
         return [];
     }
 
@@ -268,7 +237,7 @@ export async function getUniqueTags(): Promise<string[]> {
 }
 
 export async function updateDocumentOrder(items: { id: string; position: number }[]) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -289,7 +258,7 @@ export async function updateDocumentOrder(items: { id: string; position: number 
 }
 
 export async function toggleDocumentFavorite(id: string, isFavorite: boolean) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
@@ -301,7 +270,7 @@ export async function toggleDocumentFavorite(id: string, isFavorite: boolean) {
         .eq('user_id', user.id);
 
     if (error) {
-        console.error('Error updating document favorite status:', error);
+        logger.error('Error updating document favorite status:', error);
         throw new Error(error.message);
     }
 
@@ -309,7 +278,7 @@ export async function toggleDocumentFavorite(id: string, isFavorite: boolean) {
 }
 
 export async function archiveDocuments(ids: string[]) {
-    const supabase = await createClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
@@ -321,7 +290,7 @@ export async function archiveDocuments(ids: string[]) {
         .eq('user_id', user.id);
 
     if (error) {
-        console.error('Error archiving documents:', error);
+        logger.error('Error archiving documents:', error);
         throw new Error('Failed to archive documents');
     }
 

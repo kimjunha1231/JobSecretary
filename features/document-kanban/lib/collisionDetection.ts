@@ -7,6 +7,7 @@ import {
 } from '@dnd-kit/core';
 
 export const createKanbanCollisionDetection = () => {
+    // TODO: Replace 'any' with proper dnd-kit CollisionDetection arguments type
     return (args: any) => {
         const pointerCollisions = pointerWithin(args);
         const archivePointerCollision = pointerCollisions.find((c: any) => c.id === 'archive');

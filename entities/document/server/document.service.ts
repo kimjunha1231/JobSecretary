@@ -1,40 +1,10 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { mapRecordToDocument, mapDocumentToRecord, type DocumentRecord } from '../repository';
 import { Document } from '../model';
 
-async function createClient() {
-    const cookieStore = await cookies();
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value;
-                },
-                set(name: string, value: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value, ...options });
-                    } catch (error) {
-                        // The `set` method was called from a Server Component.
-                    }
-                },
-                remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options });
-                    } catch (error) {
-                        // The `delete` method was called from a Server Component.
-                    }
-                },
-            },
-        }
-    );
-}
-
 export const documentService = {
     async getDocuments(): Promise<Document[]> {
-        const supabase = await createClient();
+        const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -53,7 +23,7 @@ export const documentService = {
     },
 
     async createDocument(documentData: Partial<Document>): Promise<Document> {
-        const supabase = await createClient();
+        const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -82,7 +52,7 @@ export const documentService = {
     },
 
     async deleteDocument(id: string): Promise<boolean> {
-        const supabase = await createClient();
+        const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
@@ -100,7 +70,7 @@ export const documentService = {
     },
 
     async updateDocument(id: string, updates: Partial<Document>): Promise<Document> {
-        const supabase = await createClient();
+        const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {

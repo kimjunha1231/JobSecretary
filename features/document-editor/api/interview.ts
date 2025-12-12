@@ -2,6 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AI_MODEL } from '@/shared/config';
+import { logger } from "@/shared/lib";
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY!);
 
@@ -42,7 +43,7 @@ export async function generateInterviewQuestions(content: string): Promise<strin
 
         return JSON.parse(cleanedText) as string[];
     } catch (error) {
-        console.error("Interview Question Generation Error:", error);
+        logger.error("Interview Question Generation Error:", error);
         return [];
     }
 }

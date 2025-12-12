@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FileText, Shield, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Spinner } from '@/shared/ui';
 import { ConsentModalProps } from '../types';
 import { useConsentForm } from '../hooks';
 
@@ -114,7 +115,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({ onConsent, isLoading
                 >
                     {isLoading ? (
                         <>
-                            <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                            <Spinner size="sm" className="border-neutral-400 border-t-transparent" />
                             처리 중...
                         </>
                     ) : (

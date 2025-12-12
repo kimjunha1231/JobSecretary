@@ -4,11 +4,12 @@ import { GoogleGenAI } from "@google/genai";
 import { Document } from '@/shared/types';
 import { AI_MODEL } from '@/shared/config';
 import { InsightResult, RefineResult } from '../types';
+import { logger } from '@/shared/lib';
 
 
 const getClient = () => {
   if (!process.env.API_KEY) {
-    console.error("API_KEY is missing from environment variables.");
+    logger.error("API_KEY is missing from environment variables.");
     throw new Error("API Key missing");
   }
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -86,10 +87,10 @@ export const generateInsight = async (
     } catch {
       return { text: responseText, relatedDocIds: [] };
     }
-  } catch (error: any) {
-    console.error("Gemini API Error:", error);
+  } catch (error: unknown) {
+    logger.error("Gemini API Error:", error);
     return {
-      text: `오류가 발생했습니다: ${error.message || JSON.stringify(error)}`,
+      text: `오류가 발생했습니다: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
       relatedDocIds: []
     };
   }
@@ -130,7 +131,7 @@ export const generateQuestions = async (
 
     return response.text || "질문을 생성할 수 없습니다.";
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    logger.error("Gemini API Error:", error);
     return "질문 생성 중 오류가 발생했습니다.";
   }
 };
@@ -184,7 +185,7 @@ ${contextData}
 
     return response.text || "초안을 생성할 수 없습니다.";
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    logger.error("Gemini API Error:", error);
     return "초안 생성 중 오류가 발생했습니다.";
   }
 };
@@ -230,7 +231,7 @@ ${text}`;
 
     return JSON.parse(cleanedText) as RefineResult;
   } catch (error) {
-    console.error("Refine Error:", error);
+    logger.error("Refine Error:", error);
     return null;
   }
 };
