@@ -1,22 +1,7 @@
-import React from 'react';
 import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReferenceSidebar from './ReferenceSidebar';
-import { RecommendedDoc } from '@/shared/store/useDraftStore';
-
-interface ReferenceDrawerProps {
-    isOpen: boolean;
-    onOpen: () => void;
-    onClose: () => void;
-    searchProps: {
-        searchTags: string[];
-        setSearchTags: (tags: string[]) => void;
-        searchResults: RecommendedDoc[];
-        setSearchResults: (results: RecommendedDoc[]) => void;
-        isSearching: boolean;
-        setIsSearching: (isSearching: boolean) => void;
-    };
-}
+import { ReferenceDrawerProps } from '../types';
 
 export function ReferenceDrawer({ isOpen, onOpen, onClose, searchProps }: ReferenceDrawerProps) {
     return (

@@ -10,16 +10,9 @@ import {
     PointerSensor,
     useDroppable,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
 import { Document, Status } from '@/shared/types';
 import { useDocuments, useUpdateDocument, useDeleteDocument, useArchiveDocuments } from '@/entities/document';
-
-const COLUMNS: { status: Status | 'result'; title: string; color: string }[] = [
-    { status: 'writing', title: '작성 중', color: 'blue' },
-    { status: 'applied', title: '지원 완료', color: 'purple' },
-    { status: 'interview', title: '면접', color: 'orange' },
-    { status: 'result', title: '결과', color: 'green' },
-];
+import { KANBAN_COLUMNS } from '../types';
 const EMPTY_LIST: Document[] = [];
 
 export function useKanban() {
@@ -128,7 +121,7 @@ export function useKanban() {
             return;
         }
 
-        const isOverColumn = COLUMNS.some(col => col.status === overId);
+        const isOverColumn = KANBAN_COLUMNS.some(col => col.status === overId);
 
         if (isOverColumn) {
             const newStatus = overId;
@@ -246,9 +239,14 @@ export function useKanban() {
         return applications.filter(app => app.status === status);
     };
 
+    const activeApplication = activeId
+        ? applications.find(app => app.id === activeId)
+        : null;
+
     return {
         applications,
         activeId,
+        activeApplication,
         sensors,
         archiveRef,
         setArchiveNodeRef,

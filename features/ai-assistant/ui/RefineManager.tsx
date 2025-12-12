@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sparkles, RefreshCw, X, Check, ArrowRight } from 'lucide-react';
-import { refineText, RefineResult } from '@/features/ai-assistant';
+import { Sparkles, RefreshCw, X, Check } from 'lucide-react';
 import { computeDiff } from '@/shared/lib/diff';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { useRefineManager } from '../hooks';
 
 interface RefineManagerProps {
     text: string;
@@ -14,54 +13,21 @@ interface RefineManagerProps {
 }
 
 export default function RefineManager({ text, onApply, autoTrigger = false }: RefineManagerProps) {
-    const [isLoading, setIsLoading] = useState(false);
-    const [result, setResult] = useState<RefineResult | null>(null);
-
-    React.useEffect(() => {
-        if (autoTrigger && text && text.trim().length >= 10) {
-            handleRefine();
-        }
-    }, []);
-
-    const handleRefine = async () => {
-        if (!text || text.trim().length < 10) {
-            toast.error('교정할 텍스트가 너무 짧습니다. (10자 이상)');
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const refineResult = await refineText(text);
-            if (refineResult) {
-                setResult(refineResult);
-            } else {
-                toast.error('AI 교정에 실패했습니다. 잠시 후 다시 시도해주세요.');
-            }
-        } catch (error) {
-            console.error('Refine failed:', error);
-            toast.error('오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const { isLoading, result, handleRefine, clearResult } = useRefineManager({ text, autoTrigger });
 
     const handleApply = () => {
         if (result) {
             onApply(result.corrected);
-            setResult(null);
+            clearResult();
             toast.success('교정된 내용이 적용되었습니다.');
         }
-    };
-
-    const handleCancel = () => {
-        setResult(null);
     };
 
     if (result) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                 <div className="w-full max-w-5xl max-h-[85vh] flex flex-col bg-zinc-900 border border-purple-500/30 rounded-xl overflow-hidden shadow-2xl shadow-purple-900/20 animate-in zoom-in-95 duration-200">
-                    {/* Header */}
+
                     <div className="flex-none flex items-center justify-between px-6 py-4 bg-zinc-950 border-b border-white/5">
                         <div className="flex items-center gap-2 text-purple-400">
                             <Sparkles size={18} />
@@ -69,7 +35,7 @@ export default function RefineManager({ text, onApply, autoTrigger = false }: Re
                         </div>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={handleCancel}
+                                onClick={clearResult}
                                 className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
                                 title="취소"
                             >
@@ -86,10 +52,10 @@ export default function RefineManager({ text, onApply, autoTrigger = false }: Re
                         </div>
                     </div>
 
-                    {/* Content */}
+
                     <div className="flex-1 overflow-y-auto min-h-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 min-h-full divide-y md:divide-y-0 md:divide-x divide-white/10">
-                            {/* Original */}
+
                             <div className="p-6 bg-zinc-950/50">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider bg-zinc-900 px-2 py-1 rounded">교정 전</div>
@@ -109,7 +75,7 @@ export default function RefineManager({ text, onApply, autoTrigger = false }: Re
                                 </div>
                             </div>
 
-                            {/* Corrected */}
+
                             <div className="p-6 bg-purple-900/5">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="text-xs text-purple-400 font-bold uppercase tracking-wider bg-purple-900/20 px-2 py-1 rounded border border-purple-500/20">교정 후</div>
@@ -131,7 +97,7 @@ export default function RefineManager({ text, onApply, autoTrigger = false }: Re
                         </div>
                     </div>
 
-                    {/* Changes Summary */}
+
                     {result.changes && result.changes.length > 0 && (
                         <div className="flex-none px-6 py-4 bg-zinc-950 border-t border-white/5 flex flex-wrap gap-2 items-center">
                             <span className="text-xs font-medium text-zinc-500 mr-2 uppercase tracking-wider">Changes:</span>

@@ -1,3 +1,2 @@
-export { AiSidebar } from './AiSidebar';
-export { default as RefineManager } from './RefineManager';
 
+export { default as RefineManager } from './RefineManager';

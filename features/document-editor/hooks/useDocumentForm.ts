@@ -1,25 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Document, Status } from '@/shared/types';
+import { Document } from '@/shared/types';
 import { useUpdateDocument } from '@/entities/document';
 import { toast } from 'sonner';
+import { Section, DocumentFormState } from '../types';
 
-export interface Section {
-    title: string;
-    content: string;
-    limit: number;
-}
-
-export interface DocumentFormState {
-    company: string;
-    role: string;
-    jobPostUrl: string;
-    tags: string[];
-    status: Status;
-    deadline: string;
-    sections: Section[];
-}
 
 export function useDocumentForm(doc: Document | undefined) {
     const updateDocumentMutation = useUpdateDocument();

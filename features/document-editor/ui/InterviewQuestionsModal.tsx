@@ -1,58 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { X, Copy, RefreshCw, MessageCircleQuestion, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateInterviewQuestions } from '@/features/document-editor';
-import { toast } from 'sonner';
-
-interface InterviewQuestionsModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    documentContent: string;
-}
+import { useInterviewQuestions, InterviewQuestionsModalProps } from '@/features/document-editor';
 
 export function InterviewQuestionsModal({
     isOpen,
     onClose,
     documentContent
 }: InterviewQuestionsModalProps) {
-    const [questions, setQuestions] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const { questions, isLoading, hasQuestions, handleGenerate, handleCopyAll } = useInterviewQuestions(documentContent);
 
     useEffect(() => {
-        if (isOpen && questions.length === 0) {
+        if (isOpen && !hasQuestions) {
             handleGenerate();
         }
     }, [isOpen]);
-
-    const handleGenerate = async () => {
-        if (!documentContent.trim()) {
-            toast.error('자기소개서 내용이 없습니다.');
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const result = await generateInterviewQuestions(documentContent);
-            if (result && result.length > 0) {
-                setQuestions(result);
-            } else {
-                toast.error('질문 생성에 실패했습니다.');
-            }
-        } catch (error) {
-            console.error('Failed to generate questions:', error);
-            toast.error('질문 생성 중 오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleCopyAll = () => {
-        const text = questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
-        navigator.clipboard.writeText(text);
-        toast.success('모든 질문이 복사되었습니다.');
-    };
 
     return (
         <AnimatePresence>
@@ -97,7 +61,7 @@ export function InterviewQuestionsModal({
                                         <p className="text-lg font-medium text-zinc-300">질문을 생성하고 있습니다...</p>
                                         <p className="text-sm mt-2">잠시만 기다려주세요.</p>
                                     </div>
-                                ) : questions.length > 0 ? (
+                                ) : hasQuestions ? (
                                     <div className="space-y-4">
                                         {questions.map((question, index) => (
                                             <motion.div
@@ -145,7 +109,7 @@ export function InterviewQuestionsModal({
                                     </button>
                                     <button
                                         onClick={handleCopyAll}
-                                        disabled={isLoading || questions.length === 0}
+                                        disabled={isLoading || !hasQuestions}
                                         className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Copy size={18} />

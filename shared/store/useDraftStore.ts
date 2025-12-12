@@ -1,15 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-
-export interface RecommendedDoc {
-    id: string;
-    companyName: string;
-    originalContent: string;
-    subtitle?: string;
-    aiAdvice: string;
-    similarityScore: number;
-    tags?: string[];
-}
+import { RecommendedDoc } from '@/shared/types';
 
 interface Section {
     title: string;

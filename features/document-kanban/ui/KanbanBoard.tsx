@@ -1,33 +1,18 @@
 'use client';
 
-import React from 'react';
-import {
-    DndContext,
-    DragOverlay,
-    closestCorners,
-    pointerWithin,
-    rectIntersection,
-} from '@dnd-kit/core';
+import React, { useMemo } from 'react';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { Plus } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { ResultSelectionModal } from './ResultSelectionModal';
 import { ArchiveModal } from './ArchiveModal';
 import { DeleteConfirmationModal, ConfirmationModal } from '@/shared/ui';
-import { useKanban } from '@/features/document-kanban';
-import { Status } from '@/shared/types';
-
-const COLUMNS: { status: Status | 'result'; title: string; color: string }[] = [
-    { status: 'writing', title: '작성 중', color: 'blue' },
-    { status: 'applied', title: '지원 완료', color: 'purple' },
-    { status: 'interview', title: '면접', color: 'orange' },
-    { status: 'result', title: '결과', color: 'green' },
-];
+import { useKanban, KANBAN_COLUMNS, createKanbanCollisionDetection } from '@/features/document-kanban';
 
 export function KanbanBoard() {
     const {
-        applications,
-        activeId,
+        activeApplication,
         sensors,
         archiveRef,
         setArchiveNodeRef,
@@ -39,41 +24,21 @@ export function KanbanBoard() {
         modals
     } = useKanban();
 
-    // Custom collision detection
-    const customCollisionDetection = (args: any) => {
-        const pointerCollisions = pointerWithin(args);
-        const archivePointerCollision = pointerCollisions.find((c: any) => c.id === 'archive');
-        if (archivePointerCollision) {
-            return [archivePointerCollision];
-        }
-        if (pointerCollisions.length > 0) {
-            return pointerCollisions;
-        }
-        const rectCollisions = rectIntersection(args);
-        const archiveRectCollision = rectCollisions.find((c: any) => c.id === 'archive');
-        if (archiveRectCollision) {
-            return [archiveRectCollision];
-        }
-        return closestCorners(args);
-    };
-
-    const activeApplication = activeId
-        ? applications.find(app => app.id === activeId)
-        : null;
+    const collisionDetection = useMemo(() => createKanbanCollisionDetection(), []);
 
     return (
         <div className="space-y-4">
             <DndContext
                 sensors={sensors}
-                collisionDetection={customCollisionDetection}
+                collisionDetection={collisionDetection}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
-                {/* Kanban Board Container */}
+
                 <div className="w-full overflow-x-auto pb-6">
                     <div className="flex gap-4 min-w-max items-start w-fit mx-auto">
-                        {COLUMNS.map(column => (
+                        {KANBAN_COLUMNS.map(column => (
                             <KanbanColumn
                                 key={column.status}
                                 status={column.status}
@@ -84,7 +49,7 @@ export function KanbanBoard() {
                             />
                         ))}
 
-                        {/* Archive Drop Zone */}
+
                         <div
                             ref={(node) => {
                                 setArchiveNodeRef(node);
@@ -129,7 +94,7 @@ export function KanbanBoard() {
                 </DragOverlay>
             </DndContext>
 
-            {/* Modals */}
+
             <ResultSelectionModal
                 isOpen={modals.isResultModalOpen}
                 onClose={() => {

@@ -1,19 +1,8 @@
-import React, { useState } from 'react';
 import { Plus, Trash2, PenTool } from 'lucide-react';
 import { RefineManager } from '@/features/ai-assistant';
-import { Section } from '@/features/document-editor';
+import { Section, useAutoDraft, DocumentEditorProps } from '@/features/document-editor';
 import { AutoDraftModal } from '@/features/document-write';
-import { useDocuments } from '@/entities/document';
-import { useParams } from 'next/navigation';
 import { LimitSelector } from '@/shared/ui';
-
-interface DocumentEditorProps {
-    sections: Section[];
-    onUpdateSection: (index: number, field: keyof Section, value: string) => void;
-    onAddSection: () => void;
-    onRemoveSection: (index: number) => void;
-    autoRefineIndex: number | null;
-}
 
 export function DocumentEditor({
     sections,
@@ -22,19 +11,14 @@ export function DocumentEditor({
     onRemoveSection,
     autoRefineIndex
 }: DocumentEditorProps) {
-    const [autoDraftIndex, setAutoDraftIndex] = useState<number | null>(null);
-    const { data: documents = [] } = useDocuments();
-    const params = useParams();
-    const id = params?.id as string;
-    const doc = documents.find(d => d.id === id);
-
-    const handleDraftGenerated = (draft: string) => {
-        if (autoDraftIndex === null) return;
-
-        const currentContent = sections[autoDraftIndex].content;
-        const newContent = currentContent ? `${currentContent}\n\n${draft}` : draft;
-        onUpdateSection(autoDraftIndex, 'content', newContent);
-    };
+    const {
+        doc,
+        openAutoDraft,
+        closeAutoDraft,
+        handleDraftGenerated,
+        isAutoDraftOpen,
+        currentQuestion
+    } = useAutoDraft({ sections, onUpdateSection });
 
     return (
         <div className="space-y-8">
@@ -76,7 +60,7 @@ export function DocumentEditor({
                                     />
                                 </div>
                                 <button
-                                    onClick={() => setAutoDraftIndex(index)}
+                                    onClick={() => openAutoDraft(index)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
                                 >
                                     <PenTool size={14} />
@@ -101,7 +85,7 @@ export function DocumentEditor({
                     </div>
                 </div>
             ))}
-            {/* ... rest of the component */}
+
             <button
                 onClick={onAddSection}
                 className="w-full py-4 border-2 border-dashed border-zinc-700 rounded-2xl text-zinc-400 hover:text-white hover:border-zinc-500 hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-medium"
@@ -112,12 +96,12 @@ export function DocumentEditor({
 
             {doc && (
                 <AutoDraftModal
-                    isOpen={autoDraftIndex !== null}
-                    onClose={() => setAutoDraftIndex(null)}
+                    isOpen={isAutoDraftOpen}
+                    onClose={closeAutoDraft}
                     onDraftGenerated={handleDraftGenerated}
                     company={doc.company}
                     role={doc.role}
-                    question={autoDraftIndex !== null ? sections[autoDraftIndex].title : ''}
+                    question={currentQuestion}
                 />
             )}
         </div>

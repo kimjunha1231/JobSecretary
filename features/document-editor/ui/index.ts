@@ -1,5 +1,3 @@
-export { DocumentEditor } from './DocumentEditor';
-export { DocumentViewer } from './DocumentViewer';
-export { DocumentHeader } from './DocumentHeader';
+export * from './view';
+export * from './edit';
 export { InterviewQuestionsModal } from './InterviewQuestionsModal';
-

@@ -3,8 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { ResumeForm } from '@/features/document-write';
 import { ReferenceSidebar } from '@/features/reference-search';
-import { AiSidebar } from '@/features/ai-assistant';
-import { BookOpen, X, Sparkles } from 'lucide-react';
+import { BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDraftStore } from '@/shared/store/useDraftStore';
 

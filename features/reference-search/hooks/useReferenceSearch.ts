@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useDraftStore, RecommendedDoc } from '@/shared/store/useDraftStore';
+import { useDraftStore } from '@/shared/store/useDraftStore';
+import { RecommendedDoc } from '@/shared/types';
 
 export function useReferenceSearch(initialTags: string[] = []) {
     const [searchTags, setSearchTags] = useState<string[]>(initialTags);

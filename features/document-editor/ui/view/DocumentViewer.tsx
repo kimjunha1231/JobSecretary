@@ -1,22 +1,9 @@
-import React, { useState } from 'react';
 import { Check, Copy, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Section } from '@/features/document-editor';
-
-interface DocumentViewerProps {
-    sections: Section[];
-    onCopy: (text: string, index: number) => void;
-    onRefine: (index: number) => void;
-}
+import { Section, useCopyFeedback, DocumentViewerProps } from '@/features/document-editor';
 
 export function DocumentViewer({ sections, onCopy, onRefine }: DocumentViewerProps) {
-    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-    const handleCopy = (text: string, index: number) => {
-        onCopy(text, index);
-        setCopiedIndex(index);
-        setTimeout(() => setCopiedIndex(null), 2000);
-    };
+    const { copyWithFeedback, isCopied } = useCopyFeedback();
 
     return (
         <div className="space-y-8">
@@ -32,11 +19,11 @@ export function DocumentViewer({ sections, onCopy, onRefine }: DocumentViewerPro
                             </h3>
                             <div className="flex items-center gap-2 shrink-0">
                                 <button
-                                    onClick={() => handleCopy(section.content, index)}
+                                    onClick={() => copyWithFeedback(section.content, index, onCopy)}
                                     className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5 opacity-0 group-hover:opacity-100"
                                     title="내용 복사"
                                 >
-                                    {copiedIndex === index ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+                                    {isCopied(index) ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
                                 </button>
                                 <button
                                     onClick={() => onRefine(index)}

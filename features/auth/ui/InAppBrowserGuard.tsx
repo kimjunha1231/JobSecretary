@@ -1,32 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useInAppBrowserDetection } from '../hooks';
 
 export default function InAppBrowserGuard() {
-    const [isInApp, setIsInApp] = useState(false);
+    const { isInApp, checkAndRedirect, dismiss } = useInAppBrowserDetection();
 
     useEffect(() => {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const inAppBrowsers = ['kakaotalk', 'instagram', 'naver', 'facebook', 'line'];
-
-        // Check if user is in an in-app browser
-        const isInAppBrowser = inAppBrowsers.some(browser => userAgent.includes(browser));
-
-        if (!isInAppBrowser) return;
-
-        // Detect platform
-        const isAndroid = /android/i.test(userAgent);
-        const currentUrl = window.location.href;
-
-        if (isAndroid) {
-            // Android: Redirect to Chrome using intent scheme
-            const intentUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
-            window.location.href = intentUrl;
-        } else {
-            // iOS/Others: Show modal
-            setIsInApp(true);
-        }
+        checkAndRedirect();
     }, []);
 
     if (!isInApp) return null;
@@ -74,7 +56,7 @@ export default function InAppBrowserGuard() {
 
                 {/* Close Button */}
                 <button
-                    onClick={() => setIsInApp(false)}
+                    onClick={dismiss}
                     className="w-full py-3 px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-sm"
                 >
                     그냥 닫기 (로그인 불가능)

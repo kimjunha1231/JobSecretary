@@ -1,35 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface DeleteAccountModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => Promise<void>;
-}
+import { DeleteAccountModalProps } from '../types';
+import { useDeleteAccountForm } from '../hooks';
 
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     isOpen,
     onClose,
     onConfirm
 }) => {
-    const [confirmText, setConfirmText] = useState('');
-    const [isDeleting, setIsDeleting] = useState(false);
-    const isConfirmValid = confirmText === '회원탈퇴';
-
-    const handleDelete = async () => {
-        if (!isConfirmValid) return;
-
-        setIsDeleting(true);
-        try {
-            await onConfirm();
-        } catch (error) {
-            console.error('Delete error:', error);
-            setIsDeleting(false);
-        }
-    };
+    const {
+        confirmText,
+        setConfirmText,
+        isDeleting,
+        isConfirmValid,
+        handleDelete
+    } = useDeleteAccountForm();
 
     if (!isOpen) return null;
 
@@ -102,7 +89,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                             취소
                         </button>
                         <button
-                            onClick={handleDelete}
+                            onClick={() => handleDelete(onConfirm)}
                             disabled={!isConfirmValid || isDeleting}
                             className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isConfirmValid && !isDeleting
                                 ? 'bg-red-600 hover:bg-red-700 text-white hover:shadow-lg hover:shadow-red-600/30'
@@ -127,4 +114,3 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
         </AnimatePresence>
     );
 };
-

@@ -1,26 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
 import { FileText, Shield, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-interface ConsentModalProps {
-    onConsent: (termsAccepted: boolean, privacyAccepted: boolean) => Promise<void>;
-    isLoading?: boolean;
-}
+import { ConsentModalProps } from '../types';
+import { useConsentForm } from '../hooks';
 
 export const ConsentModal: React.FC<ConsentModalProps> = ({ onConsent, isLoading = false }) => {
-    const [termsAccepted, setTermsAccepted] = useState(false);
-    const [privacyAccepted, setPrivacyAccepted] = useState(false);
-
-    const handleSubmit = async () => {
-        if (termsAccepted && privacyAccepted) {
-            await onConsent(termsAccepted, privacyAccepted);
-        }
-    };
-
-    const allAccepted = termsAccepted && privacyAccepted;
+    const {
+        termsAccepted,
+        setTermsAccepted,
+        privacyAccepted,
+        setPrivacyAccepted,
+        allAccepted,
+        handleSubmit
+    } = useConsentForm();
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -47,8 +41,8 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({ onConsent, isLoading
                     {/* Terms of Service */}
                     <label
                         className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${termsAccepted
-                                ? 'border-primary bg-primary/5'
-                                : 'border-neutral-700 hover:border-neutral-600 bg-neutral-800/50'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-neutral-700 hover:border-neutral-600 bg-neutral-800/50'
                             }`}
                     >
                         <div className="flex items-center h-6">
@@ -79,8 +73,8 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({ onConsent, isLoading
                     {/* Privacy Policy */}
                     <label
                         className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all ${privacyAccepted
-                                ? 'border-primary bg-primary/5'
-                                : 'border-neutral-700 hover:border-neutral-600 bg-neutral-800/50'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-neutral-700 hover:border-neutral-600 bg-neutral-800/50'
                             }`}
                     >
                         <div className="flex items-center h-6">
@@ -111,11 +105,11 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({ onConsent, isLoading
 
                 {/* Submit Button */}
                 <button
-                    onClick={handleSubmit}
+                    onClick={() => handleSubmit(onConsent)}
                     disabled={!allAccepted || isLoading}
                     className={`w-full py-3.5 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${allAccepted && !isLoading
-                            ? 'bg-gradient-to-r from-primary to-purple-600 text-white hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.02]'
-                            : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                        ? 'bg-gradient-to-r from-primary to-purple-600 text-white hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.02]'
+                        : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                         }`}
                 >
                     {isLoading ? (

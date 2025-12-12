@@ -2,48 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDocuments, useDocument, useDeleteDocument } from '@/entities/document';
-import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { useDocument, useDeleteDocument } from '@/entities/document';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { ConfirmationModal } from '@/shared/ui';
-import { ReferenceSidebar, ReferenceDrawer } from '@/features/reference-search';
-import { AiSidebar } from '@/features/ai-assistant';
-import { useDocumentForm } from '@/features/document-editor';
-import { useReferenceSearch } from '@/features/reference-search';
-import { DocumentHeader, DocumentEditor, DocumentViewer, InterviewQuestionsModal } from '@/features/document-editor';
+import { DocumentViewHeader, DocumentViewer, InterviewQuestionsModal } from '@/features/document-editor';
+import { useDocumentEditStore } from '@/shared/store/useDocumentEditStore';
 
-export default function DocumentDetail() {
+export default function DocumentDetailPage() {
     const params = useParams();
     const id = params?.id as string;
     const router = useRouter();
     const { data: doc, isLoading } = useDocument(id);
     const deleteDocumentMutation = useDeleteDocument();
+    const { setDocument, setAutoRefineIndex } = useDocumentEditStore();
 
-    const {
-        form,
-        updateField,
-        updateSection,
-        addSection,
-        removeSection,
-        saveDocument
-    } = useDocumentForm(doc || undefined);
-
-    const searchProps = useReferenceSearch();
-
-    // Local UI State
-    const [isEditing, setIsEditing] = useState(false);
-    const [autoRefineIndex, setAutoRefineIndex] = useState<number | null>(null);
     const [isDocDeleteModalOpen, setIsDocDeleteModalOpen] = useState(false);
-    const [isSectionDeleteModalOpen, setIsSectionDeleteModalOpen] = useState(false);
-    const [sectionDeleteIndex, setSectionDeleteIndex] = useState<number | null>(null);
-    const [isReferenceOpen, setIsReferenceOpen] = useState(false);
     const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
 
-    // Initialize search tags when doc loads
     useEffect(() => {
-        if (doc?.tags && doc.tags.length > 0) {
-            searchProps.setSearchTags(doc.tags);
+        if (doc) {
+            setDocument(doc);
         }
-    }, [doc]);
+    }, [doc, setDocument]);
 
     if (isLoading) {
         return (
@@ -68,11 +48,8 @@ export default function DocumentDetail() {
         );
     }
 
-    const handleSave = async () => {
-        const success = await saveDocument();
-        if (success) {
-            setIsEditing(false);
-        }
+    const handleEdit = () => {
+        router.push(`/document/${id}/edit`);
     };
 
     const handleDelete = () => {
@@ -85,97 +62,52 @@ export default function DocumentDetail() {
         setIsDocDeleteModalOpen(false);
     };
 
-    const handleDeleteSection = (index: number) => {
-        setSectionDeleteIndex(index);
-        setIsSectionDeleteModalOpen(true);
-    };
-
-    const confirmSectionDelete = () => {
-        if (sectionDeleteIndex !== null) {
-            removeSection(sectionDeleteIndex);
-            setSectionDeleteIndex(null);
-        }
-        setIsSectionDeleteModalOpen(false);
-    };
-
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
     };
 
     const handleRefineTrigger = (index: number) => {
         setAutoRefineIndex(index);
-        setIsEditing(true);
+        router.push(`/document/${id}/edit`);
+    };
+
+    const parseSections = () => {
+        if (!doc.content) return [];
+        const parts = doc.content.split('### ').filter(p => p.trim());
+        return parts.map(part => {
+            const lines = part.split('\n');
+            const title = lines[0].trim();
+            const content = lines.slice(1).join('\n').trim();
+            return { title, content, limit: 1000 };
+        });
     };
 
     return (
-        <div className={`mx-auto pb-20 ${isEditing ? 'w-full max-w-[1600px] px-4' : 'max-w-4xl'}`}>
-            <div className={isEditing ? 'grid grid-cols-1 lg:grid-cols-12 gap-6' : ''}>
-                <div className={isEditing ? 'col-span-1 lg:col-span-9' : ''}>
-                    <div className="mb-10">
-                        <div className="flex items-center justify-between mb-6">
-                            <button
-                                onClick={() => router.back()}
-                                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group"
-                            >
-                                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                                <span>목록으로</span>
-                            </button>
-                        </div>
-
-                        <DocumentHeader
-                            doc={doc}
-                            isEditing={isEditing}
-                            form={form}
-                            onUpdateField={(key, value) => {
-                                updateField(key, value);
-                                if (key === 'tags') {
-                                    searchProps.setSearchTags(value as string[]);
-                                }
-                            }}
-                            onEdit={() => setIsEditing(true)}
-                            onCancel={() => setIsEditing(false)}
-                            onSave={handleSave}
-                            onDelete={handleDelete}
-                            onShowInterviewQuestions={() => setIsInterviewModalOpen(true)}
-                        />
-                    </div>
-
-                    {isEditing ? (
-                        <DocumentEditor
-                            sections={form.sections}
-                            onUpdateSection={updateSection}
-                            onAddSection={addSection}
-                            onRemoveSection={handleDeleteSection}
-                            autoRefineIndex={autoRefineIndex}
-                        />
-                    ) : (
-                        <DocumentViewer
-                            sections={form.sections}
-                            onCopy={handleCopy}
-                            onRefine={handleRefineTrigger}
-                        />
-                    )}
+        <div className="mx-auto pb-20 max-w-4xl">
+            <div className="mb-10">
+                <div className="flex items-center justify-between mb-6">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group"
+                    >
+                        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                        <span>목록으로</span>
+                    </button>
                 </div>
 
-                {isEditing && (
-                    <div className="hidden lg:block lg:col-span-3">
-                        <div className="sticky top-24 h-[calc(100vh-8rem)] border-l border-white/10 pl-4">
-                            <ReferenceSidebar {...searchProps} />
-                        </div>
-                    </div>
-                )}
+                <DocumentViewHeader
+                    doc={doc}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onShowInterviewQuestions={() => setIsInterviewModalOpen(true)}
+                />
             </div>
 
-            {isEditing && (
-                <>
-                    <ReferenceDrawer
-                        isOpen={isReferenceOpen}
-                        onOpen={() => setIsReferenceOpen(true)}
-                        onClose={() => setIsReferenceOpen(false)}
-                        searchProps={searchProps}
-                    />
-                </>
-            )}
+            <DocumentViewer
+                sections={parseSections()}
+                onCopy={handleCopy}
+                onRefine={handleRefineTrigger}
+            />
 
             <ConfirmationModal
                 isOpen={isDocDeleteModalOpen}
@@ -183,19 +115,6 @@ export default function DocumentDetail() {
                 onConfirm={confirmDocDelete}
                 title="문서 삭제"
                 message="정말 이 문서를 삭제하시겠습니까?"
-                confirmText="삭제"
-                variant="danger"
-            />
-
-            <ConfirmationModal
-                isOpen={isSectionDeleteModalOpen}
-                onClose={() => {
-                    setIsSectionDeleteModalOpen(false);
-                    setSectionDeleteIndex(null);
-                }}
-                onConfirm={confirmSectionDelete}
-                title="문항 삭제"
-                message="이 문항을 삭제하시겠습니까?"
                 confirmText="삭제"
                 variant="danger"
             />

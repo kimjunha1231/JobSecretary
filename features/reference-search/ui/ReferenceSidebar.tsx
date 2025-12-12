@@ -1,20 +1,10 @@
 'use client';
 
-import React from 'react';
 import { Search, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SmartTagInput } from '@/shared/ui';
-import { searchDocumentsByTags } from '@/features/reference-search';
-import { RecommendedDoc } from '@/shared/store/useDraftStore';
-
-interface ReferenceSidebarProps {
-    searchTags: string[];
-    setSearchTags: (tags: string[]) => void;
-    searchResults: RecommendedDoc[];
-    setSearchResults: (docs: RecommendedDoc[]) => void;
-    isSearching: boolean;
-    setIsSearching: (isSearching: boolean) => void;
-}
+import { ReferenceSearchProps } from '../types';
+import { useReferenceSidebar } from '../hooks';
 
 export default function ReferenceSidebar({
     searchTags,
@@ -23,35 +13,12 @@ export default function ReferenceSidebar({
     setSearchResults,
     isSearching,
     setIsSearching
-}: ReferenceSidebarProps) {
-    const [expandedDocId, setExpandedDocId] = React.useState<string | null>(null);
-
-    React.useEffect(() => {
-        const fetchReferences = async () => {
-            if (searchTags.length === 0) {
-                setSearchResults([]);
-                return;
-            }
-
-            setIsSearching(true);
-            try {
-                const results = await searchDocumentsByTags(searchTags);
-                setSearchResults(results);
-            } catch (error) {
-                console.error('Failed to search references:', error);
-            } finally {
-                setIsSearching(false);
-            }
-        };
-
-        const debounceTimer = setTimeout(fetchReferences, 500);
-        return () => clearTimeout(debounceTimer);
-    }, [searchTags, setIsSearching, setSearchResults]);
-
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
-        // Could add a toast here
-    };
+}: ReferenceSearchProps) {
+    const { expandedDocId, handleCopy, toggleExpand } = useReferenceSidebar({
+        searchTags,
+        setSearchResults,
+        setIsSearching
+    });
 
     return (
         <div className="h-full flex flex-col">
@@ -82,7 +49,7 @@ export default function ReferenceSidebar({
                                 className="bg-zinc-900/50 border border-white/5 rounded-lg overflow-hidden transition-all hover:border-white/10"
                             >
                                 <div
-                                    onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)}
+                                    onClick={() => toggleExpand(doc.id)}
                                     className="p-4 cursor-pointer flex items-start justify-between"
                                 >
                                     <div>

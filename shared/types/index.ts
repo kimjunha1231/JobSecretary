@@ -52,3 +52,13 @@ export interface Document {
 }
 
 export interface Application extends Document { } // Alias for backward compatibility if needed
+
+export interface RecommendedDoc {
+  id: string;
+  companyName: string;
+  originalContent: string;
+  subtitle?: string;
+  aiAdvice: string;
+  similarityScore: number;
+  tags?: string[];
+}

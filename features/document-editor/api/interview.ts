@@ -1,12 +1,13 @@
 'use server'
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AI_MODEL } from '@/shared/config';
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY!);
 
 export async function generateInterviewQuestions(content: string): Promise<string[]> {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-lite",
+        model: AI_MODEL,
         generationConfig: {
             responseMimeType: "application/json"
         }
@@ -36,7 +37,7 @@ export async function generateInterviewQuestions(content: string): Promise<strin
         });
         const responseText = result.response.text();
 
-        // JSON 파싱 (마크다운 기호 제거)
+
         const cleanedText = responseText.replace(/```json|```/g, "").trim();
 
         return JSON.parse(cleanedText) as string[];
