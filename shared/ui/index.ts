@@ -1,5 +1,4 @@
 // Sidebar
-export { Sidebar } from './Sidebar';
 
 // Toaster & Alerts
 export { Toaster } from './Toaster';

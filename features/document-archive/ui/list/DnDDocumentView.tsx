@@ -9,8 +9,8 @@ import {
     rectSortingStrategy
 } from '@dnd-kit/sortable';
 import { Trash2, FileText } from 'lucide-react';
-import { Document } from '@/shared/types';
-import { SortableDocumentCard } from '@/entities/document';
+import { Document } from '@/entities/document';
+import { SortableDocumentCard } from './SortableDocumentCard';
 import { DndProps } from '../../types';
 
 interface DnDDocumentViewProps {

@@ -80,7 +80,7 @@ export function KanbanBoard() {
                     </div>
                 </div>
 
-                {/* Drag Overlay */}
+
                 <DragOverlay>
                     {activeApplication ? (
                         <div className="opacity-70 rotate-3 scale-105">

@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { useDraftStore } from '@/shared/store/useDraftStore';
+import { useDraftStore } from '@/entities/draft';
 import { useAddDocument } from '@/entities/document';
 import { Status } from '@/shared/types';
 

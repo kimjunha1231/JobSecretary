@@ -1,6 +1,18 @@
 import { create } from 'zustand';
-import { Document } from '@/shared/types';
-import { Section } from '@/features/document-editor';
+import { Document } from './types';
+
+// Section interface was previously imported from features/document-editor.
+// This violates FSD (Entity cannot depend on Feature).
+// We should define Section here or in a shared type.
+// Since Section is a core part of a Document's structure in this app, defining it in Entity or Shared is correct.
+// Given it's used in ResumeForm (Feature) and DocumentEditor (Feature), Shared/Types or Entity/Document/Model/Types is best.
+// Adding it to entities/document/model/types.ts is clean.
+
+export interface Section {
+    title: string;
+    content: string;
+    limit: number;
+}
 
 interface DocumentEditState {
     document: Document | null;

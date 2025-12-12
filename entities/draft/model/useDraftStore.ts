@@ -1,46 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { RecommendedDoc } from '@/shared/types';
-
-interface Section {
-    title: string;
-    content: string;
-    limit: number;
-}
-
-interface FormData {
-    company: string;
-    role: string;
-    jobPostUrl: string;
-    tags: string[];
-    deadline?: string;
-}
-
-interface DraftState {
-    // Form Data
-    formData: FormData;
-    sections: Section[];
-    currentSectionIndex: number;
-
-    // Search State (Merged from useWriteStore)
-    searchTags: string[];
-    searchResults: RecommendedDoc[];
-    isSearching: boolean;
-
-    // Actions
-    setFormData: (formData: Partial<FormData>) => void;
-    setSections: (sections: Section[]) => void;
-    setCurrentSectionIndex: (index: number) => void;
-    addSection: () => void;
-    removeSection: (index: number) => void;
-    updateSection: (index: number, field: keyof Section, value: string | number) => void;
-    clearDraft: () => void;
-
-    // Search Actions
-    setSearchTags: (tags: string[]) => void;
-    setSearchResults: (docs: RecommendedDoc[]) => void;
-    setIsSearching: (isSearching: boolean) => void;
-}
+import { DraftState, FormData, Section } from './types';
 
 const initialFormData: FormData = {
     company: '',
@@ -126,8 +86,6 @@ export const useDraftStore = create<DraftState>()(
         {
             name: 'careervault-draft-storage',
             storage: createJSONStorage(() => localStorage),
-            // Optionally, we might want to exclude search state from persistence
-            // partialize: (state) => ({ formData: state.formData, sections: state.sections, currentSectionIndex: state.currentSectionIndex }),
         }
     )
 );

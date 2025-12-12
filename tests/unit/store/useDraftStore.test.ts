@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useDraftStore } from '@/shared/store/useDraftStore';
+import { useDraftStore } from '@/entities/draft';
 
 describe('useDraftStore', () => {
     beforeEach(() => {

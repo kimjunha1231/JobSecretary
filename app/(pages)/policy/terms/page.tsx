@@ -1,4 +1,10 @@
 import Link from 'next/link';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: '이용약관 | JobSecretary',
+    description: 'JobSecretary 서비스 이용약관입니다. 서비스 이용에 관한 권리와 의무를 안내합니다.',
+};
 
 export default function TermsOfService() {
     return (

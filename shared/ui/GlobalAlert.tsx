@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useAuth } from '@/shared/store/useAuthStore';
+import { useAuth } from '@/entities/user';
 import { Alert, AlertDescription, AlertTitle } from './alert';
 import { CheckCircle2, XCircle } from 'lucide-react';
 

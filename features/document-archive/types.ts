@@ -38,7 +38,7 @@ export interface DndProps {
 }
 
 export interface ArchiveDocumentListProps {
-    filteredDocs: import('@/shared/types').Document[];
+    filteredDocs: import('@/entities/document').Document[];
     isFiltered: boolean;
     dndProps: DndProps;
     onDelete: (id: string) => void;

@@ -1,18 +1,6 @@
 import React from 'react';
 
-export interface Document {
-  id: string;
-  user_id: string;
-  title: string;
-  company: string;
-  role: string;
-  content: string;
-  status: Status;
-  tags: string[];
-  createdAt: string;
-  jobPostUrl?: string;
-  position?: number;
-}
+
 
 export interface ChatMessage {
   id: string;
@@ -34,6 +22,7 @@ export type Status = 'writing' | 'applied' | 'interview' | 'pass' | 'fail';
 
 export interface Document {
   id: string;
+  user_id: string; // Added for compatibility
   title: string;
   company: string;
   role: string;

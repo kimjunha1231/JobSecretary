@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelLeftOpen } from 'lucide-react';
-import { Sidebar } from '@/shared/ui';
+import { GlobalSidebar } from '@/widgets';
 
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -24,7 +24,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
   return (
     <div className="min-h-screen bg-background text-zinc-100 flex font-sans overflow-hidden selection:bg-primary/30 selection:text-white">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <GlobalSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       <motion.main
         layout
