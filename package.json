@@ -39,10 +39,14 @@
     "dotenv": "^17.2.3",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.468.0",
+<<<<<<< HEAD
     "next": "15.1.11",
+=======
+    "next": "14.2.28",
+>>>>>>> a7a102f1fbf2fc287635eb21b2527c953d95024e
     "next-themes": "^0.4.4",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "react-hook-form": "^7.54.1",
     "react-markdown": "^9.0.1",
     "sharp": "^0.33.5",
