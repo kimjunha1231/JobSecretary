@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
+    optimizePackageImports: ['@/widgets', 'lucide-react'],
   },
   images: {
     remotePatterns: [

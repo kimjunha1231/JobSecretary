@@ -4,10 +4,14 @@ import React from 'react';
 import Link from 'next/link';
 import { Archive, Command, PanelLeftClose, FileText, Shield, Mail, LayoutDashboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DeleteAccountModal } from '@/features/auth';
+import dynamic from 'next/dynamic';
 import { useGlobalSidebarLogic } from '../hooks';
 import { SidebarItem } from './SidebarItem';
 import { SidebarUserProfile } from './SidebarUserProfile';
+
+const DeleteAccountModal = dynamic(() => import('@/features/auth').then(mod => mod.DeleteAccountModal), {
+    ssr: false
+});
 
 interface GlobalSidebarProps {
     isOpen: boolean;

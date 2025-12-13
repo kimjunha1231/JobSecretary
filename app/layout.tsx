@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/shared/ui";
 import { GlobalAlert } from "@/widgets/GlobalAlert";
@@ -8,7 +8,12 @@ import { Analytics } from "@vercel/analytics/next";
 import { QueryProvider } from "./providers";
 import { MainLayout } from "./main-layout";
 
-const inter = Inter({ subsets: ["latin"] });
+const pretendard = localFont({
+    src: "./fonts/PretendardVariable.woff2",
+    display: "swap",
+    weight: "45 920", // Variable font weight range
+    variable: "--font-pretendard",
+});
 
 export const metadata: Metadata = {
     metadataBase: new URL("https://jobsecretary.lat"),
@@ -32,9 +37,9 @@ export const metadata: Metadata = {
         telephone: false,
     },
     verification: {
-        google: "google26279c742f669463", // Existing verification code found in file list
+        google: "google26279c742f669463",
         other: {
-            "naver-site-verification": "YOUR_NAVER_VERIFICATION_CODE", // Placeholder for user to replace
+            "naver-site-verification": "YOUR_NAVER_VERIFICATION_CODE",
         },
     },
     alternates: {
@@ -74,7 +79,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="ko" className="dark" suppressHydrationWarning>
-            <body className={inter.className} suppressHydrationWarning={true}>
+            <body className={`${pretendard.className} ${pretendard.variable} font-sans`} suppressHydrationWarning={true}>
                 <InAppBrowserGuard />
                 <QueryProvider>
                     <AuthInitializer />
