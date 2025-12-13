@@ -1,5 +1,9 @@
+// Document status values (source of truth)
+export const DOCUMENT_STATUSES = ['writing', 'applied', 'interview', 'pass', 'fail'] as const;
+export type DocumentStatus = typeof DOCUMENT_STATUSES[number];
+
 // Status labels
-export const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<DocumentStatus, string> = {
   writing: '작성 중',
   applied: '지원 완료',
   interview: '면접',

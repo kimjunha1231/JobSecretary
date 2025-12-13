@@ -1,11 +1,7 @@
-import { useState } from 'react';
 import { Building2, Calendar, Edit2, Trash2, MessageCircleQuestion, Download } from 'lucide-react';
 import { Badge, TooltipButton, TooltipProvider, Spinner } from '@/shared/ui';
-import { Status } from '@/shared/types';
 import { STATUS_LABELS, STATUS_BADGE_CLASSES } from '@/shared/config';
-import { useDocumentHeader, DocumentViewHeaderProps } from '@/features/document-editor';
-import { PdfDocument } from '@/entities/document';
-import { toast } from 'sonner';
+import { useDocumentHeader, usePdfDownload, DocumentViewHeaderProps } from '@/features/document-editor';
 
 export function DocumentViewHeader({
     doc,
@@ -14,32 +10,11 @@ export function DocumentViewHeader({
     onShowInterviewQuestions
 }: DocumentViewHeaderProps) {
     const { isClient, validateInterviewQuestions } = useDocumentHeader(doc);
-    const [isPdfLoading, setIsPdfLoading] = useState(false);
+    const { isPdfLoading, downloadPdf } = usePdfDownload(doc);
 
     const handleShowInterviewQuestions = () => {
         if (validateInterviewQuestions()) {
             onShowInterviewQuestions();
-        }
-    };
-
-    const handleDownloadPdf = async () => {
-        setIsPdfLoading(true);
-        try {
-            const { pdf } = await import('@react-pdf/renderer');
-            const blob = await pdf(<PdfDocument doc={doc} />).toBlob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${doc.company}_${doc.role}_자기소개서.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-
-            toast.error('PDF 생성 중 오류가 발생했습니다.');
-        } finally {
-            setIsPdfLoading(false);
         }
     };
 
@@ -102,7 +77,7 @@ export function DocumentViewHeader({
                                 : <Download size={20} />
                             }
                             tooltip="PDF 다운로드"
-                            onClick={handleDownloadPdf}
+                            onClick={downloadPdf}
                             disabled={isPdfLoading}
                             className="text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10"
                             aria-label={isPdfLoading ? "PDF 생성 중" : "PDF 다운로드"}

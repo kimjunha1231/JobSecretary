@@ -47,3 +47,14 @@ export interface ChatMessage {
     timestamp: number;
     relatedDocIds?: string[];
 }
+
+// Recommended document for reference search
+export interface RecommendedDoc {
+    id: string;
+    companyName: string;
+    originalContent: string;
+    subtitle?: string;
+    aiAdvice: string;
+    similarityScore: number;
+    tags?: string[];
+}

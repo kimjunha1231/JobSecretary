@@ -1,101 +1,95 @@
-# JobSecretary: AI-Powered Career Asset Management System
+# JobSecretary : AI 통합 채용 관리 플랫폼
 
-> **"Scalable Architecture for Personalized Career Data"**
-채용 관리 플랫폼입니다.
+[![Next.js](https://img.shields.io/badge/Next.js-15.1-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=flat-square&logo=supabase)](https://supabase.com/)
+[![FSD](https://img.shields.io/badge/Architecture-FSD-orange?style=flat-square)](https://feature-sliced.design/)
 
-## 1. 프로젝트 개요 (Overview)
+<br>
 
-JobSecretary는 파편화된 취업 준비 과정(자소서 작성, 공고 관리, 일정 추적)을 통합하고, AI 기술을 활용해 개인의 커리어 데이터를 자산화하는 솔루션입니다.
+## 1. 프로젝트 소개
 
-초기 MVP 단계에서는 빠른 개발 속도에 집중했으나, 기능이 고도화됨에 따라 복잡해지는 상태 관리와 대규모 데이터 처리, UI/로직의 결합도 증가 문제를 해결하기 위해 아키텍처를 전면 리팩토링했습니다.
+**JobSecretary**는 취업 준비 과정에서 발생하는 **플랫폼 파편화 문제**(자소서, 공고, 일정 관리의 분산, 이력서, 포트폴리오의 분산)를 해결하기 위한 **AI 통합 채용 관리 플랫폼**입니다.
 
-- **Live Demo**: [https://jobsecretary.lat](https://jobsecretary.lat)
-- **Tech Stack**: Next.js 14+, TypeScript, Supabase, TanStack Query, Tailwind CSS, Shadcn/UI
+사용자는 공고 및 지원현황을 관리하며 흩어져 있는 자기소개서를 태그 기반으로 저장 및 검색하고, **AI**를 활용해 자기소개서 초안 작성부터 교정, 면접 예상 질문 생성까지 취업 전과정을 효율적으로 관리할 수 있습니다.
 
----
+- **배포 사이트**: [https://jobsecretary.lat](https://jobsecretary.lat)
 
-## 2. 아키텍처 설계 의도 (Architecture Decision Records)
+<br>
 
-단순한 기능 구현을 넘어, **"팀 규모가 커지고 기능이 10배 늘어나도 유지보수 가능한가?"**라는 질문에 답하기 위해 다음과 같은 아키텍처를 도입했습니다.
+## 2. 핵심 기능
 
-### 🏗 1) Feature-Sliced Structure (도메인 주도 설계)
-거대한 모놀리식 구조의 한계를 극복하고, 향후 Micro-Frontend 전환까지 고려하여 코드를 기능(Feature/Domain) 단위로 격리했습니다.
+| 기능 | 설명 |
+| --- | --- |
+| **🤖 AI 자소서 솔루션** | 사용자 경험 데이터 기반 자소서 초안 작성, 문맥 교정, 맞춤형 면접 질문 생성 |
+| **📊 칸반형 공고 관리** | 드래그 앤 드롭으로 '작성 중 → 지원 완료 → 면접 → 합격/불합격' 채용 단계 관리 |
+| **🗂️ 커리어 자산화** | 태그 기반 자소서 저장·검색, PDF 포트폴리오 변환 |
+| **🔐 데이터 보호** | Supabase RLS 적용, Navigation Guard로 페이지 이탈 시 데이터 손실 방지 |
 
-*   **Problem**: 기존에는 `components`, `hooks` 등 기술적인 분류를 사용하여, 하나의 기능을 수정하려면 여러 폴더를 오가야 했고 도메인 간 경계가 모호했습니다.
-*   **Solution**: **Co-location(관심사의 근접성)** 원칙에 따라 관련 코드를 한곳에 모으는 FSD(Feature-Sliced Design) 패턴을 적용했습니다.
+<br>
 
-### 🎨 2) Headless & Compound Component (디자인 시스템)
-기획과 디자인의 변경에 유연하게 대처하고, 비즈니스 로직과 UI 표현을 철저히 분리하기 위해 디자인 시스템을 추상화했습니다.
+## 3. 기술 스택
 
-*   **Problem**: 컴포넌트 내부에 드래그 로직과 스타일링이 강하게 결합되어 있어, 디자인 변경 시 로직까지 건드려야 하는 위험이 있었습니다.
-*   **Solution**: **Shadcn/UI (Radix UI)** 기반의 Headless 패턴을 적극 도입하여, 접근성(A11y)과 기능은 보장하되 스타일링의 자유도를 확보했습니다. 로직과 뷰를 분리하여 재사용성을 극대화했습니다.
+### Frontend
+| 분류 | 기술 |
+|------|------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| 폼 상태 관리 | React Hook Form + Zod |
+| 서버 상태 관리 | TanStack Query (Optimistic Update) |
+| 전역 UI 상태 | Zustand |
+| Styling | Tailwind CSS, Shadcn/UI |
 
-### ⚡️ 3) Server State Management (API 계층 분리)
-단순한 Fetching을 넘어, **TanStack Query**를 도입하여 데이터 동기화 전략을 고도화했습니다.
+### Backend & Infra
+| 분류 | 기술 |
+|------|------|
+| BaaS | Supabase (PostgreSQL, Auth, RLS) |
+| AI Engine | Google Gemini API |
+| 에러 모니터링 | Sentry |
+| Testing | Jest (Unit), Playwright (E2E) |
+| Deployment | Vercel |
 
-*   **Problem**: 서버 상태와 클라이언트 상태의 동기화가 수동으로 이루어졌고, 캐싱 전략이 부재했습니다.
-*   **Solution**: Server Actions를 API 계층으로 추상화하고, React Query로 감싸서 **캐싱, 중복 요청 방지, Optimistic Update(낙관적 업데이트)**를 체계적으로 관리했습니다. 이를 통해 칸반 보드 드래그 시 네이티브 앱 수준의 즉각적인 반응성을 확보했습니다.
+<br>
 
----
+## 4. 아키텍처
 
-## 3. 핵심 기술적 도전 (Technical Challenges)
+**Feature-Sliced Design (FSD)** 패턴을 채택하여 기술적 역할이 아닌 **비즈니스 도메인** 기준으로 코드를 격리했습니다.
 
-### 🚀 대규모 데이터 렌더링 성능 최적화
-수백 개의 지원 내역 카드가 있는 칸반 보드에서 드래그 앤 드롭 시 발생하는 리렌더링 비용을 최소화했습니다.
-
-*   **Memoization**: `React.memo`와 `useCallback`을 활용해 드래그 중인 카드 외의 다른 컬럼/카드가 불필요하게 렌더링 되는 것을 방지했습니다.
-*   **Optimistic UI**: 네트워크 요청이 완료되기 전에 UI를 먼저 업데이트하고, 실패 시 롤백(Rollback)하는 트랜잭션 처리를 구현했습니다.
-
-### � Enterprise-Grade Security (RLS)
-프론트엔드 로직에 의존하지 않는 견고한 보안을 구축했습니다.
-
-*   **Row Level Security**: Supabase의 RLS 정책을 통해 DB 레벨에서 데이터 접근 권한을 제어합니다. 이는 API 엔드포인트가 노출되더라도 데이터 유출을 원천적으로 차단합니다.
-*   **Double Validation**: 클라이언트 API 계층에서도 `user_id` 검증 로직을 추가하여 이중 보안 체계를 수립했습니다.
-
----
-
-## 4. 디렉토리 구조 (Directory Structure)
-
-```bash
+```
 .
-├── app/                    # Next.js App Router (Composition Layer)
-│   ├── api/                # Backend API Routes
-│   └── (pages)/            # Page Components
-├── features/               # Domain Logic (핵심 비즈니스 기능 단위)
-│   ├── document-kanban/    # 지원 현황 관리 도메인
-│   ├── document-editor/    # 에디터 도메인
-│   └── ai-assistant/       # AI 기능 도메인
-├── entities/               # Business Entities (데이터 모델 단위)
-│   └── document/           # 문서 모델 (API, Actions, UI)
-├── shared/                 # Shared Kernel (공용 모듈)
-│   ├── ui/                 # Atomic Design Components
-│   ├── store/              # Global State (Zustand)
-│   ├── types/              # Global Types
-│   └── lib/                # Utilities
-└── middleware.ts           # Auth Protection
+├── app/                    # Composition Layer (라우팅 및 페이지 조립)
+│   ├── api/                # Server Actions & API Routes
+│   └── (pages)/            # 페이지 컴포넌트
+├── widgets/                # 독립적 UI 블록 (Sidebar, KanbanBoard, ArchiveBoard)
+├── features/               # 사용자 상호작용 기능
+│   ├── document-kanban/    # 칸반 보드 드래그 앤 드롭
+│   ├── document-editor/    # 문서 편집 및 뷰어
+│   ├── document-write/     # 자소서 작성 폼
+│   ├── document-archive/   # 아카이브 필터링 및 목록
+│   ├── ai-assistant/       # AI 교정 기능
+│   └── auth/               # 인증 및 동의
+├── entities/               # 비즈니스 데이터 모델
+│   ├── document/           # 자소서 엔티티 (types, actions, hooks, ui)
+│   ├── draft/              # 임시 저장 상태
+│   └── user/               # 사용자 프로필
+├── shared/                 # 공용 모듈
+│   ├── ui/                 # 재사용 UI 컴포넌트
+│   ├── config/             # 상수 및 설정
+│   ├── lib/                # 유틸리티 함수
+│   └── api/                # Supabase 클라이언트
+└── middleware.ts           # 인증 미들웨어
 ```
 
----
+<br>
 
-## 5. 시작하기 (Getting Started)
+## 5. 성능 최적화
 
-**Clone the repository**
+| 최적화 항목 | 적용 기술 |
+|------------|----------|
+| **렌더링 최적화** | `useMemo`, `useCallback`으로 칸반 드래그 중 불필요한 리렌더 방지 |
+| **폼 성능** | React Hook Form 비제어 컴포넌트로 타이핑 시 리렌더 최소화 |
+| **번들 최적화** | `optimizePackageImports`, Polyfill Bloat 제거 (browserslist: Chrome 100+) |
+| **캐시 활성화** | Back-Forward Cache 활성화, Dynamic Import 활용 |
+| **접근성** | `aria-label`, `sr-only`, Lighthouse 접근성 점수 개선 |
 
-```bash
-git clone https://github.com/kimjunha1231/JobSecretary.git
-```
 
-**Install dependencies**
-
-```bash
-npm install
-```
-
-**Set up environment variables**
-Create a `.env.local` file and add your Supabase & Gemini API keys.
-
-**Run the development server**
-
-```bash
-npm run dev
-```

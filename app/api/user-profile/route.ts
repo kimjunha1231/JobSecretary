@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { userProfileService } from '@/entities/user-profile/server/user-profile.service';
+import { userProfileService } from '@/entities/user/server/user-profile.service';
 import { logger } from "@/shared/lib";
 
 // GET: Check if user profile exists and has consent

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/shared/ui";
-import { GlobalAlert } from "@/widgets/GlobalAlert";
+import { GlobalAlert } from "@/widgets";
 import { AuthInitializer, InAppBrowserGuard } from "@/features/auth/ui";
 import { Analytics } from "@vercel/analytics/next";
 import { QueryProvider } from "./providers";

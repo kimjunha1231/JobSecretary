@@ -1,12 +1,13 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/shared/api/server';
-import { Document } from '@/shared/types';
+import { Document } from './model';
+import { mapRecordToDocument, mapDocumentToRecord, DocumentRecord } from './repository';
 import { logger } from '@/shared/lib';
 import { z } from 'zod';
 
-// Zod Schemas
-const DocumentSchema = z.object({
+// Validation schemas for server actions (subset of model schemas with validation rules)
+const CreateDocumentInputSchema = z.object({
     title: z.string().min(1, "제목은 필수입니다."),
     company: z.string().min(1, "회사명은 필수입니다."),
     role: z.string().min(1, "직무는 필수입니다."),
@@ -22,7 +23,7 @@ const DocumentSchema = z.object({
     documentScreeningStatus: z.enum(['pass', 'fail']).nullable().optional(),
 });
 
-const UpdateDocumentSchema = DocumentSchema.partial();
+const UpdateDocumentInputSchema = CreateDocumentInputSchema.partial();
 
 export async function getDocuments(): Promise<Document[]> {
     const supabase = await createServerSupabaseClient();
@@ -38,17 +39,7 @@ export async function getDocuments(): Promise<Document[]> {
         return [];
     }
 
-    return data.map((doc: any) => ({
-        ...doc,
-        createdAt: doc.created_at,
-        jobPostUrl: doc.job_post_url,
-        deadline: doc.deadline || undefined,
-        date: doc.date || undefined,
-        logo: doc.logo || undefined,
-        isFavorite: doc.is_favorite || false,
-        isArchived: doc.is_archived || false,
-        documentScreeningStatus: doc.document_screening_status as 'pass' | 'fail' | null || null,
-    })) as Document[];
+    return data.map((doc: DocumentRecord) => mapRecordToDocument(doc));
 }
 
 export async function createDocument(formData: FormData) {
@@ -85,7 +76,7 @@ export async function createDocument(formData: FormData) {
     }
 
     // Validate with Zod
-    const validationResult = DocumentSchema.safeParse(rawData);
+    const validationResult = CreateDocumentInputSchema.safeParse(rawData);
 
     if (!validationResult.success) {
         logger.error("Validation Error:", validationResult.error);
@@ -133,7 +124,7 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
     }
 
     // Validate with Zod
-    const validationResult = UpdateDocumentSchema.safeParse(updates);
+    const validationResult = UpdateDocumentInputSchema.safeParse(updates);
 
     if (!validationResult.success) {
         logger.error("Validation Error:", validationResult.error);
@@ -142,25 +133,8 @@ export async function updateDocument(id: string, updates: Partial<Document>) {
 
     const validatedUpdates = validationResult.data;
 
-    const updateData: Record<string, unknown> = {};
-    if (validatedUpdates.title !== undefined) updateData.title = validatedUpdates.title;
-    if (validatedUpdates.company !== undefined) updateData.company = validatedUpdates.company;
-    if (validatedUpdates.role !== undefined) updateData.role = validatedUpdates.role;
-    if (validatedUpdates.content !== undefined) updateData.content = validatedUpdates.content;
-    if (validatedUpdates.status !== undefined) updateData.status = validatedUpdates.status;
-    if (validatedUpdates.tags !== undefined) updateData.tags = validatedUpdates.tags;
-    if (validatedUpdates.jobPostUrl !== undefined) updateData.job_post_url = validatedUpdates.jobPostUrl;
-    if (validatedUpdates.position !== undefined) updateData.position = validatedUpdates.position;
-    if (validatedUpdates.deadline !== undefined) updateData.deadline = validatedUpdates.deadline;
-    if (validatedUpdates.date !== undefined) updateData.date = validatedUpdates.date;
-    if (validatedUpdates.isFavorite !== undefined) updateData.is_favorite = validatedUpdates.isFavorite;
-    if (validatedUpdates.isArchived !== undefined) updateData.is_archived = validatedUpdates.isArchived;
-    if (validatedUpdates.documentScreeningStatus !== undefined) updateData.document_screening_status = validatedUpdates.documentScreeningStatus;
-
-    // Logo update if company changes
-    if (validatedUpdates.company) {
-        updateData.logo = validatedUpdates.company.charAt(0).toUpperCase();
-    }
+    // Use repository mapping function
+    const updateData = mapDocumentToRecord(validatedUpdates as Partial<Document>);
 
     const { data, error } = await supabase
         .from('documents')
