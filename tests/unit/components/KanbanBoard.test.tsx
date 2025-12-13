@@ -4,7 +4,7 @@ import { KanbanBoard } from '@/features/document-kanban';
 import { useKanban } from '@/features/document-kanban';
 
 // Mock the custom hook
-jest.mock('@/hooks/useKanban');
+jest.mock('@/features/document-kanban/hooks/useKanban');
 
 // Mock DndContext components to avoid complex dnd logic in unit tests
 jest.mock('@dnd-kit/core', () => ({
