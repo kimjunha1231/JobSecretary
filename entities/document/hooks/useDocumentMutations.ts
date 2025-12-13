@@ -107,7 +107,7 @@ export function useUpdateDocumentOrder() {
 }
 
 // Add document mutation
-export function useAddDocument() {
+export function useCreateDocument() {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -132,6 +132,7 @@ export function useAddDocument() {
                     logo,
                     is_archived: doc.isArchived ?? false,
                     is_favorite: false,
+                    document_screening_status: doc.documentScreeningStatus,
                 })
                 .select()
                 .single();

@@ -12,6 +12,6 @@ export {
     useDeleteDocument,
     useArchiveDocument,
     useUpdateDocumentOrder,
-    useAddDocument,
+    useCreateDocument,
     useArchiveDocuments,
 } from './useDocumentMutations';

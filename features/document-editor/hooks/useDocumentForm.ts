@@ -9,6 +9,7 @@ import { Section, DocumentFormState } from '../types';
 
 export function useDocumentForm(doc: Document | undefined) {
     const updateDocumentMutation = useUpdateDocument();
+    const [initialForm, setInitialForm] = useState<DocumentFormState | null>(null);
     const [form, setForm] = useState<DocumentFormState>({
         company: '',
         role: '',
@@ -41,7 +42,7 @@ export function useDocumentForm(doc: Document | undefined) {
 
             const finalSections = parsedSections.length > 0 ? parsedSections : [{ title: '자기소개서', content: doc.content, limit: 500 }];
 
-            setForm({
+            const newForm = {
                 company: doc.company,
                 role: doc.role,
                 jobPostUrl: doc.jobPostUrl || '',
@@ -49,9 +50,14 @@ export function useDocumentForm(doc: Document | undefined) {
                 status: doc.status || 'writing',
                 deadline: doc.deadline || '',
                 sections: finalSections
-            });
+            };
+
+            setForm(newForm);
+            setInitialForm(newForm);
         }
     }, [doc]);
+
+    const isDirty = initialForm ? JSON.stringify(form) !== JSON.stringify(initialForm) : false;
 
     const updateField = <K extends keyof DocumentFormState>(key: K, value: DocumentFormState[K]) => {
         setForm(prev => ({ ...prev, [key]: value }));
@@ -96,6 +102,8 @@ export function useDocumentForm(doc: Document | undefined) {
                 status: form.status,
                 deadline: form.deadline
             });
+            // 저장 성공 시 초기 상태 업데이트 (dirty 해제)
+            setInitialForm(form);
             toast.success('문서가 저장되었습니다.');
             return true;
         } catch (error) {
@@ -107,6 +115,7 @@ export function useDocumentForm(doc: Document | undefined) {
 
     return {
         form,
+        isDirty,
         updateField,
         updateSection,
         addSection,

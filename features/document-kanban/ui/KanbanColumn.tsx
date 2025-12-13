@@ -58,7 +58,7 @@ export function KanbanColumn({ status, title, applications, onDelete, onArchiveA
                 </button>
             ) : (
                 <button
-                    onClick={() => router.push(`/write?status=${status}`)}
+                    onClick={() => router.push(`/write?status=${status}&from=dashboard`)}
                     className="mt-3 w-full py-2 flex items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/50 transition-all text-sm group"
                 >
                     <Plus size={14} className="group-hover:scale-110 transition-transform" />

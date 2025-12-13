@@ -8,6 +8,7 @@ const config: Config = {
 		"./shared/**/*.{js,ts,jsx,tsx,mdx}",
 		"./store/**/*.{js,ts,jsx,tsx,mdx}",
 		"./lib/**/*.{js,ts,jsx,tsx,mdx}",
+		"./widgets/**/*.{js,ts,jsx,tsx,mdx}",
 	],
 	darkMode: ['class', "class"],
 	theme: {

@@ -1,19 +1,15 @@
 import { SmartTagInput } from '@/entities/document';
+import { useFormContext, Controller } from 'react-hook-form';
+import { ResumeFormData } from '../../types';
 import { useDraftStore } from '@/entities/draft';
 
 interface ResumeFormHeaderProps {
-    formData: {
-        company: string;
-        role: string;
-        deadline?: string;
-        jobPostUrl?: string;
-        tags: string[];
-    };
-    setFormData: (data: Partial<ResumeFormHeaderProps['formData']>) => void;
     setSearchTags: (tags: string[]) => void;
 }
 
-export function ResumeFormHeader({ formData, setFormData, setSearchTags }: ResumeFormHeaderProps) {
+export function ResumeFormHeader({ setSearchTags }: ResumeFormHeaderProps) {
+    const { register, control } = useFormContext<ResumeFormData>();
+
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap gap-4">
@@ -21,8 +17,7 @@ export function ResumeFormHeader({ formData, setFormData, setSearchTags }: Resum
                     <label className="text-sm text-zinc-400">회사명</label>
                     <input
                         type="text"
-                        value={formData.company}
-                        onChange={e => setFormData({ company: e.target.value })}
+                        {...register('company')}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                         placeholder="지원 회사"
                     />
@@ -31,8 +26,7 @@ export function ResumeFormHeader({ formData, setFormData, setSearchTags }: Resum
                     <label className="text-sm text-zinc-400">직무</label>
                     <input
                         type="text"
-                        value={formData.role}
-                        onChange={e => setFormData({ role: e.target.value })}
+                        {...register('role')}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                         placeholder="지원 직무"
                     />
@@ -41,8 +35,7 @@ export function ResumeFormHeader({ formData, setFormData, setSearchTags }: Resum
                     <label className="text-sm text-zinc-400">마감일 (선택)</label>
                     <input
                         type="date"
-                        value={formData.deadline || ''}
-                        onChange={e => setFormData({ deadline: e.target.value })}
+                        {...register('deadline')}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors [color-scheme:dark]"
                     />
                 </div>
@@ -50,8 +43,7 @@ export function ResumeFormHeader({ formData, setFormData, setSearchTags }: Resum
                     <label className="text-sm text-zinc-400">채용 공고 링크 (선택)</label>
                     <input
                         type="url"
-                        value={formData.jobPostUrl}
-                        onChange={e => setFormData({ jobPostUrl: e.target.value })}
+                        {...register('jobPostUrl')}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                         placeholder="https://..."
                     />
@@ -60,14 +52,20 @@ export function ResumeFormHeader({ formData, setFormData, setSearchTags }: Resum
 
             <div>
                 <label className="text-sm text-zinc-400 mb-2 block">태그</label>
-                <SmartTagInput
-                    tags={formData.tags}
-                    onChange={tags => {
-                        setFormData({ tags });
-                        setSearchTags(tags);
-                    }}
-                    placeholder="태그를 입력하거나 선택하세요 (예: 취미, 성장과정)"
-                    className="bg-surface border-white/10"
+                <Controller
+                    control={control}
+                    name="tags"
+                    render={({ field: { value, onChange } }) => (
+                        <SmartTagInput
+                            tags={value || []}
+                            onChange={(tags) => {
+                                onChange(tags);
+                                setSearchTags(tags);
+                            }}
+                            placeholder="태그를 입력하거나 선택하세요 (예: 취미, 성장과정)"
+                            className="bg-surface border-white/10"
+                        />
+                    )}
                 />
             </div>
         </div>

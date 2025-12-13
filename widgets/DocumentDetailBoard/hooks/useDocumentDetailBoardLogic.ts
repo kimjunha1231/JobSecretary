@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useDocument, useDeleteDocument } from '@/entities/document';
 import { useDocumentEditStore } from '@/entities/document';
 
 export const useDocumentDetailBoardLogic = () => {
     const params = useParams();
+    const searchParams = useSearchParams();
     const id = params?.id as string;
     const router = useRouter();
     const { data: doc, isLoading } = useDocument(id);
@@ -14,6 +15,16 @@ export const useDocumentDetailBoardLogic = () => {
     const [isDocDeleteModalOpen, setIsDocDeleteModalOpen] = useState(false);
     const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
 
+    // URL 파라미터에서 origin 확인 (dashboard 또는 archive)
+    // origin이 없으면 document의 isArchived 상태로 판단
+    const getOriginPath = () => {
+        const origin = searchParams.get('from');
+        if (origin === 'dashboard') return '/dashboard';
+        if (origin === 'archive') return '/archive';
+        // origin이 없으면 문서의 isArchived 상태로 판단
+        return doc?.isArchived ? '/archive' : '/dashboard';
+    };
+
     useEffect(() => {
         if (doc) {
             setDocument(doc);
@@ -21,7 +32,12 @@ export const useDocumentDetailBoardLogic = () => {
     }, [doc, setDocument]);
 
     const handleEdit = () => {
-        router.push(`/document/${id}/edit`);
+        // 수정 페이지로 이동할 때도 origin 정보 전달
+        const origin = searchParams.get('from');
+        const editUrl = origin
+            ? `/document/${id}/edit?from=${origin}`
+            : `/document/${id}/edit`;
+        router.push(editUrl);
     };
 
     const handleDelete = () => {
@@ -31,7 +47,7 @@ export const useDocumentDetailBoardLogic = () => {
     const confirmDocDelete = async () => {
         if (doc) {
             await deleteDocumentMutation.mutateAsync(doc.id);
-            router.push('/archive');
+            router.push(getOriginPath());
             setIsDocDeleteModalOpen(false);
         }
     };
@@ -42,11 +58,17 @@ export const useDocumentDetailBoardLogic = () => {
 
     const handleRefineTrigger = (index: number) => {
         setAutoRefineIndex(index);
-        router.push(`/document/${id}/edit`);
+        // AI 교정 트리거 시에도 origin 정보 전달
+        const origin = searchParams.get('from');
+        const editUrl = origin
+            ? `/document/${id}/edit?from=${origin}`
+            : `/document/${id}/edit`;
+        router.push(editUrl);
     };
 
     const handleBack = () => {
-        router.back();
+        // router.back() 대신 명시적으로 목록 페이지로 이동
+        router.push(getOriginPath());
     };
 
     const parseSections = () => {

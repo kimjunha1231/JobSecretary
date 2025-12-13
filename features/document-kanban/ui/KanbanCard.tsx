@@ -86,7 +86,7 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
             style={style}
             {...attributes}
             {...listeners}
-            onClick={() => router.push(`/document/${application.id}`)}
+            onClick={() => router.push(`/document/${application.id}?from=dashboard`)}
             className={`group relative bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-all cursor-pointer ${isDragging ? 'opacity-50' : 'opacity-100'}`}
         >
             <button

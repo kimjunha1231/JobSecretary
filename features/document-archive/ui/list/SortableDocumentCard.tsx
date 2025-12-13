@@ -38,7 +38,7 @@ export function SortableDocumentCard({ doc, onDelete, onToggleFavorite }: Sortab
             style={style}
             {...attributes}
             {...listeners}
-            onClick={() => router.push(`/document/${doc.id}`)}
+            onClick={() => router.push(`/document/${doc.id}?from=archive`)}
             className="bg-surface border border-white/5 rounded-xl p-5 hover:border-primary/50 transition-all cursor-pointer group relative"
         >
             <div className="flex items-start justify-between mb-4">

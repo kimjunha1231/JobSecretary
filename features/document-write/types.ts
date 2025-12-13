@@ -1,3 +1,18 @@
+export interface Section {
+    title: string;
+    content: string;
+    limit: number;
+}
+
+export interface ResumeFormData {
+    company: string;
+    role: string;
+    jobPostUrl: string;
+    tags: string[];
+    deadline: string;
+    sections: Section[];
+}
+
 export interface AutoDraftModalProps {
     isOpen: boolean;
     onClose: () => void;
