@@ -39,7 +39,8 @@ export const FilteredDocumentView = ({
                                     e.stopPropagation();
                                     onToggleFavorite(doc.id, !doc.isFavorite);
                                 }}
-                                className={`hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity ${doc.isFavorite ? 'text-yellow-400 opacity-100' : 'text-zinc-600'}`}
+                                className={`p-2 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity ${doc.isFavorite ? 'text-yellow-400 opacity-100' : 'text-zinc-600'}`}
+                                aria-label={doc.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
                             >
                                 <Star size={16} fill={doc.isFavorite ? "currentColor" : "none"} />
                             </button>
@@ -48,7 +49,8 @@ export const FilteredDocumentView = ({
                                     e.stopPropagation();
                                     onDeleteClick(doc.id);
                                 }}
-                                className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="p-2 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="문서 삭제"
                             >
                                 <Trash2 size={16} />
                             </button>
@@ -58,7 +60,7 @@ export const FilteredDocumentView = ({
                     <div className="space-y-2">
                         <div>
                             <h3 className="text-lg font-medium text-white mb-1">{doc.company}</h3>
-                            <p className="text-sm text-zinc-400">{doc.role}</p>
+                            <p className="text-sm text-zinc-300">{doc.role}</p>
                         </div>
                         <div className="flex items-center justify-between mt-4">
                             <div className="flex items-center gap-2">
@@ -85,9 +87,9 @@ export const FilteredDocumentView = ({
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-zinc-500">
+                            <div className="flex items-center gap-1 text-xs text-zinc-300">
                                 <Calendar size={12} />
-                                <span>{doc.createdAt}</span>
+                                <span>{new Date(doc.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
                             </div>
                         </div>
                         {doc.tags && doc.tags.length > 0 && (

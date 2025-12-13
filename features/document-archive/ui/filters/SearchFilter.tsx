@@ -12,6 +12,7 @@ export const SearchFilter = ({ searchTerm, setSearchTerm }: SearchFilterProps) =
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-surface border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-primary transition-colors"
+                aria-label="문서 검색"
             />
         </div>
     );

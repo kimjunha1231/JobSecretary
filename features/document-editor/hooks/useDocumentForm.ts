@@ -107,7 +107,7 @@ export function useDocumentForm(doc: Document | undefined) {
             toast.success('문서가 저장되었습니다.');
             return true;
         } catch (error) {
-            console.error('Failed to save document:', error);
+
             toast.error('저장에 실패했습니다.');
             return false;
         }

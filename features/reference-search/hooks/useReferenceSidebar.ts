@@ -23,7 +23,7 @@ export const useReferenceSidebar = ({
                 const results = await searchDocumentsByTags(searchTags);
                 setSearchResults(results);
             } catch (error) {
-                console.error('Failed to search references:', error);
+
             } finally {
                 setIsSearching(false);
             }

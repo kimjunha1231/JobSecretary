@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { useDocuments } from '@/entities/document';
+import { Document } from '@/shared/types';
 import { useParams } from 'next/navigation';
 import { Section } from '../types';
 
 interface UseAutoDraftProps {
     sections: Section[];
     onUpdateSection: (index: number, field: keyof Section, value: string) => void;
+    doc?: Document;
 }
 
-export const useAutoDraft = ({ sections, onUpdateSection }: UseAutoDraftProps) => {
+export const useAutoDraft = ({ sections, onUpdateSection, doc }: UseAutoDraftProps) => {
     const [autoDraftIndex, setAutoDraftIndex] = useState<number | null>(null);
-    const { data: documents = [] } = useDocuments();
-    const params = useParams();
-    const id = params?.id as string;
-    const doc = documents.find(d => d.id === id);
 
     const openAutoDraft = (index: number) => setAutoDraftIndex(index);
     const closeAutoDraft = () => setAutoDraftIndex(null);

@@ -112,7 +112,7 @@ export default function ResumeForm() {
             router.push(isArchived ? '/archive' : '/dashboard');
             toast.success('문서가 저장되었습니다.');
         } catch (error) {
-            console.error('Failed to save document:', error);
+
             toast.error('저장에 실패했습니다.');
         } finally {
             setIsSaving(false);

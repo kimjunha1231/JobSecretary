@@ -9,7 +9,8 @@ export function DocumentEditor({
     onUpdateSection,
     onAddSection,
     onRemoveSection,
-    autoRefineIndex
+    autoRefineIndex,
+    doc: docProp
 }: DocumentEditorProps) {
     const {
         doc,
@@ -18,7 +19,7 @@ export function DocumentEditor({
         handleDraftGenerated,
         isAutoDraftOpen,
         currentQuestion
-    } = useAutoDraft({ sections, onUpdateSection });
+    } = useAutoDraft({ sections, onUpdateSection, doc: docProp });
 
     return (
         <div className="space-y-8">
@@ -35,17 +36,19 @@ export function DocumentEditor({
                                 onChange={e => onUpdateSection(index, 'title', e.target.value)}
                                 className="flex-1 bg-transparent border-none text-xl font-semibold text-white focus:outline-none focus:ring-0 placeholder-zinc-600 break-words"
                                 placeholder="문항 제목"
+                                aria-label="문항 제목"
                             />
                             <button
                                 onClick={() => onRemoveSection(index)}
                                 className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-all rounded-lg"
                                 title="문항 삭제"
+                                aria-label="문항 삭제"
                             >
                                 <Trash2 size={18} />
                             </button>
                         </div>
                         <div className="flex items-center justify-between gap-3 pl-10">
-                            <div className="flex items-center gap-2 text-sm text-zinc-500 font-mono">
+                            <div className="flex items-center gap-2 text-sm text-zinc-400 font-mono">
                                 <span>{section.content.length} / {section.limit}자</span>
                                 <span className={section.content.length > section.limit ? 'text-red-400' : ''}>
                                     ({section.limit - section.content.length}자 남음)
@@ -62,6 +65,7 @@ export function DocumentEditor({
                                 <button
                                     onClick={() => openAutoDraft(index)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
+                                    aria-label="AI 초안 작성"
                                 >
                                     <PenTool size={14} />
                                     <span>AI 초안 작성</span>
@@ -81,6 +85,7 @@ export function DocumentEditor({
                             className="w-full h-64 bg-zinc-900/50 border border-zinc-700 rounded-lg p-4 text-zinc-300 leading-relaxed focus:border-primary focus:outline-none resize-none"
                             placeholder="내용을 입력하세요..."
                             maxLength={section.limit}
+                            aria-label="문항 내용"
                         />
                     </div>
                 </div>
@@ -89,6 +94,7 @@ export function DocumentEditor({
             <button
                 onClick={onAddSection}
                 className="w-full py-4 border-2 border-dashed border-zinc-700 rounded-2xl text-zinc-400 hover:text-white hover:border-zinc-500 hover:bg-white/5 transition-all flex items-center justify-center gap-2 font-medium"
+                aria-label="새 문항 추가하기"
             >
                 <Plus size={20} />
                 문항 추가하기

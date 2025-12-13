@@ -33,7 +33,7 @@ export function CharacterCounter({ sectionIndex }: CharacterCounterProps) {
     const isOverLimit = count > limit;
 
     return (
-        <span className={`text-xs ${isOverLimit ? 'text-red-400 font-medium' : 'text-zinc-500'}`}>
+        <span className={`text-xs ${isOverLimit ? 'text-red-400 font-medium' : 'text-zinc-400'}`}>
             {count.toLocaleString()} / {limit.toLocaleString()}자
         </span>
     );

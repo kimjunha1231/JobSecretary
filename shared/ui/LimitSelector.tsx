@@ -42,10 +42,12 @@ export const LimitSelector: React.FC<LimitSelectorProps> = ({ value, onChange })
                     onChange={handleInputChange}
                     className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:border-primary focus:outline-none"
                     min="1"
+                    aria-label="글자 수 제한 직접 입력"
                 />
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="p-1 hover:bg-zinc-800 rounded transition-colors"
+                    aria-label="글자 수 제한 선택"
                 >
                     <ChevronDown size={16} className="text-zinc-400" />
                 </button>
@@ -57,6 +59,7 @@ export const LimitSelector: React.FC<LimitSelectorProps> = ({ value, onChange })
                             key={option}
                             onClick={() => handleSelectOption(option)}
                             className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-800 transition-colors"
+                            aria-label={`${option}자로 제한`}
                         >
                             {option}자
                         </button>

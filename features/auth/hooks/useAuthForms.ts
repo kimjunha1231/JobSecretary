@@ -35,7 +35,7 @@ export const useDeleteAccountForm = () => {
         try {
             await onConfirm();
         } catch (error) {
-            console.error('Delete error:', error);
+
             setIsDeleting(false);
         }
     };

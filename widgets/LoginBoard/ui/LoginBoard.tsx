@@ -17,7 +17,7 @@ export function LoginBoard() {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background text-white p-4 relative overflow-hidden">
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
+
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 to-background pointer-events-none"></div>
 
             <div className="relative z-10 flex flex-col items-center text-center max-w-lg">

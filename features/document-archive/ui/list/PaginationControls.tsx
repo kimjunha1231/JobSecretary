@@ -24,6 +24,7 @@ export const PaginationControls = ({
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     className="px-2 py-1 rounded bg-zinc-800 text-zinc-400 disabled:opacity-50 hover:bg-zinc-700 transition-colors text-xs"
+                    aria-label="첫 페이지"
                 >
                     {'<<'}
                 </button>
@@ -31,10 +32,11 @@ export const PaginationControls = ({
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded bg-zinc-800 text-zinc-400 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+                    aria-label="이전 페이지"
                 >
                     이전
                 </button>
-                <div className="flex gap-1">
+                <div className="flex gap-1" role="navigation" aria-label="페이지 목록">
                     {(() => {
                         const maxVisible = 5;
                         let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
@@ -52,6 +54,8 @@ export const PaginationControls = ({
                                     ? 'bg-primary text-primary-foreground'
                                     : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                                     }`}
+                                aria-label={`${page} 페이지`}
+                                aria-current={currentPage === page ? 'page' : undefined}
                             >
                                 {page}
                             </button>
@@ -62,6 +66,7 @@ export const PaginationControls = ({
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded bg-zinc-800 text-zinc-400 disabled:opacity-50 hover:bg-zinc-700 transition-colors"
+                    aria-label="다음 페이지"
                 >
                     다음
                 </button>
@@ -69,13 +74,14 @@ export const PaginationControls = ({
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                     className="px-2 py-1 rounded bg-zinc-800 text-zinc-400 disabled:opacity-50 hover:bg-zinc-700 transition-colors text-xs"
+                    aria-label="마지막 페이지"
                 >
                     {'>>'}
                 </button>
             </div>
 
             <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">페이지당 보기:</span>
+                <span className="text-xs text-zinc-500" id="items-per-page-label">페이지당 보기:</span>
                 <input
                     type="number"
                     min="1"
@@ -87,6 +93,7 @@ export const PaginationControls = ({
                         }
                     }}
                     className="bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded px-2 py-1 w-16 text-center focus:outline-none focus:border-primary"
+                    aria-labelledby="items-per-page-label"
                 />
                 <span className="text-xs text-zinc-500">개</span>
             </div>

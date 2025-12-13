@@ -23,6 +23,7 @@ export interface DocumentEditorProps {
     onAddSection: () => void;
     onRemoveSection: (index: number) => void;
     autoRefineIndex: number | null;
+    doc?: Document;
 }
 
 export interface DocumentEditHeaderProps {

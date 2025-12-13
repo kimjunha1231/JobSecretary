@@ -94,7 +94,7 @@ export const useArchiveLogic = () => {
             }));
 
             updateDocumentOrder(updates).catch(error => {
-                console.error('Failed to update order:', error);
+
             });
         }
         setActiveId(null);
@@ -106,7 +106,7 @@ export const useArchiveLogic = () => {
         try {
             await toggleDocumentFavorite(id, isFavorite);
         } catch (error) {
-            console.error('Failed to toggle favorite:', error);
+
             // Revert on error
             setItems(prev => prev.map(item => item.id === id ? { ...item, isFavorite: !isFavorite } : item));
         }

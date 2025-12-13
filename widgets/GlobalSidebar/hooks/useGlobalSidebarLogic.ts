@@ -27,7 +27,7 @@ export const useGlobalSidebarLogic = (onClose: () => void) => {
                 router.push('/');
             }, 1500);
         } catch (error) {
-            console.error('Error deleting account:', error);
+
             showAlert('회원 탈퇴 중 오류가 발생했습니다.', 'error');
             setIsDeleteModalOpen(false);
         }

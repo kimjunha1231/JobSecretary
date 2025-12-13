@@ -24,6 +24,7 @@ export function ArchiveBoard() {
     return (
         <div className="pb-20">
             <ArchiveHeader />
+            <h2 className="sr-only">자기소개서 통계 및 목록</h2>
             <ArchiveStats documents={archivedDocuments} />
 
             <ArchiveFilterBar

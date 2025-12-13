@@ -21,7 +21,7 @@ export const useInterviewQuestions = (documentContent: string) => {
                 toast.error('질문 생성에 실패했습니다.');
             }
         } catch (error) {
-            console.error('Failed to generate questions:', error);
+
             toast.error('질문 생성 중 오류가 발생했습니다.');
         } finally {
             setIsLoading(false);

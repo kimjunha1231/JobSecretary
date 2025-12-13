@@ -30,6 +30,7 @@ export function DateRangeFilter({
                     value={startDate}
                     onChange={(e) => onStartDateChange(e.target.value)}
                     className="bg-transparent border-none text-xs text-zinc-300 focus:ring-0 p-1 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    aria-label="시작 날짜"
                 />
                 <span className="text-zinc-600 text-xs">~</span>
                 <input
@@ -37,6 +38,7 @@ export function DateRangeFilter({
                     value={endDate}
                     onChange={(e) => onEndDateChange(e.target.value)}
                     className="bg-transparent border-none text-xs text-zinc-300 focus:ring-0 p-1 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    aria-label="종료 날짜"
                 />
             </div>
             {(startDate || endDate) && (

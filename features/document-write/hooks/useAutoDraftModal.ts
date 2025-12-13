@@ -70,7 +70,7 @@ export const useAutoDraftModal = ({
             toast.success('초안이 생성되었습니다!');
             onClose();
         } catch (error) {
-            console.error('Draft generation failed:', error);
+
             toast.error('초안 생성에 실패했습니다.');
         } finally {
             setIsGenerating(false);

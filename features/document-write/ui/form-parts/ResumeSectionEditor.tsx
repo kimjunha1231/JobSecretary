@@ -34,11 +34,13 @@ export function ResumeSectionEditor({
                     {...register(`sections.${index}.title`)}
                     className="flex-1 bg-transparent border-none text-xl font-semibold text-white focus:outline-none"
                     placeholder="문항 제목"
+                    aria-label="문항 제목"
                 />
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => setIsAutoDraftOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
+                        aria-label="AI 초안 작성"
                     >
                         <PenTool size={14} />
                         <span>AI 초안 작성</span>
@@ -74,6 +76,7 @@ export function ResumeSectionEditor({
                     {...register(`sections.${index}.content`)}
                     className="w-full h-64 bg-zinc-900/50 border border-zinc-700 rounded-lg p-4 text-white focus:border-primary focus:outline-none resize-none"
                     placeholder="내용을 입력하세요..."
+                    aria-label="문항 내용"
                 />
             </div>
 

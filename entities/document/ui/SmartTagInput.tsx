@@ -31,7 +31,7 @@ export function SmartTagInput({ tags = [], onChange, placeholder = "태그 입�
                 const uniqueTags = await getUniqueTags();
                 setSuggestions(uniqueTags);
             } catch (error) {
-                console.error("Failed to fetch tags:", error);
+
             } finally {
                 setIsLoading(false);
             }

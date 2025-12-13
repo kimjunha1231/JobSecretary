@@ -38,7 +38,7 @@ export async function DELETE() {
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!serviceRoleKey) {
-            console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
+
             return NextResponse.json({
                 error: 'Server configuration error',
                 details: 'Service role key is missing'
@@ -62,7 +62,7 @@ export async function DELETE() {
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
         if (deleteError) {
-            console.error('Error deleting user:', deleteError);
+
             return NextResponse.json({
                 error: 'Failed to delete user account',
                 details: deleteError.message
@@ -77,7 +77,7 @@ export async function DELETE() {
             message: '회원 탈퇴가 완료되었습니다. 모든 데이터가 영구 삭제되었습니다.'
         });
     } catch (error) {
-        console.error('Error in account deletion:', error);
+
         return NextResponse.json({
             error: 'Internal server error',
             details: error instanceof Error ? error.message : 'Unknown error'

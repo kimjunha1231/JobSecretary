@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { User, Session } from '@supabase/supabase-js';
 import { LogOut, UserX, Loader2 } from 'lucide-react';
 import { GoogleIcon } from '@/shared/ui/icons';
@@ -34,7 +35,15 @@ export const SidebarUserProfile: React.FC<SidebarUserProfileProps> = ({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {user.user_metadata.avatar_url ? (
-                            <img src={user.user_metadata.avatar_url} alt="Profile" className="w-8 h-8 rounded-full border border-zinc-600" loading="lazy" />
+                            <div className="relative w-8 h-8">
+                                <Image
+                                    src={user.user_metadata.avatar_url}
+                                    alt="Profile"
+                                    fill
+                                    className="rounded-full border border-zinc-600 object-cover"
+                                    sizes="32px"
+                                />
+                            </div>
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600 flex items-center justify-center text-xs font-bold">
                                 {user.email?.[0].toUpperCase()}

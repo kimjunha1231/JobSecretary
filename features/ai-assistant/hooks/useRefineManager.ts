@@ -32,7 +32,7 @@ export const useRefineManager = ({ text, autoTrigger = false }: UseRefineManager
                 toast.error('AI 교정에 실패했습니다. 잠시 후 다시 시도해주세요.');
             }
         } catch (error) {
-            console.error('Refine failed:', error);
+
             toast.error('오류가 발생했습니다.');
         } finally {
             setIsLoading(false);

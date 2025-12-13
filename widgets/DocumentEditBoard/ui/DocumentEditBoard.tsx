@@ -76,6 +76,7 @@ export function DocumentEditBoard() {
                         onAddSection={formProps.addSection}
                         onRemoveSection={handlers.handleDeleteSection}
                         autoRefineIndex={autoRefineIndex}
+                        doc={doc || undefined}
                     />
                 </div>
 

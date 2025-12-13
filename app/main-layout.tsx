@@ -41,6 +41,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
               exit={{ opacity: 0, x: -20 }}
               onClick={() => setIsSidebarOpen(true)}
               className="fixed top-6 left-6 z-[40] p-3 bg-surface border border-white/20 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all shadow-xl"
+              aria-label="사이드바 열기"
             >
               <PanelLeftOpen size={20} />
             </motion.button>

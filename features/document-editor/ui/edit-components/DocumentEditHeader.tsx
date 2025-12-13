@@ -24,6 +24,7 @@ export function DocumentEditHeader({
                                 onChange={e => onUpdateField('company', e.target.value)}
                                 className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white focus:border-primary focus:outline-none w-full max-w-xs"
                                 placeholder="회사명"
+                                aria-label="회사명"
                             />
                             <span className={`text-xs px-2 py-1 rounded-full border ${STATUS_BADGE_CLASSES[form.status]}`}>
                                 {STATUS_LABELS[form.status]}
@@ -39,6 +40,7 @@ export function DocumentEditHeader({
                         onChange={e => onUpdateField('role', e.target.value)}
                         className="text-4xl font-bold text-white bg-zinc-900 border border-zinc-700 rounded px-2 py-1 focus:border-primary focus:outline-none w-full"
                         placeholder="지원 직무"
+                        aria-label="지원 직무"
                     />
                     <input
                         type="url"
@@ -46,6 +48,7 @@ export function DocumentEditHeader({
                         onChange={e => onUpdateField('jobPostUrl', e.target.value)}
                         className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white focus:border-primary focus:outline-none text-sm"
                         placeholder="채용 공고 링크 (선택)"
+                        aria-label="채용 공고 링크"
                     />
                     <div className="flex items-center gap-2">
                         <Calendar size={16} className="text-zinc-400" />
@@ -54,6 +57,7 @@ export function DocumentEditHeader({
                             value={form.deadline}
                             onChange={e => onUpdateField('deadline', e.target.value)}
                             className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-white focus:border-primary focus:outline-none text-sm [color-scheme:dark]"
+                            aria-label="마감일"
                         />
                     </div>
                     <SmartTagInput
@@ -72,12 +76,14 @@ export function DocumentEditHeader({
                         tooltip="취소"
                         onClick={onCancel}
                         className="text-zinc-400 hover:text-white hover:bg-white/10"
+                        aria-label="편집 취소하고 뒤로 가기"
                     />
                     <TooltipButton
                         icon={<Save size={20} />}
                         tooltip="저장"
                         onClick={onSave}
                         className="bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20"
+                        aria-label="문서 저장"
                     />
                 </TooltipProvider>
             </div>
