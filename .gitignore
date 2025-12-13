@@ -39,3 +39,6 @@ temp-repo/
 # Test outputs
 test-results/
 playwright-report/
+
+# Sentry Config File
+.env.sentry-build-plugin
