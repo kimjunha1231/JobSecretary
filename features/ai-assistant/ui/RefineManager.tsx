@@ -96,21 +96,6 @@ export default function RefineManager({ text, onApply, autoTrigger = false }: Re
                             </div>
                         </div>
                     </div>
-
-
-                    {result.changes && result.changes.length > 0 && (
-                        <div className="flex-none px-6 py-4 bg-zinc-950 border-t border-white/5 flex flex-wrap gap-2 items-center">
-                            <span className="text-xs font-medium text-zinc-500 mr-2 uppercase tracking-wider">Changes:</span>
-                            {result.changes.map((change, index) => (
-                                <span
-                                    key={index}
-                                    className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium rounded-full"
-                                >
-                                    {change}
-                                </span>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
         );
