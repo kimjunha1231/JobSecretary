@@ -21,9 +21,9 @@ export function KanbanColumn({ status, title, applications, onDelete, onArchiveA
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${COLUMN_GRADIENT_STYLES[status]}`} />
-                    <h3 className={`font-bold text-sm ${COLUMN_TEXT_COLORS[status]}`}>
+                    <h2 className={`font-bold text-sm ${COLUMN_TEXT_COLORS[status]}`}>
                         {title}
-                    </h3>
+                    </h2>
                 </div>
                 <span className="text-xs font-medium text-zinc-500 bg-zinc-800 px-2 py-1 rounded">
                     {applications.length}

@@ -9,7 +9,12 @@ export default function Error({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
-
+    useEffect(() => {
+        // Check for chunk load error
+        if (error.message.includes('Loading chunk') || error.message.includes('minified react error')) {
+            window.location.reload();
+        }
+    }, [error]);
 
     return (
         <div className="flex h-[calc(100vh-4rem)] w-full flex-col items-center justify-center gap-4">

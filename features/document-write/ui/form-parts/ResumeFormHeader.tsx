@@ -37,6 +37,7 @@ export function ResumeFormHeader({ setSearchTags }: ResumeFormHeaderProps) {
                         type="date"
                         {...register('deadline')}
                         className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors [color-scheme:dark]"
+                        aria-label="마감일"
                     />
                 </div>
                 <div className="flex flex-col gap-2 flex-[1.4] min-w-[260px]">

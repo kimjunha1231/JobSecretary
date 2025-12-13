@@ -7,6 +7,11 @@ import { useEffect } from "react";
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
     Sentry.captureException(error);
+
+    // Check for chunk load error
+    if (error.message.includes('Loading chunk') || error.message.includes('minified react error')) {
+      window.location.reload();
+    }
   }, [error]);
 
   return (

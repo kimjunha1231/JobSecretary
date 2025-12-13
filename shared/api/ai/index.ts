@@ -137,16 +137,62 @@ export const generateQuestions = async (
     }
 };
 
+import { createServerSupabaseClient } from '@/shared/api/server';
+
 export const generateDraft = async (
     company: string,
     role: string,
     question: string,
     keywords: string,
-    documents: Document[],
+    tags: string[] = [],
     charLimit: number = 700
 ): Promise<string> => {
     const ai = getClient();
-    const contextData = buildContentOnlyContext(documents);
+
+    // Fetch context from DB
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
+    let query = supabase
+        .from('documents')
+        .select('content, tags, company, role')
+        .eq('user_id', user.id);
+
+    if (tags.length > 0) {
+        // Use overlaps operator to find documents that match ANY of the selected tags
+        query = query.overlaps('tags', tags);
+    }
+
+    const { data: documents, error } = await query;
+
+    if (error) {
+        logger.error('Error fetching context for AI:', error);
+        // Continue without context if error occurs, rather than failing completely
+    }
+
+    const contextDocs = (documents || []).map(doc => ({
+        ...doc,
+        // Ensure other required fields for Document type are present if needed, 
+        // but buildContentOnlyContext only uses content.
+        // Actually buildContentOnlyContext expects Document[], which has many fields.
+        // We can just shape it to what we need or map it properly.
+        // For simplicity, let's just pass the data we have and cast or adjust buildContentOnlyContext.
+        id: '', userId: '', title: '', status: 'writing' as const, createdAt: '', isFavorite: false, isArchived: false,
+        // We really only need content for the prompt.
+    }));
+
+    // We can define a simplified context builder here or reuse the existing one if we cast.
+    // Let's create a local helper for safer typing or just map to string directly.
+    const contextData = (documents || []).map(doc => `
+---
+Company: ${doc.company}
+Role: ${doc.role}
+Content: ${doc.content}
+---`).join('\n');
 
     const systemInstruction = `당신은 전문적인 자기소개서 작성 도우미입니다. 
 사용자의 과거 자기소개서 스타일과 경험을 참고하여, 새로운 질문에 대한 초안을 작성해 주세요.

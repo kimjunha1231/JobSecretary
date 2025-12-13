@@ -24,6 +24,7 @@ export function ResumeSectionNavigation({
                     onClick={goToPrevSection}
                     disabled={currentSectionIndex === 0}
                     className="p-2 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label="이전 문항"
                 >
                     <ChevronLeft size={20} />
                 </button>
@@ -34,6 +35,7 @@ export function ResumeSectionNavigation({
                     onClick={goToNextSection}
                     disabled={currentSectionIndex === totalSections - 1}
                     className="p-2 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label="다음 문항"
                 >
                     <ChevronRight size={20} />
                 </button>

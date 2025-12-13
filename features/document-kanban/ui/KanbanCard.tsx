@@ -35,10 +35,10 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
                         </span>
                     </div>
                     <div>
-                        <h4 className="font-semibold text-white text-sm">
+                        <h3 className="font-semibold text-white text-sm">
                             {application.company}
-                        </h4>
-                        <div className="flex items-center gap-1 text-xs text-zinc-500 mt-0.5">
+                        </h3>
+                        <div className="flex items-center gap-1 text-xs text-zinc-300 mt-0.5">
                             <Briefcase size={10} />
                             <span>{application.role}</span>
                         </div>
@@ -60,8 +60,8 @@ export function KanbanCard({ application, onDelete, isOverlay }: KanbanCardProps
                 )}
 
                 <div className="flex items-center gap-1.5 text-xs ml-auto">
-                    <Calendar size={12} className="text-zinc-500" />
-                    <span className="text-zinc-400 font-medium tracking-tight">
+                    <Calendar size={12} className="text-zinc-300" />
+                    <span className="text-zinc-300 font-medium tracking-tight">
                         {formatDeadline(application.deadline)}
                     </span>
                 </div>

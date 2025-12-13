@@ -1,4 +1,4 @@
-import Link from 'next/link';
+
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -11,13 +11,7 @@ export default function TermsOfService() {
         <div className="min-h-screen bg-neutral-950 text-neutral-300 py-12 px-4">
             <div className="max-w-3xl mx-auto">
                 {/* Navigation */}
-                <Link
-                    href="/"
-                    className="inline-flex items-center text-neutral-400 hover:text-neutral-200 transition-colors mb-8"
-                >
-                    <span className="mr-2">←</span>
-                    로그인으로 돌아가기
-                </Link>
+
 
                 {/* Header */}
                 <h1 className="text-3xl font-bold text-neutral-100 mb-2">이용약관</h1>

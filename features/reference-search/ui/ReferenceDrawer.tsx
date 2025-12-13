@@ -9,6 +9,7 @@ export function ReferenceDrawer({ isOpen, onOpen, onClose, searchProps }: Refere
             <button
                 onClick={onOpen}
                 className="lg:hidden fixed bottom-6 right-6 z-30 w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+                aria-label="참고 자료 검색 열기"
             >
                 <BookOpen size={20} />
             </button>

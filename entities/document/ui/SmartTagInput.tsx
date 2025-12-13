@@ -113,6 +113,7 @@ export function SmartTagInput({ tags = [], onChange, placeholder = "태그 입�
                             type="button"
                             onClick={() => removeTag(tag)}
                             className="hover:bg-zinc-700 rounded-full p-0.5 transition-colors"
+                            aria-label={`${tag} 태그 삭제`}
                         >
                             <X size={12} />
                         </button>
@@ -130,6 +131,7 @@ export function SmartTagInput({ tags = [], onChange, placeholder = "태그 입�
                     onKeyDown={handleKeyDown}
                     className="flex-1 bg-transparent border-none outline-none text-white min-w-[120px] text-sm placeholder:text-zinc-500"
                     placeholder={tags.length === 0 ? placeholder : ""}
+                    aria-label="태그 입력"
                 />
             </div>
 
