@@ -13,9 +13,10 @@ import {
     ResumeSectionEditor,
     ResumeActions
 } from './form-parts';
-import { ResumeFormData } from '../types';
+import { ResumeFormData, resumeSchema } from '../types';
 import { useCreateDocument } from '@/entities/document';
 import { toast } from 'sonner';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 export default function ResumeForm() {
     const router = useRouter();
@@ -28,6 +29,7 @@ export default function ResumeForm() {
     const createDocumentMutation = useCreateDocument();
 
     const methods = useForm<ResumeFormData>({
+        resolver: zodResolver(resumeSchema),
         defaultValues: {
             company: '',
             role: '',
@@ -51,21 +53,8 @@ export default function ResumeForm() {
 
     const searchParams = useSearchParams();
 
-    const handleSave = async () => {
+    const onValid = async (data: ResumeFormData) => {
         setIsSaving(true);
-        const data = methods.getValues();
-
-        // 필수 값 검증
-        if (!data.company.trim()) {
-            toast.error('회사명을 입력해주세요.');
-            setIsSaving(false);
-            return;
-        }
-        if (!data.role.trim()) {
-            toast.error('직무를 입력해주세요.');
-            setIsSaving(false);
-            return;
-        }
 
         const origin = searchParams.get('from');
         const initialStatus = searchParams.get('status') || 'writing';
@@ -80,6 +69,15 @@ export default function ResumeForm() {
         // Dashboard 등 다른 곳에서 온 경우 해당 상태로 바로 저장
         await handleStatusConfirm({ finalStatus: initialStatus, documentStatus: null });
     };
+
+    const onInvalid = (errors: any) => {
+        if (errors.company) toast.error(errors.company.message);
+        else if (errors.role) toast.error(errors.role.message);
+        else if (errors.sections) toast.error(errors.sections.message);
+        else toast.error('입력 내용을 확인해주세요.');
+    };
+
+    const handleSave = handleSubmit(onValid, onInvalid);
 
     const handleStatusConfirm = async (result: { finalStatus: string; documentStatus: 'pass' | 'fail' | null }) => {
         setIsSaving(true);
