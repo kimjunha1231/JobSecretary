@@ -10,7 +10,7 @@ export const resumeSchema = z.object({
     company: z.string().min(1, '회사명을 입력해주세요'),
     role: z.string().min(1, '직무를 입력해주세요'),
     jobPostUrl: z.string().optional(),
-    tags: z.array(z.string()).default([]),
+    tags: z.array(z.string()),
     deadline: z.string().optional(),
     sections: z.array(sectionSchema).min(1, '최소 하나의 문항이 필요합니다')
 });

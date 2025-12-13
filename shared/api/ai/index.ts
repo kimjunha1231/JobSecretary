@@ -3,20 +3,21 @@
 import { GoogleGenAI } from "@google/genai";
 import { Document } from '@/shared/types';
 import { AI_MODEL } from '@/shared/config';
-import { InsightResult, RefineResult } from '../types';
+import { InsightResult, RefineResult } from './types';
+export type { InsightResult, RefineResult };
 import { logger } from '@/shared/lib';
 
 
 const getClient = () => {
-  if (!process.env.API_KEY) {
-    logger.error("API_KEY is missing from environment variables.");
-    throw new Error("API Key missing");
-  }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!process.env.API_KEY) {
+        logger.error("API_KEY is missing from environment variables.");
+        throw new Error("API Key missing");
+    }
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const buildFullDocumentContext = (documents: Document[]): string => {
-  return documents.map(doc => `
+    return documents.map(doc => `
 ---
 ID: ${doc.id}
 Company: ${doc.company}
@@ -27,20 +28,20 @@ Content: ${doc.content}
 };
 
 const buildContentOnlyContext = (documents: Document[]): string => {
-  return documents.map(doc => `
+    return documents.map(doc => `
 ---
 Content: ${doc.content}
 ---`).join('\n');
 };
 
 export const generateInsight = async (
-  query: string,
-  documents: Document[]
+    query: string,
+    documents: Document[]
 ): Promise<InsightResult> => {
-  const ai = getClient();
-  const contextData = buildFullDocumentContext(documents);
+    const ai = getClient();
+    const contextData = buildFullDocumentContext(documents);
 
-  const systemInstruction = `
+    const systemInstruction = `
     You are a helpful career assistant. You have access to the user's past cover letters.
     
     Your goal is to help the user write better cover letters by providing insights from their past work.
@@ -62,48 +63,48 @@ export const generateInsight = async (
     ${contextData}
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: AI_MODEL,
-      contents: query,
-      config: {
-        systemInstruction,
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-      }
-    });
-
-    const responseText = response.text;
-    if (!responseText) {
-      return { text: "데이터를 기반으로 응답을 생성할 수 없습니다.", relatedDocIds: [] };
-    }
-
     try {
-      const parsed = JSON.parse(responseText);
-      return {
-        text: parsed.text || responseText,
-        relatedDocIds: parsed.relatedDocIds || []
-      };
-    } catch {
-      return { text: responseText, relatedDocIds: [] };
+        const response = await ai.models.generateContent({
+            model: AI_MODEL,
+            contents: query,
+            config: {
+                systemInstruction,
+                temperature: 0.3,
+                responseMimeType: 'application/json',
+            }
+        });
+
+        const responseText = response.text;
+        if (!responseText) {
+            return { text: "데이터를 기반으로 응답을 생성할 수 없습니다.", relatedDocIds: [] };
+        }
+
+        try {
+            const parsed = JSON.parse(responseText);
+            return {
+                text: parsed.text || responseText,
+                relatedDocIds: parsed.relatedDocIds || []
+            };
+        } catch {
+            return { text: responseText, relatedDocIds: [] };
+        }
+    } catch (error: unknown) {
+        logger.error("Gemini API Error:", error);
+        return {
+            text: `오류가 발생했습니다: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
+            relatedDocIds: []
+        };
     }
-  } catch (error: unknown) {
-    logger.error("Gemini API Error:", error);
-    return {
-      text: `오류가 발생했습니다: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
-      relatedDocIds: []
-    };
-  }
 };
 
 export const generateQuestions = async (
-  company: string,
-  role: string,
-  jobDescription: string
+    company: string,
+    role: string,
+    jobDescription: string
 ): Promise<string> => {
-  const ai = getClient();
+    const ai = getClient();
 
-  const systemInstruction = `당신은 전문 커리어 코치입니다. 
+    const systemInstruction = `당신은 전문 커리어 코치입니다. 
 사용자가 지원하려는 회사와 직무, 그리고 채용 공고(선택 사항)를 바탕으로 자기소개서 작성에 도움이 될 만한 질문 3~5가지를 제안해야 합니다.
 
 규칙:
@@ -112,42 +113,42 @@ export const generateQuestions = async (
 3. 한국어로 정중하게 답변해 주세요.
 4. 마크다운 형식으로 번호를 매겨 출력해 주세요.`;
 
-  const prompt = `
+    const prompt = `
 지원 회사: ${company}
 지원 직무: ${role}
 채용 공고 내용: ${jobDescription || "정보 없음"}
 
 위 정보를 바탕으로 자기소개서 작성을 위한 심층 질문을 제안해 주세요.`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: AI_MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.8,
-      }
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: AI_MODEL,
+            contents: prompt,
+            config: {
+                systemInstruction,
+                temperature: 0.8,
+            }
+        });
 
-    return response.text || "질문을 생성할 수 없습니다.";
-  } catch (error) {
-    logger.error("Gemini API Error:", error);
-    return "질문 생성 중 오류가 발생했습니다.";
-  }
+        return response.text || "질문을 생성할 수 없습니다.";
+    } catch (error) {
+        logger.error("Gemini API Error:", error);
+        return "질문 생성 중 오류가 발생했습니다.";
+    }
 };
 
 export const generateDraft = async (
-  company: string,
-  role: string,
-  question: string,
-  keywords: string,
-  documents: Document[],
-  charLimit: number = 700
+    company: string,
+    role: string,
+    question: string,
+    keywords: string,
+    documents: Document[],
+    charLimit: number = 700
 ): Promise<string> => {
-  const ai = getClient();
-  const contextData = buildContentOnlyContext(documents);
+    const ai = getClient();
+    const contextData = buildContentOnlyContext(documents);
 
-  const systemInstruction = `당신은 전문적인 자기소개서 작성 도우미입니다. 
+    const systemInstruction = `당신은 전문적인 자기소개서 작성 도우미입니다. 
 사용자의 과거 자기소개서 스타일과 경험을 참고하여, 새로운 질문에 대한 초안을 작성해 주세요.
 
 규칙:
@@ -161,7 +162,7 @@ export const generateDraft = async (
 5. 오직 줄바꿈(엔터)으로만 문단을 구분하세요.
 6. 너무 뻔하거나 추상적인 표현보다는 구체적인 경험을 서술하는 톤으로 작성하세요.`;
 
-  const prompt = `
+    const prompt = `
 지원 회사: ${company}
 지원 직무: ${role}
 문항(질문): ${question}
@@ -173,27 +174,27 @@ ${contextData}
 
 위 정보를 바탕으로 자기소개서 초안을 작성해 주세요. 헤더 없이 줄글로만 작성해 주세요.`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: AI_MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      }
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: AI_MODEL,
+            contents: prompt,
+            config: {
+                systemInstruction,
+                temperature: 0.7,
+            }
+        });
 
-    return response.text || "초안을 생성할 수 없습니다.";
-  } catch (error) {
-    logger.error("Gemini API Error:", error);
-    return "초안 생성 중 오류가 발생했습니다.";
-  }
+        return response.text || "초안을 생성할 수 없습니다.";
+    } catch (error) {
+        logger.error("Gemini API Error:", error);
+        return "초안 생성 중 오류가 발생했습니다.";
+    }
 };
 
 export const refineText = async (text: string): Promise<RefineResult | null> => {
-  const ai = getClient();
+    const ai = getClient();
 
-  const systemInstruction = `너는 20년 경력의 대기업 인사담당자이자 자기소개서 첨삭 전문가야.
+    const systemInstruction = `너는 20년 경력의 대기업 인사담당자이자 자기소개서 첨삭 전문가야.
 아래 [원문]을 읽고 맞춤법, 띄어쓰기, 그리고 문맥의 어조(Tone)를 다듬어서 [교정문]을 만들어줘.
 
 **[교정 규칙]**
@@ -210,28 +211,28 @@ export const refineText = async (text: string): Promise<RefineResult | null> => 
   "changes": ["수정된 포인트 1", "수정된 포인트 2"]
 }`;
 
-  const prompt = `**[원문]**
+    const prompt = `**[원문]**
 ${text}`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: AI_MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-      }
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: AI_MODEL,
+            contents: prompt,
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+            }
+        });
 
-    const responseText = response.text;
-    if (!responseText) return null;
+        const responseText = response.text;
+        if (!responseText) return null;
 
-    let cleanedText = responseText.replace(/```json|```/g, "").trim();
-    cleanedText = cleanedText.replace(/([가-힣])\\([가-힣])/g, "$1\\\\$2");
+        let cleanedText = responseText.replace(/```json|```/g, "").trim();
+        cleanedText = cleanedText.replace(/([가-힣])\\([가-힣])/g, "$1\\\\$2");
 
-    return JSON.parse(cleanedText) as RefineResult;
-  } catch (error) {
-    logger.error("Refine Error:", error);
-    return null;
-  }
+        return JSON.parse(cleanedText) as RefineResult;
+    } catch (error) {
+        logger.error("Refine Error:", error);
+        return null;
+    }
 };

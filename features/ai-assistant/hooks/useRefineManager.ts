@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { refineText } from '../api';
-import { RefineResult } from '../types';
+import { refineText, RefineResult } from '@/shared/api/ai';
 import { toast } from 'sonner';
 
 interface UseRefineManagerProps {

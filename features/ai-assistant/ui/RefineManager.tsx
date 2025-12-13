@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useRefineManager } from '../hooks';
 
-interface RefineManagerProps {
+export interface RefineManagerProps {
     text: string;
     onApply: (correctedText: string) => void;
     autoTrigger?: boolean;

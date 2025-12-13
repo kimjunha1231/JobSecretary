@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDocuments } from '@/entities/document';
-import { generateDraft } from '@/features/ai-assistant';
+import { generateDraft } from '@/shared/api/ai';
 import { toast } from 'sonner';
 
 interface UseAutoDraftModalProps {
