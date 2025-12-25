@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getUniqueTags } from '@/entities/document/actions';
-import { generateDraft } from '@/shared/api/ai';
+import { generateDraft } from '@/features/ai-assistant';
 import { toast } from 'sonner';
 
 interface UseAutoDraftModalProps {

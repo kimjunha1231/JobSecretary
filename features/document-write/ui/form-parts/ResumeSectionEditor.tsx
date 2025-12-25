@@ -1,6 +1,6 @@
 import { PenTool } from 'lucide-react';
 import { RefineManager } from '@/features/ai-assistant';
-import { LimitSelector } from '@/shared/ui';
+import { LimitSelector } from '@/entities/document';
 import { useFormContext, Controller } from 'react-hook-form';
 import { ResumeFormData } from '../../types';
 import { CharacterCounter } from '../CharacterCounter';

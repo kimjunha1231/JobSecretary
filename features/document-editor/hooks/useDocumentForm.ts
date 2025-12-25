@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 import { useUpdateDocument } from '@/entities/document';
 import { toast } from 'sonner';
 import { Section, DocumentFormState } from '../types';

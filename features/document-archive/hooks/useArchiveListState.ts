@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 
 export const useArchivePagination = (filteredDocs: Document[]) => {
     const [currentPage, setCurrentPage] = useState(1);

@@ -6,7 +6,7 @@ import {
     COLUMN_GRADIENT_STYLES,
     COLUMN_TEXT_COLORS,
 } from '@/features/document-kanban/lib/status';
-import { Status } from '@/shared/types';
+import { Status } from '@/entities/document';
 
 describe('status utilities', () => {
     describe('getStatusBadgeStyle', () => {

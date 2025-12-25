@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
-import { Document as DocumentType } from '@/shared/types';
+import { Document as DocumentType } from '@/entities/document';
 
 // Register a font that supports Korean characters
 Font.register({

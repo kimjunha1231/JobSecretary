@@ -6,7 +6,7 @@ import {
     updateDocumentOrder
 } from '@/entities/document';
 import { useArchiveFilters } from './useArchiveFilters';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 import {
     DragEndEvent,
     DragStartEvent,

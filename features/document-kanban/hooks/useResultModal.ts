@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Status } from '@/shared/types';
+import { Status } from '@/entities/document';
 
 export const useResultModal = (onConfirm: (status: Status) => void) => {
     const [isSubmitting, setIsSubmitting] = useState(false);

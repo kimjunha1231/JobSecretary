@@ -1,5 +1,5 @@
 
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 
 interface ArchiveStatsProps {
     documents: Document[];

@@ -1,4 +1,4 @@
-import { Status } from '@/shared/types';
+import { Status } from '@/entities/document';
 import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 

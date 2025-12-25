@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useDraftStore } from '@/entities/draft';
-import { RecommendedDoc } from '@/shared/types';
+import { RecommendedDoc } from '@/entities/document';
 
 export function useReferenceSearch(initialTags: string[] = []) {
     const [searchTags, setSearchTags] = useState<string[]>(initialTags);

@@ -13,6 +13,7 @@ describe('useDocumentEditStore', () => {
 
     const mockDocument: Document = {
         id: 'test-id-123',
+        user_id: 'test-user-id', // Added missing field
         title: 'Test Document',
         company: 'Google',
         role: 'Frontend Developer',

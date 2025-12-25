@@ -10,7 +10,7 @@ import {
     PointerSensor,
     useDroppable,
 } from '@dnd-kit/core';
-import { Document, Status } from '@/shared/types';
+import { Document, Status } from '@/entities/document';
 import { useDocuments, useUpdateDocument, useDeleteDocument, useArchiveDocuments } from '@/entities/document';
 import { KANBAN_COLUMNS } from '../types';
 const EMPTY_LIST: Document[] = [];

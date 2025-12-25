@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDocuments } from '@/entities/document';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 import { useParams } from 'next/navigation';
 import { Section } from '../types';
 

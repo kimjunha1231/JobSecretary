@@ -1,4 +1,4 @@
-import { Status, Document } from '@/shared/types';
+import { Status, Document } from '@/entities/document';
 
 export interface Section {
     title: string;

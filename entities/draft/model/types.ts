@@ -1,4 +1,4 @@
-import { RecommendedDoc } from '@/shared/types';
+import { RecommendedDoc } from '@/entities/document';
 
 export interface Section {
     title: string;

@@ -2,7 +2,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, FileText, Calendar, Star } from 'lucide-react';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 
 interface FilteredDocumentViewProps {
     documents: Document[];

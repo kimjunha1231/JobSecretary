@@ -1,4 +1,4 @@
-import { Status } from '@/shared/types';
+import { Status } from '@/entities/document';
 import { STATUS_LABELS } from '@/shared/config';
 
 // Re-export for convenience

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Document, Status } from '@/shared/types';
+import { Document, Status } from '@/entities/document';
 
 export function useArchiveFilters(documents: Document[]) {
     const [searchTerm, setSearchTerm] = useState('');

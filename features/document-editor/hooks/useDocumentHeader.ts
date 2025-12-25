@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Document } from '@/shared/types';
+import { Document } from '@/entities/document';
 import { toast } from 'sonner';
 
 export const useDocumentHeader = (doc: Document) => {

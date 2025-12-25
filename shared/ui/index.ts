@@ -15,7 +15,6 @@ export { BaseModal } from './BaseModal';
 export type { BaseModalProps } from './BaseModal';
 export { ConfirmationModal } from './ConfirmationModal';
 export { DeleteConfirmationModal } from './DeleteConfirmationModal';
-export { LimitSelector } from './LimitSelector';
 
 // Date filter
 export { DateRangeFilter } from './DateRangeFilter';

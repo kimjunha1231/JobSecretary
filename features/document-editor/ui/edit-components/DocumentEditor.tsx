@@ -2,7 +2,7 @@ import { Plus, Trash2, PenTool } from 'lucide-react';
 import { RefineManager } from '@/features/ai-assistant';
 import { Section, useAutoDraft, DocumentEditorProps } from '@/features/document-editor';
 import { AutoDraftModal } from '@/features/document-write';
-import { LimitSelector } from '@/shared/ui';
+import { LimitSelector } from '@/entities/document';
 
 export function DocumentEditor({
     sections,

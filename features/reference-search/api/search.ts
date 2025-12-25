@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/shared/api/server';
-import { RecommendedDoc } from '@/shared/types';
+import { RecommendedDoc } from '@/entities/document';
 import { logger } from "@/shared/lib";
 
 export async function searchDocumentsByTags(tags: string[]): Promise<RecommendedDoc[]> {

@@ -45,7 +45,7 @@ const mockSupabaseClient = {
 // Make chainable methods return resolved promises when needed
 mockSupabaseClient.select.mockImplementation(() => ({
     ...mockSupabaseClient,
-    then: (resolve: (value: { data: unknown[]; error: null }) => void) => resolve({ data: [], error: null }),
-}));
+    then: (resolve: (value: { data: any[]; error: null }) => void) => resolve({ data: [], error: null }),
+}) as any);
 
 export const supabase = mockSupabaseClient;
