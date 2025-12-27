@@ -38,15 +38,15 @@
 | 서버 상태 관리 | TanStack Query |
 | 전역 상태 관리 | Zustand |
 | Styling | Tailwind CSS, Shadcn UI |
+| Testing | Jest (Unit), Playwright (E2E) |
 
 ### Backend & Infra
 | 분류 | 기술 |
 |------|------|
-| BaaS | Supabase |
-| AI Engine | Google Gemini API |
+| DB | Supabase |
+| AI | Google Gemini API |
 | 에러 모니터링 | Sentry |
-| Testing | Jest (Unit), Playwright (E2E) |
-| Deployment | Vercel |
+| 배포 | Vercel |
 
 <br>
 
