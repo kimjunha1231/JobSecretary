@@ -36,7 +36,7 @@
 | Language | TypeScript |
 | 폼 상태 관리 | React Hook Form + Zod |
 | 서버 상태 관리 | TanStack Query |
-| 전역 UI 상태 | Zustand |
+| 전역 상태 관리 | Zustand |
 | Styling | Tailwind CSS, Shadcn/UI |
 
 ### Backend & Infra
