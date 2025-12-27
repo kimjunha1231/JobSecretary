@@ -39,14 +39,14 @@
 | 전역 상태 관리 | Zustand |
 | Styling | Tailwind CSS, Shadcn UI |
 | Testing | Jest (Unit), Playwright (E2E) |
+| 에러 모니터링 | Sentry |
 
 ### Backend & Infra
 | 분류 | 기술 |
 |------|------|
 | DB | Supabase |
 | AI | Google Gemini API |
-| 에러 모니터링 | Sentry |
-| 배포 | Vercel |
+| Infra | Vercel |
 
 <br>
 
