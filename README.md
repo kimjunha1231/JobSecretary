@@ -36,14 +36,14 @@
 | Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | 폼 상태 관리 | React Hook Form + Zod |
-| 서버 상태 관리 | TanStack Query (Optimistic Update) |
+| 서버 상태 관리 | TanStack Query |
 | 전역 UI 상태 | Zustand |
 | Styling | Tailwind CSS, Shadcn/UI |
 
 ### Backend & Infra
 | 분류 | 기술 |
 |------|------|
-| BaaS | Supabase (PostgreSQL, Auth, RLS) |
+| BaaS | Supabase |
 | AI Engine | Google Gemini API |
 | 에러 모니터링 | Sentry |
 | Testing | Jest (Unit), Playwright (E2E) |
@@ -60,8 +60,8 @@
 ├── app/                    # Composition Layer (라우팅 및 페이지 조립)
 │   ├── api/                # Server Actions & API Routes
 │   └── (pages)/            # 페이지 컴포넌트
-├── widgets/                # 독립적 UI 블록 (Sidebar, KanbanBoard, ArchiveBoard)
-├── features/               # 사용자 상호작용 기능
+├── widgets/                # 하나의 위젯 블록 (Sidebar, KanbanBoard, ArchiveBoard)
+├── features/               # 사용자 상호작용 기능 하나의 기능
 │   ├── document-kanban/    # 칸반 보드 드래그 앤 드롭
 │   ├── document-editor/    # 문서 편집 및 뷰어
 │   ├── document-write/     # 자소서 작성 폼
@@ -86,10 +86,8 @@
 
 | 최적화 항목 | 적용 기술 |
 |------------|----------|
-| **렌더링 최적화** | `useMemo`, `useCallback`으로 칸반 드래그 중 불필요한 리렌더 방지 |
-| **폼 성능** | React Hook Form 비제어 컴포넌트로 타이핑 시 리렌더 최소화 |
-| **번들 최적화** | `optimizePackageImports`, Polyfill Bloat 제거 (browserslist: Chrome 100+) |
-| **캐시 활성화** | Back-Forward Cache 활성화, Dynamic Import 활용 |
+| **렌더링 최적화** | `useMemo`, `useCallback`으로 칸반 드래그 중 불필요한 리렌더 방지, React Hook Form 비제어 컴포넌트로 타이핑 시 리렌더 최소화 |
+| **FCP 개선** | Back-Forward Cache 활성화, Dynamic Import 활용 |
 | **접근성** | `aria-label`, `sr-only`, Lighthouse 접근성 점수 개선 |
 
 
