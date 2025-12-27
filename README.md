@@ -37,7 +37,7 @@
 | 폼 상태 관리 | React Hook Form + Zod |
 | 서버 상태 관리 | TanStack Query |
 | 전역 상태 관리 | Zustand |
-| Styling | Tailwind CSS, Shadcn/UI |
+| Styling | Tailwind CSS, Shadcn UI |
 
 ### Backend & Infra
 | 분류 | 기술 |
