@@ -4,9 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelLeftOpen } from 'lucide-react';
 import { GlobalSidebar } from '@/widgets';
+import { usePathname } from 'next/navigation';
 
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/';
 
   useEffect(() => {
     const handleResize = () => {
@@ -24,7 +27,9 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
   return (
     <div className="min-h-screen bg-background text-zinc-100 flex font-sans overflow-hidden selection:bg-primary/30 selection:text-white">
-      <GlobalSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      {!isLandingPage && (
+        <GlobalSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      )}
 
       <motion.main
         layout
@@ -34,7 +39,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
 
         <AnimatePresence>
-          {!isSidebarOpen && (
+          {!isSidebarOpen && !isLandingPage && (
             <motion.button
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -48,7 +53,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           )}
         </AnimatePresence>
 
-        <div className="max-w-[1600px] mx-auto px-4 py-4 md:px-6 md:py-8 relative z-10 h-full">
+        <div className={`${isLandingPage ? '' : 'max-w-[1600px] mx-auto px-4 py-4 md:px-6 md:py-8'} relative z-10 h-full`}>
           {children}
         </div>
       </motion.main>

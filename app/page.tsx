@@ -1,7 +1,7 @@
 'use client';
 
-import { LoginBoard } from '@/widgets';
+import { LandingBoard } from '@/widgets';
 
 export default function Home() {
-    return <LoginBoard />;
+    return <LandingBoard />;
 }
