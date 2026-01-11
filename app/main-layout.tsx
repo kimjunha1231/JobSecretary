@@ -26,7 +26,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-zinc-100 flex font-sans overflow-hidden selection:bg-primary/30 selection:text-white">
+    <div className="min-h-screen bg-background text-zinc-100 flex font-sans selection:bg-primary/30 selection:text-white">
       {!isLandingPage && (
         <GlobalSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       )}
@@ -34,9 +34,9 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
       <motion.main
         layout
         transition={{ type: "spring", stiffness: 260, damping: 32 }}
-        className="flex-1 relative overflow-y-auto h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background w-full"
+        className="flex-1 relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background w-full min-h-screen"
       >
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
+        <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay z-0"></div>
 
         <AnimatePresence>
           {!isSidebarOpen && !isLandingPage && (
@@ -53,7 +53,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           )}
         </AnimatePresence>
 
-        <div className={`${isLandingPage ? '' : 'max-w-[1600px] mx-auto px-4 py-4 md:px-6 md:py-8'} relative z-10 h-full`}>
+        <div className={`${isLandingPage ? '' : 'max-w-[1600px] mx-auto px-4 py-4 md:px-6 md:py-8'} relative z-10`}>
           {children}
         </div>
       </motion.main>

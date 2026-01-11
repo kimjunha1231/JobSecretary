@@ -111,7 +111,7 @@ export function SortableDocumentCard({ doc, onDelete, onToggleFavorite }: Sortab
                     <div className="flex flex-wrap gap-1 mt-3">
                         {doc.tags.map((tag, index) => (
                             <span key={index} className="text-[10px] px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded border border-zinc-700">
-                                #{tag}
+                                # {tag}
                             </span>
                         ))}
                     </div>

@@ -1,40 +1,33 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { Plus } from 'lucide-react';
+import React from 'react';
+import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import { KanbanColumn } from './KanbanColumn';
-import { KanbanCard } from './KanbanCard';
 import { ArchiveDropZone } from './ArchiveDropZone';
 import { KanbanModals } from './KanbanModals';
-import { useKanban, KANBAN_COLUMNS, createKanbanCollisionDetection } from '@/features/document-kanban';
+import { useKanban, KANBAN_COLUMNS } from '@/features/document-kanban';
 
 export function KanbanBoard() {
     const {
-        activeApplication,
-        sensors,
-        archiveRef,
-        setArchiveNodeRef,
-        isArchiveOver,
-        handleDragStart,
-        handleDragOver,
         handleDragEnd,
         getApplicationsByStatus,
+        isArchiveOver,
+        setIsArchiveOver,
+        archiveRef,
         modals
     } = useKanban();
 
-    const collisionDetection = useMemo(() => createKanbanCollisionDetection(), []);
+    const onDragEnd = (result: DropResult) => {
+        handleDragEnd(result);
+    };
+
+    const onDragUpdate = (update: { destination?: { droppableId: string } | null }) => {
+        setIsArchiveOver(update.destination?.droppableId === 'archive');
+    };
 
     return (
         <div className="space-y-4">
-            <DndContext
-                sensors={sensors}
-                collisionDetection={collisionDetection}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-            >
-
+            <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
                 <div className="w-full overflow-x-auto pb-6">
                     <div className="flex gap-4 min-w-max items-start w-fit mx-auto">
                         {KANBAN_COLUMNS.map(column => (
@@ -48,31 +41,12 @@ export function KanbanBoard() {
                             />
                         ))}
 
-
                         <ArchiveDropZone
-                            setNodeRef={(node) => {
-                                setArchiveNodeRef(node);
-                                (archiveRef as React.MutableRefObject<HTMLDivElement | null>).current = node as HTMLDivElement;
-                            }}
                             isOver={isArchiveOver}
                         />
                     </div>
                 </div>
-
-
-                <DragOverlay>
-                    {activeApplication ? (
-                        <div className="opacity-70 rotate-3 scale-105">
-                            <KanbanCard
-                                application={activeApplication}
-                                onDelete={() => { }}
-                                isOverlay
-                            />
-                        </div>
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
-
+            </DragDropContext>
 
             <KanbanModals modals={modals} />
         </div>

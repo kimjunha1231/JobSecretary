@@ -5,11 +5,7 @@ import { ExternalLink } from 'lucide-react';
 import { useInAppBrowserDetection } from '../hooks';
 
 export default function InAppBrowserGuard() {
-    const { isInApp, checkAndRedirect, dismiss } = useInAppBrowserDetection();
-
-    useEffect(() => {
-        checkAndRedirect();
-    }, []);
+    const { isInApp, dismiss } = useInAppBrowserDetection();
 
     if (!isInApp) return null;
 

@@ -15,6 +15,7 @@ const nextConfig = {
         ignoreBuildErrors: false,
     },
     experimental: {
+        reactCompiler: true,
         optimizeCss: true,
         optimizePackageImports: ['@/widgets', 'lucide-react'],
     },

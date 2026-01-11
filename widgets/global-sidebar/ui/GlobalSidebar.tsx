@@ -54,7 +54,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                     opacity: isOpen ? 1 : 0
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 32 }}
-                className={`fixed inset-y-0 left-0 z-50 lg:static lg:z-auto border-r border-border bg-surface flex flex-col justify-between h-screen overflow-hidden ${!isOpen && 'lg:w-0 lg:border-none'}`}
+                className={`fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-auto border-r border-border bg-surface flex flex-col justify-between h-screen overflow-hidden ${!isOpen && 'lg:w-0 lg:border-none'}`}
                 style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
                 aria-hidden={!isOpen}
             >

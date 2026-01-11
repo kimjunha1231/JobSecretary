@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export const useConsentForm = () => {
     const [termsAccepted, setTermsAccepted] = useState(false);
@@ -52,30 +52,28 @@ export const useDeleteAccountForm = () => {
 export const useInAppBrowserDetection = () => {
     const [isInApp, setIsInApp] = useState(false);
 
-    const checkAndRedirect = () => {
+    useEffect(() => {
         const userAgent = navigator.userAgent.toLowerCase();
         const inAppBrowsers = ['kakaotalk', 'instagram', 'naver', 'facebook', 'line'];
-
         const isInAppBrowser = inAppBrowsers.some(browser => userAgent.includes(browser));
 
-        if (!isInAppBrowser) return;
+        if (isInAppBrowser) {
+            const isAndroid = /android/i.test(userAgent);
+            const currentUrl = window.location.href;
 
-        const isAndroid = /android/i.test(userAgent);
-        const currentUrl = window.location.href;
-
-        if (isAndroid) {
-            const intentUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
-            window.location.href = intentUrl;
-        } else {
-            setIsInApp(true);
+            if (isAndroid) {
+                const intentUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+                window.location.href = intentUrl;
+            } else {
+                setIsInApp(true);
+            }
         }
-    };
+    }, []);
 
     const dismiss = () => setIsInApp(false);
 
     return {
         isInApp,
-        checkAndRedirect,
         dismiss
     };
 };
