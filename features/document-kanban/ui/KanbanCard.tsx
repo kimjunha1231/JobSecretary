@@ -114,8 +114,8 @@ export function KanbanCard({ application, onDelete, provided, isDragging }: Kanb
         </div>
     );
 
-    // After switching to window scroll in MainLayout, portaling to document.body
-    // works perfectly for both avoiding clipping and triggering window auto-scroll.
+    // With window-level scrolling enabled in MainLayout, portaling to document.body
+    // is the most reliable way to trigger auto-scrolling during drag.
     if (isDragging && typeof document !== 'undefined') {
         return createPortal(card, document.body);
     }

@@ -12,8 +12,7 @@ export function KanbanBoard() {
         handleDragEnd,
         getApplicationsByStatus,
         isArchiveOver,
-        setIsArchiveOver,
-        archiveRef,
+
         modals
     } = useKanban();
 
@@ -21,13 +20,9 @@ export function KanbanBoard() {
         handleDragEnd(result);
     };
 
-    const onDragUpdate = (update: { destination?: { droppableId: string } | null }) => {
-        setIsArchiveOver(update.destination?.droppableId === 'archive');
-    };
-
     return (
         <div className="space-y-4">
-            <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
+            <DragDropContext onDragEnd={onDragEnd} >
                 <div className="w-full overflow-x-auto pb-6">
                     <div className="flex gap-4 min-w-max items-start w-fit mx-auto">
                         {KANBAN_COLUMNS.map(column => (
@@ -42,7 +37,7 @@ export function KanbanBoard() {
                         ))}
 
                         <ArchiveDropZone
-                            isOver={isArchiveOver}
+
                         />
                     </div>
                 </div>

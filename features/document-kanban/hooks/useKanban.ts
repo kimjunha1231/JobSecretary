@@ -28,13 +28,17 @@ export function useKanban() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-    // Archive drop tracking
-    const [isArchiveOver, setIsArchiveOver] = useState(false);
-    const archiveRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         setApplications(documents.filter(doc => !doc.isArchived));
     }, [documents]);
+
+    const resetArchiveFlow = useCallback(() => {
+        setArchiveFlowDocId(null);
+        setArchiveResultStatus(null);
+        setIsArchiveResultModalOpen(false);
+        setIsArchiveScreeningModalOpen(false);
+    }, []);
 
     // Simplified drag end handler for @hello-pangea/dnd
     const handleDragEnd = useCallback(async (result: DropResult) => {
@@ -67,6 +71,8 @@ export function useKanban() {
                 setArchiveResultStatus(null);
                 setIsArchiveResultModalOpen(true);
             }
+            // Scroll to top even when modal opens
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -74,6 +80,8 @@ export function useKanban() {
         if (destDroppableId === 'result') {
             setResultPendingDocId(draggableId);
             setIsResultModalOpen(true);
+            // Scroll to top even when modal opens
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -87,7 +95,9 @@ export function useKanban() {
             );
             await updateDocumentMutation.mutateAsync({ id: draggableId, status: newStatus });
         }
-    }, [applications, updateDocumentMutation]);
+        // Scroll to top after any valid drag and drop
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [applications, updateDocumentMutation, resetArchiveFlow]);
 
     const handleResultConfirm = useCallback(async (status: Status) => {
         if (resultPendingDocId) {
@@ -101,13 +111,6 @@ export function useKanban() {
             setResultPendingDocId(null);
         }
     }, [resultPendingDocId, updateDocumentMutation]);
-
-    const resetArchiveFlow = useCallback(() => {
-        setArchiveFlowDocId(null);
-        setArchiveResultStatus(null);
-        setIsArchiveResultModalOpen(false);
-        setIsArchiveScreeningModalOpen(false);
-    }, []);
 
     const handleArchiveResultConfirm = useCallback((status: Status) => {
         if (!archiveFlowDocId) return;
@@ -223,9 +226,6 @@ export function useKanban() {
         applications,
         handleDragEnd,
         getApplicationsByStatus,
-        isArchiveOver,
-        setIsArchiveOver,
-        archiveRef,
         modals
     };
 }

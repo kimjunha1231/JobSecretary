@@ -54,12 +54,13 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                     opacity: isOpen ? 1 : 0
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 32 }}
-                className={`fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-auto border-r border-border bg-surface flex flex-col justify-between h-screen overflow-hidden ${!isOpen && 'lg:w-0 lg:border-none'}`}
+                className={`fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-auto border-r border-border bg-surface flex flex-col h-screen overflow-hidden flex-shrink-0 ${!isOpen && 'lg:w-0 lg:border-none'}`}
                 style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
                 aria-hidden={!isOpen}
             >
-                <div className="p-6 w-[256px]">
-                    <div className="flex items-center justify-between mb-8">
+                {/* Header (Fixed) */}
+                <div className="p-6 w-[256px] flex-shrink-0">
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
                                 <Command size={18} className="text-white" />
@@ -79,14 +80,18 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                             <PanelLeftClose size={18} />
                         </button>
                     </div>
+                </div>
 
-                    <nav className="space-y-1">
+                {/* Main Content (Scrollable) */}
+                <div className="flex-1 overflow-y-auto w-[256px] px-6 py-2 custom-scrollbar">
+                    <nav className="space-y-1 mb-8">
                         <SidebarItem to="/dashboard" icon={<LayoutDashboard size={18} />} label="지원 현황" />
                         <SidebarItem to="/archive" icon={<Archive size={18} />} label="자기소개서 저장소" />
                     </nav>
                 </div>
 
-                <div className="p-6 space-y-4 w-[256px]">
+                {/* Footer (Fixed) */}
+                <div className="p-6 space-y-4 w-[256px] flex-shrink-0">
                     {/* Policy Links */}
                     <div className="space-y-1">
                         <Link
