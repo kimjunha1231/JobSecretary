@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/shared/api';
+import { createServerSupabaseClient } from '@/shared/api/server';
 
 export const userProfileService = {
     async getUserProfile() {

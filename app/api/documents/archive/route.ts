@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/shared/api';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { NextResponse } from 'next/server';
 import { logger } from "@/shared/lib";
 

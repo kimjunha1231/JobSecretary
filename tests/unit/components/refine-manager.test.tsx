@@ -9,7 +9,6 @@ const mockOnApply = jest.fn();
 
 // Mock the entire ai-assistant feature
 jest.mock('@/features/ai-assistant', () => ({
-    refineText: jest.fn(),
     RefineManager: ({ text, onApply }: { text: string; onApply: (text: string) => void }) => {
         const [isLoading, setIsLoading] = React.useState(false);
         const [showModal, setShowModal] = React.useState(false);
@@ -59,7 +58,8 @@ jest.mock('sonner', () => ({
     },
 }));
 
-import { RefineManager, refineText } from '@/features/ai-assistant';
+import { RefineManager } from '@/features/ai-assistant';
+import { refineText } from '@/features/ai-assistant/api/ai.service';
 
 describe('RefineManager', () => {
     const mockText = "This is a test text for refinement.";

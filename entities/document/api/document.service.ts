@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/shared/api';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { mapRecordToDocument, mapDocumentToRecord, type DocumentRecord } from './repository';
 import { Document } from '../model';
 

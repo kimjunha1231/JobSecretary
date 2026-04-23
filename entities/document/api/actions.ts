@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/shared/api';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { Document } from '../model';
 import { mapRecordToDocument, mapDocumentToRecord, DocumentRecord } from './repository';
 import { logger } from '@/shared/lib';

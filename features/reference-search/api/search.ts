@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerSupabaseClient } from '@/shared/api';
+import { createServerSupabaseClient } from '@/shared/api/server';
 import { RecommendedDoc } from '@/entities/document';
 import { logger } from "@/shared/lib";
 

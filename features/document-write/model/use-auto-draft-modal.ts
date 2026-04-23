@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getUniqueTags } from '@/entities/document';
-import { generateDraft } from '@/features/ai-assistant';
+import { getUniqueTags } from '@/entities/document/api/actions';
+import { generateDraft } from '@/features/ai-assistant/api/ai.service';
+
 import { toast } from 'sonner';
 
 interface UseAutoDraftModalProps {

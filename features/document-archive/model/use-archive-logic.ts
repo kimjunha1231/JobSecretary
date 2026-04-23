@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import {
     useArchivedDocuments,
     useDeleteDocument,
+    type Document
+} from '@/entities/document';
+import {
     toggleDocumentFavorite,
     updateDocumentOrder
-} from '@/entities/document';
+} from '@/entities/document/api/actions';
 import { useArchiveFilters } from './use-archive-filters';
-import { Document } from '@/entities/document';
 import {
     DragEndEvent,
     DragStartEvent,

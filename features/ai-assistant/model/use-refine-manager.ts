@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { refineText, RefineResult } from '@/features/ai-assistant';
+import { refineText, type RefineResult } from '../api/ai.service';
 import { toast } from 'sonner';
 
 interface UseRefineManagerProps {
