@@ -1,4 +1,4 @@
-import { getDDay, formatDeadline } from '@/features/document-kanban/lib/date';
+import { getDDay, formatDeadline, formatRelativeDate } from '@/features/document-kanban/lib/date';
 
 describe('date utilities', () => {
     describe('getDDay', () => {
@@ -54,6 +54,29 @@ describe('date utilities', () => {
 
         it('should return "마감일 미정" for empty string', () => {
             expect(formatDeadline('')).toBe('마감일 미정');
+        });
+    });
+    describe('formatRelativeDate', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date('2024-06-15'));
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('should return "오늘" for current date', () => {
+            expect(formatRelativeDate('2024-06-15')).toBe('오늘');
+        });
+
+        it('should return "어제" for yesterday', () => {
+            expect(formatRelativeDate('2024-06-14')).toBe('어제');
+        });
+
+        it('should return formatted date for other dates', () => {
+            expect(formatRelativeDate('2024-06-13')).toBe('2024.06.13');
+            expect(formatRelativeDate('2024-01-01')).toBe('2024.01.01');
         });
     });
 });
