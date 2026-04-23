@@ -13,7 +13,7 @@ describe('useDraftStore', () => {
     it('should have initial state', () => {
         const { result } = renderHook(() => useDraftStore());
         expect(result.current.sections).toHaveLength(1);
-        expect(result.current.sections[0].title).toBe('새 문항');
+        expect(result.current.sections[0].title).toBe('지원동기');
         expect(result.current.formData.company).toBe('');
     });
 
