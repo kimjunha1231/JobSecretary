@@ -1,2 +1,2 @@
-export * from './useDraftStore';
+export * from './use-draft-store';
 export * from './types';

@@ -1,4 +1,4 @@
-export { DeleteAccountModal } from './DeleteAccountModal';
-export { ConsentModal } from './ConsentModal';
-export { default as InAppBrowserGuard } from './InAppBrowserGuard';
-export { AuthInitializer } from './AuthInitializer';
+export * from './delete-account-modal';
+export * from './auth-initializer';
+export * from './in-app-browser-guard';
+export * from './consent-modal';

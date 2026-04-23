@@ -1,1 +1,1 @@
-export * from './useAuthStore';
+export * from './use-auth-store';

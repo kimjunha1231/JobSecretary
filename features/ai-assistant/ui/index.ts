@@ -1,2 +1,1 @@
-
-export { default as RefineManager } from './RefineManager';
+export * from './refine-manager';

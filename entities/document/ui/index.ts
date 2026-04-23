@@ -1,3 +1,3 @@
-export { PdfDocument } from './PdfDocument';
-export { SmartTagInput } from './SmartTagInput';
-export { LimitSelector } from './LimitSelector';
+export * from './pdf-document';
+export * from './smart-tag-input';
+export * from './limit-selector';

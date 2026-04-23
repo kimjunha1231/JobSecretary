@@ -1,1 +1,2 @@
-export { GlobalSidebar } from './ui/GlobalSidebar';
+export * from './ui';
+export * from './model';

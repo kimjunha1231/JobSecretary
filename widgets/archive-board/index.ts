@@ -1,1 +1,2 @@
-export { ArchiveBoard } from './ui/ArchiveBoard';
+export * from './ui';
+export * from './model';

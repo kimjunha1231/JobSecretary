@@ -1,2 +1,2 @@
-export { DocumentViewHeader } from './DocumentViewHeader';
-export { DocumentViewer } from './DocumentViewer';
+export { DocumentViewHeader } from './document-view-header';
+export { DocumentViewer } from './document-viewer';

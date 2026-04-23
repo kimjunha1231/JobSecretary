@@ -1,1 +1,1 @@
-export { GlobalAlert } from './ui/GlobalAlert';
+export * from './ui';

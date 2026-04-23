@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { documentService } from '@/entities/document/server/document.service';
+import { documentService } from '@/entities/document/api/document.service';
 import { logger } from "@/shared/lib";
 
 export async function GET() {

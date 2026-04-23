@@ -1,4 +1,4 @@
-import { DashboardBoardLazy } from '@/features/document-kanban/ui/DashboardBoardLazy';
+import { DashboardBoardLazy } from '@/features/document-kanban/ui/dashboard-board-lazy';
 
 export default async function Dashboard() {
     return (

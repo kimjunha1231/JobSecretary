@@ -1,3 +1,2 @@
-export { default as ReferenceSidebar } from './ReferenceSidebar';
-export { ReferenceDrawer } from './ReferenceDrawer';
-
+export * from './reference-drawer';
+export * from './reference-sidebar';

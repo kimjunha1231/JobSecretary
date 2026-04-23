@@ -3,7 +3,7 @@
  * Prevents actual API calls and env variable requirements
  */
 
-const mockSupabaseClient = {
+const mockSupabaseClient: any = {
     from: jest.fn(() => mockSupabaseClient),
     select: jest.fn(() => mockSupabaseClient),
     insert: jest.fn(() => mockSupabaseClient),

@@ -1,1 +1,2 @@
-export { DocumentDetailBoard } from './ui/DocumentDetailBoard';
+export * from './ui';
+export * from './model';

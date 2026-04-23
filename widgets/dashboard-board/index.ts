@@ -1,1 +1,2 @@
-export { DashboardBoard } from './ui/DashboardBoard';
+export * from './ui';
+export * from './model';

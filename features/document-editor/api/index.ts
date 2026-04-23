@@ -1,2 +1,1 @@
-export { generateInterviewQuestions } from './interview';
-
+export * from './interview';

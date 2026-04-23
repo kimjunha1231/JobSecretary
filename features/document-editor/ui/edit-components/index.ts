@@ -1,2 +1,2 @@
-export { DocumentEditHeader } from './DocumentEditHeader';
-export { DocumentEditor } from './DocumentEditor';
+export { DocumentEditHeader } from './document-edit-header';
+export { DocumentEditor } from './document-editor';

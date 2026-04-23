@@ -1,2 +1,1 @@
-export { searchDocumentsByTags } from './search';
-
+export * from './search';

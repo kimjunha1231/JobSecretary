@@ -1,1 +1,2 @@
-export { DocumentWriteBoard } from './ui/DocumentWriteBoard';
+export * from './ui';
+export * from './model';

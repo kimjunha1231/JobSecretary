@@ -1,1 +1,2 @@
-export { LoginBoard } from './ui/LoginBoard';
+export * from './ui';
+export * from './model';
