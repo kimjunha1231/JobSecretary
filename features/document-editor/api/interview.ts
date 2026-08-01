@@ -1,19 +1,10 @@
 'use server'
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AI_MODEL } from '@/shared/config';
+import { AI_MODEL, withGeminiKeyFallback } from '@/shared/config';
 import { logger } from "@/shared/lib";
 
-const genAI = new GoogleGenerativeAI(process.env.API_KEY!);
-
 export async function generateInterviewQuestions(content: string): Promise<string[]> {
-    const model = genAI.getGenerativeModel({
-        model: AI_MODEL,
-        generationConfig: {
-            responseMimeType: "application/json"
-        }
-    });
-
     const prompt = `
     너는 20년 경력의 대기업 인사담당자이자 면접관이야.
     아래 [자기소개서] 내용을 바탕으로, 실제 면접에서 나올 법한 날카롭고 핵심적인 예상 면접 질문 5~7개를 뽑아줘.
@@ -30,12 +21,28 @@ export async function generateInterviewQuestions(content: string): Promise<strin
 
     **[자기소개서]**
     ${content}
-  `;
+    `;
 
     try {
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        });
+        const result = await withGeminiKeyFallback(
+            (apiKey) => new GoogleGenerativeAI(apiKey)
+                .getGenerativeModel({
+                    model: AI_MODEL,
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
+                })
+                .generateContent({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                }),
+            (error, keyIndex, keyCount) => {
+                const message = error instanceof Error ? error.message : String(error);
+                logger.warn(
+                    `Gemini key ${keyIndex + 1}/${keyCount} failed; trying the next key.`,
+                    message.replace(/key=[^&\s]+/gi, 'key=REDACTED'),
+                );
+            },
+        );
         const responseText = result.response.text();
 
 

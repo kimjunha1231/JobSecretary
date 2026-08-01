@@ -2,18 +2,25 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { Document } from '@/entities/document';
-import { AI_MODEL } from '@/shared/config';
+import { AI_MODEL, withGeminiKeyFallback } from '@/shared/config';
 import { InsightResult, RefineResult } from './types';
 export type { InsightResult, RefineResult };
 import { logger } from '@/shared/lib';
 import { createServerSupabaseClient } from '@/shared/api/server';
 
-const getClient = () => {
-    if (!process.env.API_KEY) {
-        logger.error("API_KEY is missing from environment variables.");
-        throw new Error("API Key missing");
-    }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+type GenerateContentParameters = Parameters<GoogleGenAI['models']['generateContent']>[0];
+
+const generateContentWithFallback = (parameters: GenerateContentParameters) => {
+    return withGeminiKeyFallback(
+        (apiKey) => new GoogleGenAI({ apiKey }).models.generateContent(parameters),
+        (error, keyIndex, keyCount) => {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn(
+                `Gemini key ${keyIndex + 1}/${keyCount} failed; trying the next key.`,
+                message.replace(/key=[^&\s]+/gi, 'key=REDACTED'),
+            );
+        },
+    );
 };
 
 const buildFullDocumentContext = (documents: Document[]): string => {
@@ -31,7 +38,6 @@ export const generateInsight = async (
     query: string,
     documents: Document[]
 ): Promise<InsightResult> => {
-    const ai = getClient();
     const contextData = buildFullDocumentContext(documents);
 
     const systemInstruction = `
@@ -57,7 +63,7 @@ export const generateInsight = async (
   `;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithFallback({
             model: AI_MODEL,
             contents: query,
             config: {
@@ -95,8 +101,6 @@ export const generateQuestions = async (
     role: string,
     jobDescription: string
 ): Promise<string> => {
-    const ai = getClient();
-
     const systemInstruction = `당신은 전문 커리어 코치입니다. 
 사용자가 지원하려는 회사와 직무, 그리고 채용 공고(선택 사항)를 바탕으로 자기소개서 작성에 도움이 될 만한 질문 3~5가지를 제안해야 합니다.
 
@@ -114,7 +118,7 @@ export const generateQuestions = async (
 위 정보를 바탕으로 자기소개서 작성을 위한 심층 질문을 제안해 주세요.`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithFallback({
             model: AI_MODEL,
             contents: prompt,
             config: {
@@ -138,8 +142,6 @@ export const generateDraft = async (
     tags: string[] = [],
     charLimit: number = 700
 ): Promise<string> => {
-    const ai = getClient();
-
     // Fetch context from DB
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -197,7 +199,7 @@ ${contextData}
 위 정보를 바탕으로 자기소개서 초안을 작성해 주세요. 헤더 없이 줄글로만 작성해 주세요.`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithFallback({
             model: AI_MODEL,
             contents: prompt,
             config: {
@@ -214,8 +216,6 @@ ${contextData}
 };
 
 export const refineText = async (text: string): Promise<RefineResult | null> => {
-    const ai = getClient();
-
     const systemInstruction = `너는 20년 경력의 대기업 인사담당자이자 자기소개서 첨삭 전문가야.
 아래 [원문]을 읽고 맞춤법, 띄어쓰기, 그리고 문맥의 어조(Tone)를 다듬어서 [교정문]을 만들어줘.
 
@@ -237,7 +237,7 @@ export const refineText = async (text: string): Promise<RefineResult | null> => 
 ${text}`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithFallback({
             model: AI_MODEL,
             contents: prompt,
             config: {
