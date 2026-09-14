@@ -23,7 +23,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-bold text-neutral-200 mb-4">제1조 (목적)</h2>
                         <p>
-                            본 약관은 JobSecretary(이하 "서비스")가 제공하는 자기소개서 및 이력서 관리 서비스의 이용과 관련하여
+                            본 약관은 JobSecretary(이하 &quot;서비스&quot;)가 제공하는 자기소개서 및 이력서 관리 서비스의 이용과 관련하여
                             회사와 이용자 간의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.
                         </p>
                     </section>

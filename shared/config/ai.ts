@@ -1,6 +1,8 @@
-// The former gemini-2.5-flash-lite model is no longer available to new API
-// users. Keep one supported Flash alias for all AI features in the app.
-export const AI_MODEL = 'gemini-flash-latest';
+// Pin the model: the latest alias can switch to an overloaded/new model
+// without a deployment. Keep a separately verified model for availability.
+export const AI_MODEL = 'gemini-3.5-flash';
+export const GEMINI_REQUEST_TIMEOUT_MS = 25_000;
+const DEFAULT_FALLBACK_MODEL = 'gemini-3.5-flash-lite';
 
 const splitConfiguredKeys = (value: string | undefined): string[] => {
     if (!value) return [];
@@ -59,6 +61,81 @@ export function getGeminiApiKey(): string {
     }
 
     return apiKey;
+}
+
+export function getGeminiModels(): string[] {
+    const primary = process.env.GEMINI_MODEL?.trim() || AI_MODEL;
+    const fallback = splitConfiguredKeys(
+        process.env.GEMINI_FALLBACK_MODELS ?? DEFAULT_FALLBACK_MODEL,
+    );
+    return [...new Set([primary, ...fallback])];
+}
+
+const getErrorStatus = (error: unknown): number | undefined => {
+    if (typeof error !== 'object' || error === null) return undefined;
+    if ('status' in error && typeof error.status === 'number') return error.status;
+    const namedTimeout = 'name' in error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+    // @google/genai 1.x wraps fetch aborts in a plain Error in apiCall().
+    const wrappedTimeout = error instanceof Error
+        && /^exception (?:AbortError|TimeoutError): .* sending request$/.test(error.message);
+    if (namedTimeout || wrappedTimeout) {
+        return 504;
+    }
+    return undefined;
+};
+
+/** Keep both SDK versions and configuration failures safe to log. */
+export function getGeminiErrorSummary(error: unknown): string {
+    const message = error instanceof Error ? error.message : 'Unknown Gemini error';
+    return getGeminiApiKeys()
+        .reduce((redacted, key) => redacted.split(key).join('[REDACTED]'), message)
+        .replace(/AIza[\w-]+/g, '[REDACTED]')
+        .replace(/key=[^&\s"']+/gi, 'key=[REDACTED]');
+}
+
+type GeminiAttempt = { model: string; keyIndex: number; keyCount: number };
+
+/**
+ * Retry authentication and rate-limit failures with another configured key.
+ * Model outages and timeouts switch models immediately because another key
+ * cannot fix provider capacity. Invalid requests fail without another attempt.
+ */
+export async function withGeminiFallback<T>(
+    operation: (apiKey: string, model: string) => Promise<T>,
+    onError?: (error: unknown, attempt: GeminiAttempt) => void,
+): Promise<T> {
+    const apiKeys = getGeminiApiKeys();
+    if (apiKeys.length === 0) {
+        throw new Error('Gemini API key is missing. Set GEMINI_API_KEY in the server environment.');
+    }
+
+    const rejectedKeyIndexes = new Set<number>();
+    let lastError: unknown;
+    for (const model of getGeminiModels()) {
+        for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex += 1) {
+            if (rejectedKeyIndexes.has(keyIndex)) continue;
+            try {
+                return await operation(apiKeys[keyIndex], model);
+            } catch (error) {
+                lastError = error;
+                onError?.(error, { model, keyIndex, keyCount: apiKeys.length });
+                const status = getErrorStatus(error);
+                const invalidKey = status === 400 && error instanceof Error
+                    && /API_KEY_(?:INVALID|EXPIRED)|API key (?:not valid|expired)/i.test(error.message);
+                if (status === 401 || status === 403 || invalidKey) {
+                    rejectedKeyIndexes.add(keyIndex);
+                    continue;
+                }
+                if (status === 429) continue;
+                if (status !== undefined && [404, 500, 502, 503, 504].includes(status)) {
+                    break;
+                }
+                throw error;
+            }
+        }
+        if (rejectedKeyIndexes.size === apiKeys.length) break;
+    }
+    throw lastError;
 }
 
 /**

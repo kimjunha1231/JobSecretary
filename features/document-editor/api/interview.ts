@@ -1,7 +1,7 @@
 'use server'
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AI_MODEL, withGeminiKeyFallback } from '@/shared/config';
+import { GoogleGenAI } from "@google/genai";
+import { GEMINI_REQUEST_TIMEOUT_MS, getGeminiErrorSummary, withGeminiFallback } from '@/shared/config';
 import { logger } from "@/shared/lib";
 
 export async function generateInterviewQuestions(content: string): Promise<string[]> {
@@ -24,33 +24,39 @@ export async function generateInterviewQuestions(content: string): Promise<strin
     `;
 
     try {
-        const result = await withGeminiKeyFallback(
-            (apiKey) => new GoogleGenerativeAI(apiKey)
-                .getGenerativeModel({
-                    model: AI_MODEL,
-                    generationConfig: {
-                        responseMimeType: "application/json"
-                    }
-                })
-                .generateContent({
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                }),
-            (error, keyIndex, keyCount) => {
-                const message = error instanceof Error ? error.message : String(error);
+        const result = await withGeminiFallback(
+            (apiKey, model) => new GoogleGenAI({
+                apiKey,
+                httpOptions: { timeout: GEMINI_REQUEST_TIMEOUT_MS },
+            }).models.generateContent({
+                model,
+                contents: prompt,
+                config: { responseMimeType: "application/json" },
+            }),
+            (error, { model, keyIndex, keyCount }) => {
                 logger.warn(
-                    `Gemini key ${keyIndex + 1}/${keyCount} failed; trying the next key.`,
-                    message.replace(/key=[^&\s]+/gi, 'key=REDACTED'),
+                    `Gemini request failed (model: ${model}, key ${keyIndex + 1}/${keyCount}).`,
+                    getGeminiErrorSummary(error),
                 );
             },
         );
-        const responseText = result.response.text();
-
-
+        const responseText = result.text;
+        if (!responseText?.trim()) {
+            throw new Error("Gemini returned empty interview questions.");
+        }
         const cleanedText = responseText.replace(/```json|```/g, "").trim();
+        const questions: unknown = JSON.parse(cleanedText);
+        if (
+            !Array.isArray(questions) ||
+            questions.length === 0 ||
+            !questions.every(question => typeof question === 'string' && question.trim().length > 0)
+        ) {
+            throw new Error("Gemini returned invalid interview questions.");
+        }
 
-        return JSON.parse(cleanedText) as string[];
+        return questions;
     } catch (error) {
-        logger.error("Interview Question Generation Error:", error);
+        logger.error("Interview Question Generation Error:", getGeminiErrorSummary(error));
         return [];
     }
 }

@@ -2,7 +2,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { Document } from '@/entities/document';
-import { AI_MODEL, withGeminiKeyFallback } from '@/shared/config';
+import { GEMINI_REQUEST_TIMEOUT_MS, getGeminiErrorSummary, withGeminiFallback } from '@/shared/config';
 import { InsightResult, RefineResult } from './types';
 export type { InsightResult, RefineResult };
 import { logger } from '@/shared/lib';
@@ -10,14 +10,16 @@ import { createServerSupabaseClient } from '@/shared/api/server';
 
 type GenerateContentParameters = Parameters<GoogleGenAI['models']['generateContent']>[0];
 
-const generateContentWithFallback = (parameters: GenerateContentParameters) => {
-    return withGeminiKeyFallback(
-        (apiKey) => new GoogleGenAI({ apiKey }).models.generateContent(parameters),
-        (error, keyIndex, keyCount) => {
-            const message = error instanceof Error ? error.message : String(error);
+const generateContentWithFallback = (parameters: Omit<GenerateContentParameters, 'model'>) => {
+    return withGeminiFallback(
+        (apiKey, model) => new GoogleGenAI({
+            apiKey,
+            httpOptions: { timeout: GEMINI_REQUEST_TIMEOUT_MS },
+        }).models.generateContent({ ...parameters, model }),
+        (error, { model, keyIndex, keyCount }) => {
             logger.warn(
-                `Gemini key ${keyIndex + 1}/${keyCount} failed; trying the next key.`,
-                message.replace(/key=[^&\s]+/gi, 'key=REDACTED'),
+                `Gemini request failed (model: ${model}, key ${keyIndex + 1}/${keyCount}).`,
+                getGeminiErrorSummary(error),
             );
         },
     );
@@ -64,7 +66,6 @@ export const generateInsight = async (
 
     try {
         const response = await generateContentWithFallback({
-            model: AI_MODEL,
             contents: query,
             config: {
                 systemInstruction,
@@ -88,9 +89,9 @@ export const generateInsight = async (
             return { text: responseText, relatedDocIds: [] };
         }
     } catch (error: unknown) {
-        logger.error("Gemini API Error:", error);
+        logger.error("Gemini API Error:", getGeminiErrorSummary(error));
         return {
-            text: `오류가 발생했습니다: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
+            text: `오류가 발생했습니다: ${getGeminiErrorSummary(error)}`,
             relatedDocIds: []
         };
     }
@@ -119,7 +120,6 @@ export const generateQuestions = async (
 
     try {
         const response = await generateContentWithFallback({
-            model: AI_MODEL,
             contents: prompt,
             config: {
                 systemInstruction,
@@ -129,7 +129,7 @@ export const generateQuestions = async (
 
         return response.text || "질문을 생성할 수 없습니다.";
     } catch (error) {
-        logger.error("Gemini API Error:", error);
+        logger.error("Gemini API Error:", getGeminiErrorSummary(error));
         return "질문 생성 중 오류가 발생했습니다.";
     }
 };
@@ -200,7 +200,6 @@ ${contextData}
 
     try {
         const response = await generateContentWithFallback({
-            model: AI_MODEL,
             contents: prompt,
             config: {
                 systemInstruction,
@@ -208,9 +207,14 @@ ${contextData}
             }
         });
 
-        return response.text || "초안을 생성할 수 없습니다.";
+        const draft = response.text;
+        if (!draft?.trim()) {
+            throw new Error("Gemini returned an empty draft.");
+        }
+
+        return draft;
     } catch (error) {
-        logger.error("Gemini API Error:", error);
+        logger.error("Gemini API Error:", getGeminiErrorSummary(error));
         throw new Error("초안 생성 중 오류가 발생했습니다.");
     }
 };
@@ -238,7 +242,6 @@ ${text}`;
 
     try {
         const response = await generateContentWithFallback({
-            model: AI_MODEL,
             contents: prompt,
             config: {
                 systemInstruction,
@@ -252,9 +255,25 @@ ${text}`;
         let cleanedText = responseText.replace(/```json|```/g, "").trim();
         cleanedText = cleanedText.replace(/([가-힣])\\([가-힣])/g, "$1\\\\$2");
 
-        return JSON.parse(cleanedText) as RefineResult;
+        const parsed: unknown = JSON.parse(cleanedText);
+        if (!parsed || typeof parsed !== 'object') {
+            throw new Error("Gemini returned an invalid refine response.");
+        }
+
+        const result = parsed as Partial<RefineResult>;
+        if (
+            typeof result.original !== 'string' ||
+            typeof result.corrected !== 'string' ||
+            result.corrected.trim().length === 0 ||
+            !Array.isArray(result.changes) ||
+            !result.changes.every(change => typeof change === 'string')
+        ) {
+            throw new Error("Gemini returned an invalid refine response.");
+        }
+
+        return { original: text, corrected: result.corrected, changes: result.changes };
     } catch (error) {
-        logger.error("Refine Error:", error);
+        logger.error("Refine Error:", getGeminiErrorSummary(error));
         return null;
     }
 };
