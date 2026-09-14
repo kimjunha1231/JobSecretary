@@ -6,9 +6,9 @@ export async function GET() {
     try {
         const data = await documentService.getDocuments();
         return NextResponse.json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error('Error fetching documents:', error);
-        if (error.message === 'Unauthorized') {
+        if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 });
@@ -40,9 +40,9 @@ export async function DELETE(request: NextRequest) {
 
         await documentService.deleteDocument(id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error('Error deleting document:', error);
-        if (error.message === 'Unauthorized') {
+        if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 });
