@@ -89,8 +89,8 @@ describe('getGeminiApiKey', () => {
         expect(attempts).toEqual(['key-a:0', 'key-b:1']);
     });
 
-    it('pins the verified primary model instead of following the latest alias', () => {
-        expect(getGeminiModels()).toEqual(['gemini-3.5-flash', 'gemini-3.5-flash-lite']);
+    it('pins the verified GA models instead of following the latest alias', () => {
+        expect(getGeminiModels()).toEqual(['gemini-3.7-flash', 'gemini-3.6-flash']);
     });
 
     it('supports a runtime model override and deduplicates fallback models', () => {
@@ -109,7 +109,7 @@ describe('getGeminiApiKey', () => {
         await expect(withGeminiFallback(operation)).resolves.toBe('corrected text');
         expect(operation.mock.calls).toEqual([
             ['key-a', AI_MODEL],
-            ['key-a', 'gemini-3.5-flash-lite'],
+            ['key-a', 'gemini-3.6-flash'],
         ]);
     });
 
@@ -124,7 +124,7 @@ describe('getGeminiApiKey', () => {
         expect(operation.mock.calls).toEqual([
             ['invalid-key', AI_MODEL],
             ['valid-key', AI_MODEL],
-            ['valid-key', 'gemini-3.5-flash-lite'],
+            ['valid-key', 'gemini-3.6-flash'],
         ]);
     });
 
@@ -180,7 +180,7 @@ describe('getGeminiApiKey', () => {
             .mockRejectedValueOnce(new Error('exception AbortError: This operation was aborted sending request'))
             .mockResolvedValueOnce('recovered');
         await expect(withGeminiFallback(operation)).resolves.toBe('recovered');
-        expect(operation).toHaveBeenNthCalledWith(2, 'key-a', 'gemini-3.5-flash-lite');
+        expect(operation).toHaveBeenNthCalledWith(2, 'key-a', 'gemini-3.6-flash');
     });
 
     it('stops after the configured models fail and retains the final error', async () => {
@@ -191,7 +191,7 @@ describe('getGeminiApiKey', () => {
         await expect(withGeminiFallback(operation, onError)).rejects.toBe(failure);
         expect(operation).toHaveBeenCalledTimes(2);
         expect(onError).toHaveBeenLastCalledWith(failure, {
-            model: 'gemini-3.5-flash-lite', keyIndex: 0, keyCount: 2,
+            model: 'gemini-3.6-flash', keyIndex: 0, keyCount: 2,
         });
     });
 

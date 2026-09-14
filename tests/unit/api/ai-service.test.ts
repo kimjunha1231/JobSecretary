@@ -63,8 +63,9 @@ describe('AI service requests', () => {
         expect(mockGenerateContent).toHaveBeenCalledWith(expect.objectContaining({
             model: AI_MODEL,
             contents: expect.stringContaining('지원 회사: 지원 회사'),
-            config: expect.objectContaining({ temperature: 0.8 }),
+            config: expect.objectContaining({ systemInstruction: expect.any(String) }),
         }));
+        expect(mockGenerateContent.mock.calls[0][0].config).not.toHaveProperty('temperature');
     });
 
     it('recovers from model overload by requesting the fallback model', async () => {

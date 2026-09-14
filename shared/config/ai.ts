@@ -1,8 +1,8 @@
-// Pin the model: the latest alias can switch to an overloaded/new model
-// without a deployment. Keep a separately verified model for availability.
-export const AI_MODEL = 'gemini-3.5-flash';
+// Pin verified GA models: the latest alias can change without a deployment,
+// while 3.8 Flash is currently returning capacity errors for this project.
+export const AI_MODEL = 'gemini-3.7-flash';
 export const GEMINI_REQUEST_TIMEOUT_MS = 25_000;
-const DEFAULT_FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const DEFAULT_FALLBACK_MODEL = 'gemini-3.6-flash';
 
 const splitConfiguredKeys = (value: string | undefined): string[] => {
     if (!value) return [];
@@ -75,7 +75,7 @@ const getErrorStatus = (error: unknown): number | undefined => {
     if (typeof error !== 'object' || error === null) return undefined;
     if ('status' in error && typeof error.status === 'number') return error.status;
     const namedTimeout = 'name' in error && (error.name === 'TimeoutError' || error.name === 'AbortError');
-    // @google/genai 1.x wraps fetch aborts in a plain Error in apiCall().
+    // The SDK can wrap fetch aborts in a plain Error in apiCall().
     const wrappedTimeout = error instanceof Error
         && /^exception (?:AbortError|TimeoutError): .* sending request$/.test(error.message);
     if (namedTimeout || wrappedTimeout) {

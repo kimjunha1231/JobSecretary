@@ -1,6 +1,5 @@
 /**
- * Mock @google/genai module for testing
- * This is a different package from @google/generative-ai
+ * Mock the official @google/genai SDK for unit tests.
  */
 
 export const GoogleGenAI = jest.fn().mockImplementation(() => ({

@@ -69,7 +69,6 @@ export const generateInsight = async (
             contents: query,
             config: {
                 systemInstruction,
-                temperature: 0.3,
                 responseMimeType: 'application/json',
             }
         });
@@ -123,7 +122,6 @@ export const generateQuestions = async (
             contents: prompt,
             config: {
                 systemInstruction,
-                temperature: 0.8,
             }
         });
 
@@ -203,7 +201,6 @@ ${contextData}
             contents: prompt,
             config: {
                 systemInstruction,
-                temperature: 0.7,
             }
         });
 
