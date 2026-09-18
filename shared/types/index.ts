@@ -1,4 +1,5 @@
 import React from 'react';
+export * from './domain.ts';
 
 // UI Props types (domain-agnostic)
 export interface BentoItemProps {

@@ -1,10 +1,22 @@
 'use server'
 
 import { GoogleGenAI } from "@google/genai";
+import { z } from 'zod';
 import { GEMINI_REQUEST_TIMEOUT_MS, getGeminiErrorSummary, withGeminiFallback } from '@/shared/config';
 import { logger } from "@/shared/lib";
+import { requireAiAccess } from '@/shared/lib/ai-access';
+
+const interviewInputSchema = z.object({
+    content: z.string().trim().min(1).max(20_000),
+});
 
 export async function generateInterviewQuestions(content: string): Promise<string[]> {
+    const input = interviewInputSchema.safeParse({ content });
+    if (!input.success) {
+        throw new Error('Invalid AI request.');
+    }
+    await requireAiAccess('interview');
+
     const prompt = `
     너는 20년 경력의 대기업 인사담당자이자 면접관이야.
     아래 [자기소개서] 내용을 바탕으로, 실제 면접에서 나올 법한 날카롭고 핵심적인 예상 면접 질문 5~7개를 뽑아줘.
@@ -20,7 +32,7 @@ export async function generateInterviewQuestions(content: string): Promise<strin
     ["질문 1", "질문 2", "질문 3", ...]
 
     **[자기소개서]**
-    ${content}
+    ${input.data.content}
     `;
 
     try {

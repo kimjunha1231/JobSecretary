@@ -28,9 +28,15 @@ const UpdateDocumentInputSchema = CreateDocumentInputSchema.partial();
 export async function getDocuments(): Promise<Document[]> {
     const supabase = await createServerSupabaseClient();
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
     const { data, error } = await supabase
         .from('documents')
         .select('*')
+        .eq('user_id', user.id)
         .order('position', { ascending: true })
         .order('created_at', { ascending: false });
 
@@ -195,9 +201,16 @@ export async function deleteDocument(id: string) {
 export async function getUniqueTags(): Promise<string[]> {
     const supabase = await createServerSupabaseClient();
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
     const { data, error } = await supabase
         .from('documents')
-        .select('tags');
+        .select('tags')
+        .eq('user_id', user.id);
+
 
     if (error) {
         logger.error('Error fetching tags:', error);

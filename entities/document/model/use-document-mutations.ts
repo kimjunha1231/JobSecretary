@@ -1,10 +1,9 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/shared/api';
 import { Document, Status } from '../model';
 import { documentKeys } from './keys';
-import { mapDocumentToRecord } from '../api/repository';
+import { requestDocumentApi } from '../api/client';
 
 // Toggle favorite mutation
 export function useToggleFavorite() {
@@ -12,12 +11,10 @@ export function useToggleFavorite() {
 
     return useMutation({
         mutationFn: async ({ id, isFavorite }: { id: string; isFavorite: boolean }) => {
-            const { error } = await supabase
-                .from('documents')
-                .update({ is_favorite: isFavorite })
-                .eq('id', id);
-
-            if (error) throw error;
+            await requestDocumentApi(`/api/documents?id=${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ isFavorite }),
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -32,14 +29,10 @@ export function useUpdateDocument() {
     return useMutation({
         mutationFn: async (doc: Partial<Document> & { id: string }) => {
             const { id, ...updates } = doc;
-            const dbUpdates = mapDocumentToRecord(updates);
-
-            const { error } = await supabase
-                .from('documents')
-                .update(dbUpdates)
-                .eq('id', id);
-
-            if (error) throw error;
+            await requestDocumentApi(`/api/documents?id=${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify(updates),
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -53,12 +46,9 @@ export function useDeleteDocument() {
 
     return useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase
-                .from('documents')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await requestDocumentApi(`/api/documents?id=${encodeURIComponent(id)}`, {
+                method: 'DELETE',
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -72,12 +62,10 @@ export function useArchiveDocument() {
 
     return useMutation({
         mutationFn: async ({ id, isArchived }: { id: string; isArchived: boolean }) => {
-            const { error } = await supabase
-                .from('documents')
-                .update({ is_archived: isArchived })
-                .eq('id', id);
-
-            if (error) throw error;
+            await requestDocumentApi(`/api/documents?id=${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ isArchived }),
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -91,14 +79,12 @@ export function useUpdateDocumentOrder() {
 
     return useMutation({
         mutationFn: async (documents: { id: string; position: number; status: Status }[]) => {
-            const updates = documents.map(doc =>
-                supabase
-                    .from('documents')
-                    .update({ position: doc.position, status: doc.status })
-                    .eq('id', doc.id)
-            );
-
-            await Promise.all(updates);
+            await Promise.all(documents.map(doc =>
+                requestDocumentApi(`/api/documents?id=${encodeURIComponent(doc.id)}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ position: doc.position, status: doc.status }),
+                })
+            ));
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -112,33 +98,10 @@ export function useCreateDocument() {
 
     return useMutation({
         mutationFn: async (doc: Omit<Document, 'id' | 'createdAt' | 'user_id'>) => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('User not authenticated');
-
-            const logo = doc.company ? doc.company.charAt(0).toUpperCase() : 'C';
-
-            const { data, error } = await supabase
-                .from('documents')
-                .insert({
-                    user_id: user.id,
-                    title: doc.title,
-                    company: doc.company,
-                    role: doc.role,
-                    content: doc.content,
-                    status: doc.status || 'writing',
-                    tags: doc.tags || [],
-                    deadline: doc.deadline,
-                    job_post_url: doc.jobPostUrl,
-                    logo,
-                    is_archived: doc.isArchived ?? false,
-                    is_favorite: false,
-                    document_screening_status: doc.documentScreeningStatus,
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
+            return requestDocumentApi<Document>('/api/documents', {
+                method: 'POST',
+                body: JSON.stringify(doc),
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });
@@ -152,16 +115,10 @@ export function useArchiveDocuments() {
 
     return useMutation({
         mutationFn: async (ids: string[]) => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('User not authenticated');
-
-            const { error } = await supabase
-                .from('documents')
-                .update({ is_archived: true })
-                .in('id', ids)
-                .eq('user_id', user.id);
-
-            if (error) throw error;
+            await requestDocumentApi('/api/documents/archive', {
+                method: 'POST',
+                body: JSON.stringify({ ids }),
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.all });

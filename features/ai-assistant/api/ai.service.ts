@@ -1,14 +1,56 @@
 'use server';
 
 import { GoogleGenAI } from "@google/genai";
+import { z } from 'zod';
 import { Document } from '@/entities/document';
 import { GEMINI_REQUEST_TIMEOUT_MS, getGeminiErrorSummary, withGeminiFallback } from '@/shared/config';
 import { InsightResult, RefineResult } from './types';
 export type { InsightResult, RefineResult };
 import { logger } from '@/shared/lib';
 import { createServerSupabaseClient } from '@/shared/api/server';
+import { requireAiAccess } from '@/shared/lib/ai-access';
 
 type GenerateContentParameters = Parameters<GoogleGenAI['models']['generateContent']>[0];
+
+const MAX_CONTEXT_CHARS = 60_000;
+
+const insightInputSchema = z.object({
+    query: z.string().trim().min(1).max(2_000),
+    documents: z.array(z.object({
+        id: z.string().max(200),
+        company: z.string().max(200),
+        role: z.string().max(200),
+        createdAt: z.string().max(200),
+        content: z.string().max(20_000),
+    }).passthrough()).max(20),
+});
+
+const questionsInputSchema = z.object({
+    company: z.string().trim().min(1).max(200),
+    role: z.string().trim().min(1).max(200),
+    jobDescription: z.string().max(20_000),
+});
+
+const draftInputSchema = z.object({
+    company: z.string().trim().min(1).max(200),
+    role: z.string().trim().min(1).max(200),
+    question: z.string().trim().min(1).max(3_000),
+    keywords: z.string().max(3_000),
+    tags: z.array(z.string().trim().min(1).max(100)).max(30),
+    charLimit: z.number().int().min(100).max(2_000),
+});
+
+const refineInputSchema = z.object({
+    text: z.string().min(1).max(12_000).refine(value => value.trim().length > 0),
+});
+
+function parseAiInput<T>(schema: z.ZodType<T>, input: unknown): T {
+    const result = schema.safeParse(input);
+    if (!result.success) {
+        throw new Error('Invalid AI request.');
+    }
+    return result.data;
+}
 
 const generateContentWithFallback = (parameters: Omit<GenerateContentParameters, 'model'>) => {
     return withGeminiFallback(
@@ -33,14 +75,16 @@ Company: ${doc.company}
 Role: ${doc.role}
 Date: ${doc.createdAt}
 Content: ${doc.content}
----`).join('\n');
+---`).join('\n').slice(0, MAX_CONTEXT_CHARS);
 };
 
 export const generateInsight = async (
     query: string,
     documents: Document[]
 ): Promise<InsightResult> => {
-    const contextData = buildFullDocumentContext(documents);
+    const input = parseAiInput(insightInputSchema, { query, documents });
+    await requireAiAccess('insight');
+    const contextData = buildFullDocumentContext(input.documents as Document[]);
 
     const systemInstruction = `
     You are a helpful career assistant. You have access to the user's past cover letters.
@@ -66,7 +110,7 @@ export const generateInsight = async (
 
     try {
         const response = await generateContentWithFallback({
-            contents: query,
+            contents: input.query,
             config: {
                 systemInstruction,
                 responseMimeType: 'application/json',
@@ -101,6 +145,9 @@ export const generateQuestions = async (
     role: string,
     jobDescription: string
 ): Promise<string> => {
+    const input = parseAiInput(questionsInputSchema, { company, role, jobDescription });
+    await requireAiAccess('questions');
+
     const systemInstruction = `당신은 전문 커리어 코치입니다. 
 사용자가 지원하려는 회사와 직무, 그리고 채용 공고(선택 사항)를 바탕으로 자기소개서 작성에 도움이 될 만한 질문 3~5가지를 제안해야 합니다.
 
@@ -111,9 +158,9 @@ export const generateQuestions = async (
 4. 마크다운 형식으로 번호를 매겨 출력해 주세요.`;
 
     const prompt = `
-지원 회사: ${company}
-지원 직무: ${role}
-채용 공고 내용: ${jobDescription || "정보 없음"}
+지원 회사: ${input.company}
+지원 직무: ${input.role}
+채용 공고 내용: ${input.jobDescription || "정보 없음"}
 
 위 정보를 바탕으로 자기소개서 작성을 위한 심층 질문을 제안해 주세요.`;
 
@@ -140,6 +187,16 @@ export const generateDraft = async (
     tags: string[] = [],
     charLimit: number = 700
 ): Promise<string> => {
+    const input = parseAiInput(draftInputSchema, {
+        company,
+        role,
+        question,
+        keywords,
+        tags,
+        charLimit,
+    });
+    await requireAiAccess('draft');
+
     // Fetch context from DB
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -153,8 +210,8 @@ export const generateDraft = async (
         .select('content, tags, company, role')
         .eq('user_id', user.id);
 
-    if (tags.length > 0) {
-        query = query.overlaps('tags', tags);
+    if (input.tags.length > 0) {
+        query = query.overlaps('tags', input.tags);
     }
 
     const { data: documents, error } = await query;
@@ -168,7 +225,7 @@ export const generateDraft = async (
 Company: ${doc.company}
 Role: ${doc.role}
 Content: ${doc.content}
----`).join('\n');
+---`).join('\n').slice(0, MAX_CONTEXT_CHARS);
 
     const systemInstruction = `당신은 전문적인 자기소개서 작성 도우미입니다. 
 사용자의 과거 자기소개서 스타일과 경험을 참고하여, 새로운 질문에 대한 초안을 작성해 주세요.
@@ -176,8 +233,8 @@ Content: ${doc.content}
 규칙:
 1. **반드시 한국어로 작성하세요.**
 2. **키워드가 제공되면 해당 키워드를 중심으로 작성하고, 제공되지 않으면 질문의 의도를 파악하여 가장 적절한 내용을 스스로 구성하세요.**
-3. **[매우 중요] 목표 글자 수(${charLimit}자)를 절대 넘기지 마세요.**
-   - **${charLimit}자 이내로 작성하는 것이 가장 중요한 제약조건입니다.**
+3. **[매우 중요] 목표 글자 수(${input.charLimit}자)를 절대 넘기지 마세요.**
+   - **${input.charLimit}자 이내로 작성하는 것이 가장 중요한 제약조건입니다.**
    - 내용이 길어질 것 같으면 불필요한 수식어를 과감히 삭제하고 핵심만 남기세요.
    - 지정된 분량보다 10% 이상 부족한 것은 괜찮지만, 1자라도 초과하는 것은 허용되지 않습니다.
 4. **절대 Markdown 헤더(예: #, ##, ###)나 볼드체(**)를 사용하지 마세요.**
@@ -185,11 +242,11 @@ Content: ${doc.content}
 6. 너무 뻔하거나 추상적인 표현보다는 구체적인 경험을 서술하는 톤으로 작성하세요.`;
 
     const prompt = `
-지원 회사: ${company}
-지원 직무: ${role}
-문항(질문): ${question}
-핵심 키워드/소재: ${keywords || "없음 (질문에 맞춰 자유롭게 작성)"}
-목표 글자 수: 최대 ${charLimit}자 (초과 금지)
+지원 회사: ${input.company}
+지원 직무: ${input.role}
+문항(질문): ${input.question}
+핵심 키워드/소재: ${input.keywords || "없음 (질문에 맞춰 자유롭게 작성)"}
+목표 글자 수: 최대 ${input.charLimit}자 (초과 금지)
 
 참고할 과거 자소서 데이터:
 ${contextData}
@@ -217,6 +274,9 @@ ${contextData}
 };
 
 export const refineText = async (text: string): Promise<RefineResult | null> => {
+    const input = parseAiInput(refineInputSchema, { text });
+    await requireAiAccess('refine');
+
     const systemInstruction = `너는 20년 경력의 대기업 인사담당자이자 자기소개서 첨삭 전문가야.
 아래 [원문]을 읽고 맞춤법, 띄어쓰기, 그리고 문맥의 어조(Tone)를 다듬어서 [교정문]을 만들어줘.
 
@@ -235,7 +295,7 @@ export const refineText = async (text: string): Promise<RefineResult | null> => 
 }`;
 
     const prompt = `**[원문]**
-${text}`;
+${input.text}`;
 
     try {
         const response = await generateContentWithFallback({
@@ -268,7 +328,7 @@ ${text}`;
             throw new Error("Gemini returned an invalid refine response.");
         }
 
-        return { original: text, corrected: result.corrected, changes: result.changes };
+        return { original: input.text, corrected: result.corrected, changes: result.changes };
     } catch (error) {
         logger.error("Refine Error:", getGeminiErrorSummary(error));
         return null;

@@ -2,11 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { logger } from "@/shared/lib";
+import { getSafeInternalPath } from '@/shared/lib/safe-redirect';
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
-    const next = searchParams.get('next') ?? '/archive';
+    const next = getSafeInternalPath(searchParams.get('next'), origin);
 
     if (code) {
         const cookieStore = await cookies();
@@ -38,7 +39,6 @@ export async function GET(request: Request) {
         if (!error && data.user) {
             logger.info('🔐 User logged in:', data.user.email);
 
-            // Directly redirect to the next URL (archive)
             const nextUrl = new URL(next, origin);
             nextUrl.searchParams.set('login', 'success');
             return NextResponse.redirect(nextUrl);

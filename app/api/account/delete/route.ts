@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { logger } from '@/shared/lib';
 
 // DELETE: Delete user account and all associated data
 export async function DELETE() {
@@ -38,11 +39,8 @@ export async function DELETE() {
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!serviceRoleKey) {
-
-            return NextResponse.json({
-                error: 'Server configuration error',
-                details: 'Service role key is missing'
-            }, { status: 500 });
+            logger.error('Account deletion is unavailable: missing service role configuration.');
+            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
         const supabaseAdmin = createClient(
@@ -62,11 +60,8 @@ export async function DELETE() {
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
         if (deleteError) {
-
-            return NextResponse.json({
-                error: 'Failed to delete user account',
-                details: deleteError.message
-            }, { status: 500 });
+            logger.error('Failed to delete user account:', deleteError);
+            return NextResponse.json({ error: 'Failed to delete user account' }, { status: 500 });
         }
 
         // 4. Sign out the user from the current session
@@ -77,10 +72,7 @@ export async function DELETE() {
             message: '회원 탈퇴가 완료되었습니다. 모든 데이터가 영구 삭제되었습니다.'
         });
     } catch (error) {
-
-        return NextResponse.json({
-            error: 'Internal server error',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        logger.error('Account deletion request failed:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

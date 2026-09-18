@@ -1,4 +1,10 @@
 import { createServerSupabaseClient } from '@/shared/api/server';
+import { z } from 'zod';
+
+const consentSchema = z.object({
+    termsAccepted: z.literal(true),
+    privacyAccepted: z.literal(true),
+});
 
 export const userProfileService = {
     async getUserProfile() {
@@ -26,7 +32,7 @@ export const userProfileService = {
         };
     },
 
-    async upsertUserProfile(consentData: { termsAccepted: boolean; privacyAccepted: boolean }) {
+    async upsertUserProfile(consentData: unknown) {
         const supabase = await createServerSupabaseClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -34,9 +40,8 @@ export const userProfileService = {
             throw new Error('Unauthorized');
         }
 
-        const { termsAccepted, privacyAccepted } = consentData;
-
-        if (!termsAccepted || !privacyAccepted) {
+        const validationResult = consentSchema.safeParse(consentData);
+        if (!validationResult.success) {
             throw new Error('Both consents are required');
         }
 

@@ -1,11 +1,15 @@
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTypescript from "eslint-config-next/typescript";
+import { FlatCompat } from "@eslint/eslintrc";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import reactCompiler from "eslint-plugin-react-compiler";
 import boundaries from "eslint-plugin-boundaries";
 
+const compat = new FlatCompat({
+    baseDirectory: dirname(fileURLToPath(import.meta.url)),
+});
+
 export default [
-    ...nextVitals,
-    ...nextTypescript,
+    ...compat.extends("next/core-web-vitals", "plugin:@typescript-eslint/recommended"),
     {
         plugins: {
             "react-compiler": reactCompiler,

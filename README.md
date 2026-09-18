@@ -1,6 +1,6 @@
 # JobSecretary : AI 통합 채용 관리 플랫폼
 
-[![Next.js](https://img.shields.io/badge/Next.js-15.1-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=flat-square&logo=supabase)](https://supabase.com/)
 [![FSD](https://img.shields.io/badge/Architecture-FSD-orange?style=flat-square)](https://feature-sliced.design/)
@@ -59,12 +59,13 @@
 ├── app/                    # Composition Layer (라우팅 및 페이지 조립)
 │   ├── api/                # Server Actions & API Routes
 │   └── (pages)/            # 페이지 컴포넌트
-├── widgets/                # 하나의 위젯 블록 (Sidebar, KanbanBoard, ArchiveBoard)
+├── widgets/                # 하나의 위젯 블록 (Sidebar, KanbanBoard, ArchiveBoard, SourceLibrary)
 ├── features/               # 사용자 상호작용 기능 하나의 기능
 │   ├── document-kanban/    # 칸반 보드 드래그 앤 드롭
 │   ├── document-editor/    # 문서 편집 및 뷰어
 │   ├── document-write/     # 자소서 작성 폼
 │   ├── document-archive/   # 아카이브 필터링 및 목록
+│   ├── source-ingestion/   # PDF/DOCX/텍스트 자료 추출 및 등록
 │   ├── ai-assistant/       # AI 교정 기능
 │   └── auth/               # 인증 및 동의
 ├── entities/               # 비즈니스 데이터 모델
@@ -79,6 +80,26 @@
 └── middleware.ts           # 인증 미들웨어
 ```
 
+### 보안 기준선(M0)
+
+- 개인 문서와 `/document/*` 경로는 Supabase 세션을 확인한 뒤 사용자 소유 행만 조회합니다.
+- AI server action은 인증, 입력 크기, 작업별 호출 제한을 모델 요청 전에 검사합니다. 현재 호출 제한 저장소는 단일 Vercel 인스턴스에서 동작하는 임시 기준선이며, 다중 인스턴스 운영 전 Redis/Upstash 기반 limiter로 교체해야 합니다.
+- OAuth callback의 `next`는 같은 origin의 내부 상대 경로만 허용합니다.
+- 운영 Supabase에 적용하기 전 `supabase/verify/rls-documents.sql`과 `supabase/verify/rls-user-profiles.sql`로 기존 정책을 확인하고 두 M0 migration을 적용하세요. 예기치 않은 기존 정책이 있으면 migration이 의도적으로 중단됩니다.
+
+### 도메인 기반(M1)
+
+- `CONTEXT.md`에 원본 자료, 경력 항목, 근거 기록, 지원 대상, 작성 세션의 공통 용어와 승인 규칙을 기록했습니다.
+- 새 source/career/evidence/job/cover-letter 모델과 Supabase migration은 기존 `documents`를 삭제하지 않고 추가됩니다.
+- 기존 Markdown 자기소개서는 `npm run backfill:legacy`로 먼저 dry-run할 수 있습니다. 실제 쓰기는 `BACKFILL_APPLY=true`와 `SUPABASE_SERVICE_ROLE_KEY`를 함께 지정했을 때만 실행됩니다.
+
+### 자료 가져오기(M2)
+
+- `/career`에서 이력서·포트폴리오·기존 자기소개서를 PDF, DOCX, TXT/Markdown 파일 또는 붙여넣은 텍스트로 등록할 수 있습니다.
+- 서버 Node runtime에서 본문을 추출하고 SHA-256 해시와 페이지/문단 fragment를 저장합니다. 추출 결과는 `needs_review`로 보류되며 사용자가 검수 완료한 자료만 다음 AI 작성 단계에서 사용하도록 설계했습니다.
+- 원본 바이너리 Storage 보관, OCR, 외부 URL 수집은 SSRF·보존정책·실행시간을 별도로 확정한 뒤 M3에서 추가합니다. M2 migration은 `extraction_warnings`만 additive하게 확장합니다.
+- 운영 적용 전 `supabase/verify/rls-m2-source-ingestion.sql`로 source 문서의 RLS와 경고 컬럼을 확인한 뒤 migration을 순서대로 적용하세요.
+
 <br>
 
 ## 5. 성능 최적화
@@ -88,5 +109,3 @@
 | **렌더링 최적화** | `useMemo`, `useCallback`으로 칸반 드래그 중 불필요한 리렌더 방지, React Hook Form 비제어 컴포넌트로 타이핑 시 리렌더 최소화 |
 | **FCP 개선** | Back-Forward Cache 활성화, Dynamic Import 활용 |
 | **접근성** | `aria-label`, `sr-only`, Lighthouse 접근성 점수 개선 |
-
-
