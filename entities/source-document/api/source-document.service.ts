@@ -14,8 +14,11 @@ import {
 import { DomainIdSchema } from '@/shared/types';
 import {
     extractSourceFile,
+    extractHtmlSource,
     extractTextSource,
+    fetchSourceUrl,
     SourceExtractionError,
+    SourceUrlFetchError,
     type SourceExtractionResult,
 } from '@/features/source-ingestion/api';
 import { logger } from '@/shared/lib';
@@ -25,6 +28,7 @@ const sourceDocumentRegistrationSchema = z.object({
     kind: SourceDocumentKindSchema,
     title: z.string().trim().min(1).max(200),
     originType: SourceDocumentOriginSchema,
+    sourceUrl: z.string().trim().min(1).max(2_048).optional(),
 });
 
 const sourceDocumentListSchema = z.object({
@@ -41,6 +45,7 @@ export type SourceDocumentRegistrationInput = {
     kind: unknown;
     title: unknown;
     originType: unknown;
+    sourceUrl?: unknown;
     text?: unknown;
     buffer?: Uint8Array;
     filename?: unknown;
@@ -55,9 +60,9 @@ export type RegisteredSourceDocument = {
 
 export class SourceDocumentServiceError extends Error {
     constructor(
-        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'extraction' | 'storage',
+        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'extraction' | 'fetch' | 'storage',
         message: string,
-        public readonly status: 400 | 401 | 404 | 413 | 422 | 500 = 500,
+        public readonly status: 400 | 401 | 404 | 413 | 422 | 500 | 502 | 504 = 500,
     ) {
         super(message);
         this.name = 'SourceDocumentServiceError';
@@ -120,15 +125,21 @@ function mapExtractionError(error: SourceExtractionError): SourceDocumentService
     return new SourceDocumentServiceError('extraction', error.message, error.status);
 }
 
+function mapSourceUrlError(error: SourceUrlFetchError): SourceDocumentServiceError {
+    return new SourceDocumentServiceError('fetch', error.message, error.status);
+}
+
 function mapRegistrationInput(input: SourceDocumentRegistrationInput): {
     kind: SourceDocumentKind;
     title: string;
     originType: SourceDocumentOrigin;
+    sourceUrl?: string;
 } {
     const parsed = sourceDocumentRegistrationSchema.safeParse({
         kind: input.kind,
         title: input.title,
         originType: input.originType,
+        sourceUrl: input.sourceUrl,
     });
 
     if (!parsed.success) {
@@ -141,8 +152,34 @@ function mapRegistrationInput(input: SourceDocumentRegistrationInput): {
 async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
     kind: SourceDocumentKind;
     originType: SourceDocumentOrigin;
+    sourceUrl?: string;
 }): Promise<SourceExtractionResult> {
     try {
+        if (metadata.originType === 'url') {
+            if (!metadata.sourceUrl) {
+                throw new SourceExtractionError('empty_input', '가져올 URL을 입력해 주세요.');
+            }
+            const fetched = await fetchSourceUrl(metadata.sourceUrl);
+            const extraction = fetched.contentType === 'text/plain'
+                ? extractTextSource({
+                    text: fetched.body,
+                    kind: metadata.kind,
+                    originType: 'url',
+                    mimeType: fetched.contentType,
+                })
+                : extractHtmlSource({
+                    html: fetched.body,
+                    kind: metadata.kind,
+                    originType: 'url',
+                    mimeType: fetched.contentType,
+                });
+            return {
+                ...extraction,
+                sourceUrl: fetched.finalUrl,
+                fetchedAt: new Date().toISOString(),
+            };
+        }
+
         if (typeof input.text === 'string') {
             return extractTextSource({
                 text: input.text,
@@ -167,6 +204,7 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
         if (error instanceof SourceExtractionError) {
             throw mapExtractionError(error);
         }
+        if (error instanceof SourceUrlFetchError) throw mapSourceUrlError(error);
         throw error;
     }
 }
@@ -264,6 +302,7 @@ export const sourceDocumentService = {
             kind: metadata.kind,
             title: metadata.title,
             origin_type: metadata.originType,
+            ...(extraction.sourceUrl ? { source_url: extraction.sourceUrl } : {}),
             ...(extraction.rawText ? { raw_text: extraction.rawText } : {}),
             content_hash: extraction.contentHash,
             mime_type: extraction.mimeType,
@@ -272,6 +311,7 @@ export const sourceDocumentService = {
             extraction_method: extraction.extractionMethod,
             extraction_version: extraction.extractionVersion,
             extraction_warnings: extraction.warnings,
+            ...(extraction.fetchedAt ? { fetched_at: extraction.fetchedAt } : {}),
         };
 
         const { data, error } = await supabase

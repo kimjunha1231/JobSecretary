@@ -42,6 +42,8 @@ export type SourceExtractionResult = {
     warnings: string[];
     kind: SourceDocumentKind;
     originType: SourceDocumentOrigin;
+    sourceUrl?: string;
+    fetchedAt?: string;
 };
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -167,12 +169,13 @@ export function splitTextIntoFragments(
 
     const blocks = text.split(/\n{2,}/).map(block => block.trim()).filter(Boolean);
     const fragments: SourceFragmentDraft[] = [];
+    const positionOffset = typeof locatorPrefix.position === 'number' ? locatorPrefix.position : 0;
 
     blocks.forEach((block, blockIndex) => {
         if (block.length <= MAX_SOURCE_FRAGMENT_LENGTH) {
             fragments.push({
                 content: block,
-                locator: { ...locatorPrefix, type: locatorPrefix.type ?? 'paragraph', position: blockIndex },
+                locator: { ...locatorPrefix, type: locatorPrefix.type ?? 'paragraph', position: positionOffset + blockIndex },
             });
             return;
         }
@@ -180,7 +183,7 @@ export function splitTextIntoFragments(
         chunkText(block, chunkIndex => ({
             ...locatorPrefix,
             type: locatorPrefix.type ?? 'paragraph',
-            position: blockIndex,
+            position: positionOffset + blockIndex,
             chunk: chunkIndex,
         })).forEach(fragment => fragments.push(fragment));
     });
@@ -199,6 +202,61 @@ export function splitTextIntoFragments(
             locator: { ...locatorPrefix, type: locatorPrefix.type ?? 'paragraph', position: MAX_SOURCE_FRAGMENTS - 1, truncated: true },
         },
     ];
+}
+
+const HTML_ENTITY_MAP: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    hellip: '…',
+    nbsp: ' ',
+    lt: '<',
+    quot: '"',
+};
+
+function decodeHtmlEntities(value: string): string {
+    return value
+        .replace(/&#(x[0-9a-f]+|\d+);/gi, (_, code: string) => {
+            const radix = code.toLowerCase().startsWith('x') ? 16 : 10;
+            const numericCode = Number.parseInt(code.replace(/^x/i, ''), radix);
+            return Number.isFinite(numericCode) ? String.fromCodePoint(Math.min(numericCode, 0x10ffff)) : '';
+        })
+        .replace(/&([a-z]+);/gi, (_, name: string) => HTML_ENTITY_MAP[name.toLowerCase()] ?? `&${name};`);
+}
+
+function stripHtml(value: string): string {
+    return decodeHtmlEntities(
+        value
+            .replace(/<!--([\s\S]*?)-->/g, '')
+            .replace(/<(script|style|noscript|svg|template|iframe|object|embed|canvas)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
+            .replace(/<\/?(br|p|div|section|article|li|h[1-6]|header|footer|main|aside|tr)\b[^>]*>/gi, '\n')
+            .replace(/<[^>]+>/g, ' '),
+    );
+}
+
+export function htmlToText(value: string): string {
+    return normalizeText(stripHtml(value));
+}
+
+export function htmlToFragments(value: string): SourceFragmentDraft[] {
+    const withoutUnsafeBlocks = value
+        .replace(/<!--([\s\S]*?)-->/g, '')
+        .replace(/<(script|style|noscript|svg|template|iframe|object|embed|canvas)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+    const blockPattern = /<(h[1-6]|p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+    const fragments: SourceFragmentDraft[] = [];
+    let match: RegExpExecArray | null;
+    let position = 0;
+
+    while ((match = blockPattern.exec(withoutUnsafeBlocks)) !== null) {
+        const content = htmlToText(match[2]);
+        if (!content) continue;
+        const type = match[1].toLowerCase().startsWith('h') ? 'heading' : 'paragraph';
+        splitTextIntoFragments(content, { type, tag: match[1].toLowerCase(), position })
+            .forEach(fragment => fragments.push(fragment));
+        position += 1;
+    }
+
+    return fragments.length > 0 ? fragments : splitTextIntoFragments(htmlToText(value), { type: 'paragraph' });
 }
 
 function buildResult({
@@ -274,6 +332,31 @@ export function extractTextSource({
         kind,
         originType,
         extractionMethod: 'manual',
+    });
+}
+
+export function extractHtmlSource({
+    html,
+    kind,
+    originType = 'url',
+    mimeType = 'text/html',
+}: {
+    html: string;
+    kind: SourceDocumentKind;
+    originType?: SourceDocumentOrigin;
+    mimeType?: string;
+}): SourceExtractionResult {
+    const buffer = Buffer.from(html, 'utf8');
+    ensureSize(buffer);
+    const normalizedText = htmlToText(html);
+    return buildResult({
+        rawText: normalizedText,
+        fragments: htmlToFragments(html),
+        buffer,
+        mimeType,
+        kind,
+        originType,
+        extractionMethod: 'direct_text',
     });
 }
 

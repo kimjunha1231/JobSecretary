@@ -97,8 +97,14 @@
 
 - `/career`에서 이력서·포트폴리오·기존 자기소개서를 PDF, DOCX, TXT/Markdown 파일 또는 붙여넣은 텍스트로 등록할 수 있습니다.
 - 서버 Node runtime에서 본문을 추출하고 SHA-256 해시와 페이지/문단 fragment를 저장합니다. 추출 결과는 `needs_review`로 보류되며 사용자가 검수 완료한 자료만 다음 AI 작성 단계에서 사용하도록 설계했습니다.
-- 원본 바이너리 Storage 보관, OCR, 외부 URL 수집은 SSRF·보존정책·실행시간을 별도로 확정한 뒤 M3에서 추가합니다. M2 migration은 `extraction_warnings`만 additive하게 확장합니다.
+- 원본 바이너리 Storage 보관, OCR, 경력 항목 자동 제안, A4 PDF는 후속 단계로 남아 있습니다. M2 migration은 `extraction_warnings`만 additive하게 확장합니다.
 - 운영 적용 전 `supabase/verify/rls-m2-source-ingestion.sql`로 source 문서의 RLS와 경고 컬럼을 확인한 뒤 migration을 순서대로 적용하세요.
+
+### 공개 URL 자료 수집(M3-a)
+
+- `/career`에서 채용공고·인재상 자료의 HTTPS 공개 URL을 등록할 수 있습니다. 서버는 URL과 리다이렉트마다 DNS를 확인하고 사설·루프백·link-local·IPv4 매핑 주소, 비표준 포트, 과대 응답을 차단합니다.
+- HTML은 브라우저에 렌더링하지 않고 `script`·`style`·주석 등 실행·장식 블록을 제거한 텍스트와 heading/문단 fragment만 저장합니다. 최종 URL과 수집 시각도 함께 보존합니다.
+- URL 자료도 파일 자료와 동일하게 `needs_review`로 시작하며 사용자가 검수 완료하기 전에는 다음 작성 흐름의 근거로 사용하지 않습니다. 로그인·캡차·JavaScript 렌더링 페이지와 Gemini 기반 요구사항 분류는 M3-b 이후 단계입니다.
 
 <br>
 

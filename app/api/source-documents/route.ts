@@ -27,6 +27,15 @@ function toSafeTitle(filename?: string): string {
     return withoutExtension.slice(0, 200) || '새 경력 자료';
 }
 
+function toUrlTitle(sourceUrl?: unknown): string {
+    if (typeof sourceUrl !== 'string') return '연결한 채용 자료';
+    try {
+        return `${new URL(sourceUrl).hostname} 자료`.slice(0, 200);
+    } catch {
+        return '연결한 채용 자료';
+    }
+}
+
 function toSummary(document: Awaited<ReturnType<typeof sourceDocumentService.register>>['document']) {
     return { ...document, rawText: undefined };
 }
@@ -109,10 +118,12 @@ export async function POST(request: NextRequest) {
             }
 
             const payload = body as Record<string, unknown>;
+            const sourceUrl = payload.sourceUrl;
             registrationInput = {
                 kind: payload.kind,
-                title: payload.title || '붙여넣은 경력 자료',
-                originType: payload.originType || 'pasted_text',
+                title: payload.title || (sourceUrl ? toUrlTitle(sourceUrl) : '붙여넣은 경력 자료'),
+                originType: payload.originType || (sourceUrl ? 'url' : 'pasted_text'),
+                sourceUrl,
                 text: payload.text,
                 mimeType: payload.mimeType || 'text/plain',
             };

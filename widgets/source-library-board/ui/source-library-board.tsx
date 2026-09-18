@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronUp,
     Clock3,
+    ExternalLink,
     FileText,
     RefreshCw,
 } from 'lucide-react';
@@ -163,6 +164,17 @@ export function SourceLibraryBoard() {
                                             </div>
                                             <h3 className="mt-2 truncate text-base font-semibold text-white">{document.title}</h3>
                                             <p className="mt-1 text-xs text-zinc-500">{formatDate(document.createdAt)} · {document.mimeType ?? '텍스트'}</p>
+                                            {document.sourceUrl && (
+                                                <a
+                                                    href={document.sourceUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate text-xs text-primary/80 transition hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                >
+                                                    <ExternalLink size={13} className="shrink-0" aria-hidden="true" />
+                                                    <span className="truncate">원문 열기</span>
+                                                </a>
+                                            )}
                                             {document.extractionWarnings?.length > 0 && (
                                                 <p className="mt-3 flex items-start gap-1.5 text-xs leading-5 text-amber-300/80">
                                                     <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />

@@ -40,6 +40,7 @@
     "critters": "^0.0.23",
     "dotenv": "^17.2.3",
     "framer-motion": "^12.23.24",
+    "ipaddr.js": "^2.5.0",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.12.3",
     "next": "^15.5.25",
