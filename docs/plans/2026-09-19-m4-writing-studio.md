@@ -396,6 +396,23 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 `npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
 
+## M6-f 작성 작업대 롤백 스위치
+
+### 범위와 완료 조건
+
+1. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED=false`를 배포하면 기존 `/write` 화면의 새 작업대 링크뿐 아니라 `/writing/new` 직접 접근도 기존 화면으로 돌아간다.
+2. 기본값은 활성화로 유지하고, 명시적인 문자열 `false`만 비활성화로 해석한다.
+3. 플래그 판정은 한 곳에서 공유해 링크와 진입 경로가 서로 다른 상태를 보이지 않게 한다.
+
+### 실행 결과
+
+- `shared/config/features.ts`에 공통 `isWritingStudioEnabled` 판정을 만들고 기존 `/write` 링크 노출과 `/writing/new` 서버 리디렉션에서 함께 사용한다.
+- 기능 플래그 단위 테스트로 기본 활성화·명시적 비활성화·다른 문자열의 회귀를 고정했다.
+
+### M6-f 검증 결과
+
+기능 플래그 단위 테스트, 린트, 타입 검사를 통과했다. 실제 Vercel 환경변수 변경과 운영 트래픽 전환은 사용자 승인 없이는 실행하지 않는다.
+
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 
 ### 범위와 완료 조건
