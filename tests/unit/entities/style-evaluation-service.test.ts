@@ -78,6 +78,51 @@ describe('style evaluation service', () => {
             .rejects.toMatchObject({ code: 'unauthorized', status: 401 });
     });
 
+    it('aggregates blind preferences without returning answer text', async () => {
+        const preferenceRows = [
+            { selected_variant: 'studio', responded_at: '2026-09-19T00:00:00.000Z' },
+            { selected_variant: 'baseline', responded_at: '2026-09-19T00:01:00.000Z' },
+            { selected_variant: null, responded_at: null },
+        ];
+        const query = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: preferenceRows, error: null }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: '33333333-3333-4333-8333-333333333333' } } }) },
+            from: jest.fn().mockReturnValue(query),
+        });
+
+        await expect(styleEvaluationService.getPreferenceSummary()).resolves.toEqual({
+            available: true,
+            totalComparisons: 3,
+            respondedComparisons: 2,
+            studioWins: 1,
+            baselineWins: 1,
+            lastRespondedAt: '2026-09-19T00:01:00.000Z',
+        });
+        expect(query.select).toHaveBeenCalledWith('selected_variant, responded_at');
+    });
+
+    it('keeps the profile page compatible before the preference migration is applied', async () => {
+        const query = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST205', message: "Could not find the table 'style_evaluation_preferences'" },
+            }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: '33333333-3333-4333-8333-333333333333' } } }) },
+            from: jest.fn().mockReturnValue(query),
+        });
+
+        await expect(styleEvaluationService.getPreferenceSummary()).resolves.toMatchObject({
+            available: false,
+            totalComparisons: 0,
+        });
+    });
+
     it('rejects malformed blind comparison input before authentication', async () => {
         await expect(styleEvaluationService.startBlindComparison('not-a-uuid', { draftId: 'not-a-uuid' }))
             .rejects.toMatchObject({ code: 'invalid_input', status: 400 });

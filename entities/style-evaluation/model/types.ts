@@ -65,6 +65,20 @@ export const StyleEvaluationPreferenceSchema = z.object({
 });
 export type StyleEvaluationPreference = z.infer<typeof StyleEvaluationPreferenceSchema>;
 
+/**
+ * Blind 비교에서 사용자가 고른 변형만 집계한 요약입니다.
+ * 답변 원문과 해시는 포함하지 않아 프로필 화면에서 안전하게 노출할 수 있습니다.
+ */
+export const StylePreferenceSummarySchema = z.object({
+    available: z.boolean(),
+    totalComparisons: z.number().int().min(0),
+    respondedComparisons: z.number().int().min(0),
+    studioWins: z.number().int().min(0),
+    baselineWins: z.number().int().min(0),
+    lastRespondedAt: DomainTimestampSchema.optional(),
+});
+export type StylePreferenceSummary = z.infer<typeof StylePreferenceSummarySchema>;
+
 export const BlindComparisonPromptSchema = z.object({
     id: DomainIdSchema,
     leftContent: z.string().min(1).max(100_000),

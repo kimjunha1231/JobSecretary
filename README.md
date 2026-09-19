@@ -190,6 +190,12 @@
 - 서버는 두 답변의 hash, 좌우 변형 배치, 사용자가 고른 쪽과 응답 시각만 저장하며 답변 원문은 새 평가 테이블에 복사하지 않습니다. 같은 비교의 중복 선택과 동시 제출은 409로 차단합니다.
 - `supabase/migrations/20260919070000_m5h_blind_style_preferences.sql`과 `supabase/verify/rls-m5h-blind-style-preferences.sql`은 운영 DB에 아직 적용하지 않았습니다. 실제 사용자 선택이 쌓인 뒤 변형별 선호율·품질 지표를 함께 보고 검색/생성 변경 여부를 판단합니다.
 
+### blind 선호 요약(M5-i)
+
+- `/style`에는 blind 비교에서 사용자가 선택한 스튜디오 답변·기준 초안의 횟수와 마지막 응답 시각을 보여주는 요약 카드가 있습니다. 답변 원문과 hash는 이 화면이나 요약 API에 포함하지 않습니다.
+- `GET /api/style-evaluation-preferences/summary`는 사용자별 집계만 반환하며, preference migration이 아직 운영 DB에 적용되지 않은 배포에서는 `available: false`로 호환 응답합니다.
+- 이 요약은 자동 학습이나 말투 프로필 덮어쓰기가 아니라 다음 비교를 설계하고 사용자가 직접 프로필을 조정하기 위한 기준선입니다. 실제 사용자 데이터가 충분히 쌓이기 전에는 pgvector/RAG 도입이나 생성 모델 변경을 결정하지 않습니다.
+
 ### 서버 PDF 출력·기존 문서 전환(M6-a)
 
 - 최종 확정된 작성 세션은 `/api/writing-sessions/[id]/export`에서 모든 문항의 확정 상태를 다시 확인한 뒤 A4 PDF로 내려받을 수 있습니다. 미확정 문항이 하나라도 있으면 409로 차단합니다.

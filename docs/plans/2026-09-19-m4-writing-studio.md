@@ -276,6 +276,24 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 
 blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입력 검증을 단위 테스트로 추가한다. 실제 사용자 blind 선호율·작성 시간·수정률은 아직 수집 전이므로 M5 전체 완료 조건으로 기록하지 않는다.
 
+## M5-i blind 선호 요약
+
+### 범위와 완료 조건
+
+1. blind 비교에서 사용자가 고른 변형과 응답 시각만 집계해 말투 프로필 화면에서 개인 기준선을 확인할 수 있다.
+2. 요약 API는 답변 원문·hash·좌우 배치를 반환하지 않으며, `style_evaluation_preferences` 마이그레이션 전 배포에서는 기존 화면을 깨뜨리지 않고 `available: false`로 응답한다.
+3. 요약은 자동 fine-tuning이나 프로필 덮어쓰기가 아니라 사용자가 다음 비교 사례를 만들고 직접 프로필을 조정하기 위한 설명 가능한 피드백으로 안내한다.
+
+### 실행 결과
+
+- `styleEvaluationService.getPreferenceSummary`가 사용자 소유 preference에서 전체 비교 수·응답 수·studio/baseline 선택 수·마지막 응답 시각만 계산한다.
+- `/api/style-evaluation-preferences/summary`를 추가하고, `/style`의 말투 프로필 화면에 비교 현황 카드와 `/writing/new` 재진입 링크를 연결했다.
+- 테이블이 아직 없는 환경의 PostgREST/DB 오류를 호환 처리하고, 집계 응답에 원문이 섞이지 않는 service·route 단위 테스트를 추가했다.
+
+### M5-i 검증 결과
+
+전체 정적 검사·단위 테스트·더미 환경변수 production build를 통과했다. `npm test -- --runInBand`는 32개 스위트/224개 테스트를 통과했으며, 실제 사용자 선호 데이터가 충분히 쌓이기 전에는 검색 모델·RAG·프로필 자동 변경을 실행하지 않는다.
+
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
 ### 범위와 완료 조건

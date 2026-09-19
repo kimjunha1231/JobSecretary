@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { StylePreferenceSummary } from '@/entities/style-evaluation';
 import type { StyleProfileAnalysis } from '@/entities/style-profile';
 import { Badge } from '@/shared/ui';
 
@@ -36,14 +37,24 @@ export function StyleProfileBoard() {
     const [exampleDrafts, setExampleDrafts] = useState<Record<string, string>>({});
     const [analyses, setAnalyses] = useState<Record<string, StyleProfileAnalysis>>({});
     const [analysisBusy, setAnalysisBusy] = useState<string | null>(null);
+    const [preferenceSummary, setPreferenceSummary] = useState<StylePreferenceSummary | null>(null);
 
     const loadProfiles = async () => {
         setError(null);
         try {
-            const response = await fetch('/api/style-profiles', { cache: 'no-store' });
-            const result = await readJson(response);
-            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '말투 프로필을 불러오지 못했습니다.');
+            const [profilesResponse, preferenceResponse] = await Promise.all([
+                fetch('/api/style-profiles', { cache: 'no-store' }),
+                fetch('/api/style-evaluation-preferences/summary', { cache: 'no-store' }),
+            ]);
+            const result = await readJson(profilesResponse);
+            if (!profilesResponse.ok) throw new Error(typeof result.error === 'string' ? result.error : '말투 프로필을 불러오지 못했습니다.');
             setProfiles(Array.isArray(result) ? result as unknown as ProfileResponse[] : []);
+            if (preferenceResponse.ok) {
+                const preferenceResult = await readJson(preferenceResponse);
+                setPreferenceSummary(preferenceResult as unknown as StylePreferenceSummary);
+            } else {
+                setPreferenceSummary(null);
+            }
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : '말투 프로필을 불러오지 못했습니다.');
         } finally {
@@ -196,6 +207,23 @@ export function StyleProfileBoard() {
             <label className="block space-y-1.5 text-xs text-zinc-300"><span>내가 직접 쓴 예문 (선택)</span><textarea value={form.example} onChange={event => setForm(current => ({ ...current, example: event.target.value }))} maxLength={20_000} placeholder="최종 합격 자소서나 프로젝트 회고 중 내 표현이 잘 드러나는 문단을 붙여 넣어 주세요." className="min-h-32 w-full resize-y rounded-lg border border-white/10 bg-background px-3 py-3 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
             <div className="flex justify-end"><button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50">{isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />} 프로필 저장</button></div>
         </form>
+        {preferenceSummary?.available && <section className="rounded-2xl border border-amber-300/20 bg-amber-300/5 p-5 md:p-6" aria-labelledby="preference-summary-title">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80">Blind preference loop</p>
+                    <h2 id="preference-summary-title" className="mt-2 text-xl font-semibold text-white">내가 고른 답변이 다음 개선의 기준이 됩니다</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">비교에서 고른 변형과 시각만 집계합니다. 답변 원문은 이 요약에 저장하지 않으며, 결과가 자동으로 말투를 바꾸지는 않습니다. 개인 기준선을 확인하면서 필요한 프로필만 직접 조정할 수 있습니다.</p>
+                </div>
+                <Link href="/writing/new" className="inline-flex shrink-0 items-center justify-center rounded-xl border border-amber-200/30 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-200/10 focus:outline-none focus:ring-2 focus:ring-amber-200/40">비교 사례 만들기</Link>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">전체 비교</p><p className="mt-1 text-2xl font-semibold text-white">{preferenceSummary.totalComparisons}</p></div>
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">응답한 비교</p><p className="mt-1 text-2xl font-semibold text-white">{preferenceSummary.respondedComparisons}</p></div>
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">스튜디오 답변 선택</p><p className="mt-1 text-2xl font-semibold text-amber-100">{preferenceSummary.studioWins}</p></div>
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">기준 초안 선택</p><p className="mt-1 text-2xl font-semibold text-zinc-200">{preferenceSummary.baselineWins}</p></div>
+            </div>
+            {preferenceSummary.lastRespondedAt && <p className="mt-4 text-xs text-zinc-500">마지막 선택 {new Date(preferenceSummary.lastRespondedAt).toLocaleString('ko-KR')}</p>}
+        </section>}
         <section className="space-y-3" aria-labelledby="profile-list-title">
             <div><h2 id="profile-list-title" className="text-xl font-semibold text-white">저장된 프로필</h2><p className="mt-1 text-xs text-zinc-500">승인된 예문만 생성 context에 들어갑니다. 분석 결과는 확인한 뒤 반영할 수 있습니다.</p></div>
             {isLoading ? <div className="rounded-2xl border border-white/10 bg-surface/40 px-5 py-12 text-center text-sm text-zinc-500">말투 프로필을 불러오는 중입니다…</div> : profiles.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">아직 말투 프로필이 없습니다.</div> : <div className="grid gap-4 md:grid-cols-2">{profiles.map(item => {

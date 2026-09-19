@@ -9,10 +9,12 @@ import {
     StyleEvaluationCaseSchema,
     StyleEvaluationPreferenceSchema,
     StyleEvaluationRunSchema,
+    StylePreferenceSummarySchema,
     type EvaluationMetrics,
     type StyleEvaluationCase,
     type StyleEvaluationPreference,
     type StyleEvaluationRun,
+    type StylePreferenceSummary,
 } from '../model';
 import { z } from 'zod';
 
@@ -163,6 +165,14 @@ function mapPreference(record: Record<string, unknown>): StyleEvaluationPreferen
     });
 }
 
+function isPreferenceTableUnavailable(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const record = error as Record<string, unknown>;
+    const code = typeof record.code === 'string' ? record.code : '';
+    const message = typeof record.message === 'string' ? record.message : '';
+    return code === '42P01' || code === 'PGRST205' || /style_evaluation_preferences/i.test(message);
+}
+
 export const styleEvaluationService = {
     async listCases(sessionIdInput: unknown): Promise<StyleEvaluationCase[]> {
         const sessionId = parseId(sessionIdInput, '작성 세션 ID');
@@ -237,6 +247,47 @@ export const styleEvaluationService = {
             .order('created_at', { ascending: false });
         if (error) throw error;
         return (data ?? []).map(row => mapRun(row as Record<string, unknown>));
+    },
+
+    /**
+     * Blind 비교의 선택 결과만 집계합니다. 원문과 해시는 반환하지 않습니다.
+     * 선호 테이블 마이그레이션이 아직 적용되지 않은 배포에서는 빈 상태로 응답해
+     * 말투 프로필 화면의 기존 기능을 계속 사용할 수 있게 합니다.
+     */
+    async getPreferenceSummary(): Promise<StylePreferenceSummary> {
+        const { supabase, userId } = await getAuthenticatedClient();
+        const { data, error } = await supabase
+            .from('style_evaluation_preferences')
+            .select('selected_variant, responded_at')
+            .eq('user_id', userId);
+        if (error) {
+            if (isPreferenceTableUnavailable(error)) {
+                return StylePreferenceSummarySchema.parse({
+                    available: false,
+                    totalComparisons: 0,
+                    respondedComparisons: 0,
+                    studioWins: 0,
+                    baselineWins: 0,
+                });
+            }
+            throw error;
+        }
+
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const respondedRows = rows.filter(row => typeof row.responded_at === 'string' && row.responded_at.length > 0);
+        const lastRespondedAt = respondedRows
+            .map(row => typeof row.responded_at === 'string' ? row.responded_at : '')
+            .filter(Boolean)
+            .sort()
+            .at(-1);
+        return StylePreferenceSummarySchema.parse({
+            available: true,
+            totalComparisons: rows.length,
+            respondedComparisons: respondedRows.length,
+            studioWins: respondedRows.filter(row => row.selected_variant === 'studio').length,
+            baselineWins: respondedRows.filter(row => row.selected_variant === 'baseline').length,
+            ...(lastRespondedAt ? { lastRespondedAt } : {}),
+        });
     },
 
     async run(caseIdInput: unknown, input: StyleEvaluationRunInput): Promise<StyleEvaluationRun> {
