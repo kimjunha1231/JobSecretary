@@ -68,6 +68,44 @@ describe('writing-session retrieval evaluation route', () => {
         expect(mockGet).not.toHaveBeenCalled();
     });
 
+    it('uses k=3 when the request body is empty', async () => {
+        const details = { requirements: [], evidence: [], matches: [] };
+        const summary = {
+            k: 3,
+            caseCount: 0,
+            evaluatedCaseCount: 0,
+            emptyRelevantLabelCount: 0,
+            recallAtK: 0,
+            ndcgAtK: 0,
+            mrrAtK: 0,
+        };
+        mockGet.mockResolvedValue(details);
+        mockBuildCases.mockReturnValue([]);
+        mockEvaluate.mockReturnValue(summary);
+
+        const response = await POST(
+            new Request('http://localhost/api/writing-sessions/session/retrieval-evaluation', { method: 'POST' }),
+            { params: Promise.resolve({ id: 'session-id' }) },
+        );
+
+        expect(response.status).toBe(200);
+        expect(mockEvaluate).toHaveBeenCalledWith([], { k: 3 });
+    });
+
+    it('rejects malformed JSON without loading a session', async () => {
+        const response = await POST(
+            new Request('http://localhost/api/writing-sessions/session/retrieval-evaluation', {
+                method: 'POST',
+                body: '{"k":',
+            }),
+            { params: Promise.resolve({ id: 'session-id' }) },
+        );
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({ error: 'Invalid JSON body' });
+        expect(mockGet).not.toHaveBeenCalled();
+    });
+
     it('preserves service errors without exposing an internal failure', async () => {
         mockGet.mockRejectedValue(new WritingSessionServiceError('not_found', '작성 세션을 찾을 수 없습니다.', 404));
 

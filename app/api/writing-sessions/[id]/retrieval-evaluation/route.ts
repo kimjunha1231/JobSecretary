@@ -30,10 +30,13 @@ export async function POST(request: Request, { params }: RouteContext) {
     try {
         const { id } = await params;
         let body: unknown = {};
-        try {
-            body = await request.json();
-        } catch {
-            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        const rawBody = await request.text();
+        if (rawBody.trim()) {
+            try {
+                body = JSON.parse(rawBody);
+            } catch {
+                return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+            }
         }
         const parsed = requestSchema.safeParse(body && typeof body === 'object' ? body : {});
         if (!parsed.success) {
