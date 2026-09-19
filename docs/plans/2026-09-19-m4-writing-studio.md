@@ -63,11 +63,12 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - 작성 세션 생성 API와 `/writing/new` 화면이 `questions[]`를 지원하고, 작업대는 문항 탭과 문항별 근거·개요·초안 조회를 제공한다.
 - `/api/writing-sessions/[id]/drafts/merge`와 문단 mixer로 세 후보의 문단을 조합하고, 병합 초안은 선택된 상태와 revision으로 저장한다.
 - AI 초안 schema가 문장별 citation을 요구하며, 사용자가 편집 화면에서 사실 문장별 활동을 연결할 수 있다. 근거가 없는 사실 문장은 최종 확정 전에 오류로 안내한다.
+- 초안 후보에는 선택적인 `angle` 중심 관점을 함께 받으며, 서버가 같은 관점의 후보가 반복되는지 검증한다. 구버전 응답은 첫 문장을 임시 관점으로 사용하고, 비교 카드에 관점을 표시한다.
 - 운영 적용 전 `supabase/verify/rls-m4-writing-studio.sql`에 `draft_fact_citations`가 포함되는지 확인하고 migration 순서를 검증해야 한다.
 
 ### M4-b 검증 결과
 
-`npm run harness:verify`(19개 스위트/162개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. AI 문장 citation 누락 테스트는 writing studio 단위 테스트에 포함했으며, 다중 문항·문단 병합 입력은 타입 검사와 build에서 API route 생성까지 확인했다.
+`npm run harness:verify`(19개 스위트/162개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. AI 문장 citation 누락 테스트는 writing studio 단위 테스트에 포함했으며, 다중 문항·문단 병합 입력은 타입 검사와 build에서 API route 생성까지 확인했다. 초안 관점 중복 방지 회귀 테스트도 추가했다.
 
 ## M2-c 이미지형 PDF 수동 보정
 
@@ -394,7 +395,7 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 ### M6-e 검증 결과
 
-`npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
+`npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. Playwright Chromium E2E 15개 시나리오도 통과하도록 `playwright.config.ts`를 `tests/e2e` 전용으로 정리했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
 
 ## M6-f 작성 작업대 롤백 스위치
 
@@ -485,4 +486,4 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 ### M5-j 검증 결과
 
-`npm run harness:verify`(36개 스위트/236개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 운영 DB migration과 실제 사용자 문체 자료 import는 아직 실행하지 않았다.
+`npm run harness:verify`(36개 스위트/238개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 운영 DB migration과 실제 사용자 문체 자료 import는 아직 실행하지 않았다.

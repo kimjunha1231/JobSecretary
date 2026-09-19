@@ -303,6 +303,24 @@ describe('writing studio AI candidates', () => {
         expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
     });
 
+    it('rejects three drafts that repeat the same declared angle', async () => {
+        const details = createDetails();
+        mockWritingSessionService.getGenerationContext.mockResolvedValue({
+            ...details,
+            selectedEvidence: [],
+            selectedMatches: details.matches,
+            selectedOutline: details.outlines[0],
+        });
+        mockGenerateContent.mockResolvedValue({ text: JSON.stringify({ candidates: [
+            { angle: '문제 해결', content: '첫 번째 해결 과정입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { angle: '문제 해결', content: '두 번째 해결 과정입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { angle: '문제 해결', content: '세 번째 해결 과정입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+        ] }) });
+
+        await expect(generateDraftCandidates(session.id)).rejects.toThrow('서로 다른 중심 관점');
+        expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
+    });
+
     it('does not call Gemini when AI access is denied', async () => {
         mockRequireAiAccess.mockRejectedValueOnce(new Error('Unauthorized'));
         await expect(generateOutlineCandidates(session.id)).rejects.toThrow('Unauthorized');

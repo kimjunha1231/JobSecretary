@@ -20,7 +20,7 @@ import {
 } from '@/entities/writing-session/api';
 
 const MAX_CONTEXT_CHARS = 48_000;
-const PROMPT_VERSION = 'm5a-v1';
+const PROMPT_VERSION = 'm5a-v2-angle';
 
 const outlineResponseSchema = z.object({
     candidates: z.array(z.object({
@@ -35,6 +35,10 @@ const outlineResponseSchema = z.object({
 const draftResponseSchema = z.object({
     candidates: z.array(z.object({
         content: z.string().trim().min(1).max(100_000),
+        // The model should name the candidate's central angle. Older model
+        // responses may omit it, so validation falls back to the first
+        // sentence while still enforcing three distinct angles.
+        angle: z.string().trim().min(1).max(200).optional(),
         evidenceRecordIds: z.array(z.string().uuid()).min(1).max(50),
         citations: z.array(z.object({
             sentenceIndex: z.number().int().min(0),
@@ -193,6 +197,7 @@ function validateDraftCandidates(
     if (new Set(parsed.data.candidates.map(candidate => candidate.content.replace(/\s+/g, ' ').trim().toLowerCase())).size !== 3) {
         throw new WritingGenerationError('서로 다른 초안 후보가 필요합니다.', 422);
     }
+    const angles = new Set<string>();
     for (const candidate of parsed.data.candidates) {
         const styleViolations = findBannedExpressions(candidate.content, bannedExpressions);
         if (styleViolations.length > 0) {
@@ -202,6 +207,12 @@ function validateDraftCandidates(
             throw new WritingGenerationError('초안 후보가 선택하지 않은 근거를 참조했습니다.', 422);
         }
         const sentences = splitSentences(candidate.content);
+        const angle = candidate.angle?.trim() || sentences[0]?.slice(0, 160) || '';
+        const normalizedAngle = angle.replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
+        if (!normalizedAngle || angles.has(normalizedAngle)) {
+            throw new WritingGenerationError('초안 후보는 서로 다른 중심 관점을 가져야 합니다.', 422);
+        }
+        angles.add(normalizedAngle);
         const citationIndexes = new Set<number>();
         for (const citation of candidate.citations) {
             if (citation.sentenceIndex >= sentences.length || citationIndexes.has(citation.sentenceIndex)) {
@@ -243,7 +254,8 @@ const draftSystemInstruction = `당신은 사용자가 선택한 개요와 승�
 6. 사실·수치·회사·프로젝트처럼 검증이 필요한 문장에는 citations 배열로 해당 문장 번호(0부터), 문장 원문, 근거 ID를 반드시 연결합니다.
 7. style 객체와 approvedExamples는 사실 근거가 아니라 말투 참고 자료입니다. 예문 속 회사·수치·사건을 복사하거나 새 사실로 사용하지 않습니다.
 8. bannedExpressions는 사용하지 않고, preferredConnectors와 endingStyle은 자연스러울 때만 반영합니다.
-9. 세 초안은 문장과 강조점이 실제로 달라야 합니다.`;
+9. 각 후보에 angle을 붙여 문제 해결, 협업, 성장처럼 중심 관점을 명시합니다.
+10. 세 초안은 문장과 강조점이 실제로 달라야 하며 같은 angle을 반복하지 않습니다.`;
 
 export type WritingGenerationResult = WritingSessionDetails & { warnings: string[] };
 
@@ -294,6 +306,7 @@ export async function generateDraftCandidates(id: unknown): Promise<WritingGener
                 charCount: Array.from(candidate.content).length,
                 charLimit,
                 overLimit: Array.from(candidate.content).length > charLimit,
+                variation: candidate.angle?.trim() || splitSentences(candidate.content)[0]?.slice(0, 160) || '초안 관점',
                 citationsVerified: true,
                 unverifiedFactCount: 0,
             },
