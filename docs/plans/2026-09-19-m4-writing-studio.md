@@ -336,6 +336,7 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 - `style_examples.question_id`를 nullable FK로 추가해 기존 전역 예문과 호환한다.
 - 본문을 클라이언트에서 전달받아 `approved_final`로 표시하지 않고, 서비스가 `cover_letter_questions.final_answer`와 `status = finalized`를 읽어 저장한다.
 - 질문별 조회는 프로필 소유권과 질문 소유권을 모두 확인한 뒤 전역 예문과 현재 문항 예문만 합친다. pgvector나 새 검색 계층은 추가하지 않는다.
+- 생성 context가 길이 제한에 걸릴 때 현재 문항에서 확정한 승인 예문을 먼저 사용하도록 문항 일치·작성 시각·예문 ID 순으로 결정론적으로 정렬한다.
 
 ### 실행 순서
 
@@ -351,4 +352,5 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 - `styleProfileService.promoteFinalAnswer`는 본문을 클라이언트에서 받지 않고 사용자 소유의 `cover_letter_questions.final_answer`와 `status = finalized`를 확인해 `approved_final` 예문으로 저장한다. 같은 프로필·문항·본문을 다시 저장하면 기존 예문을 반환한다.
 - 작성 작업대의 최종 확정 화면에서 선택된 말투 프로필로 답변을 예문에 승격할 수 있고, `/style`에서는 전역/문항별·직접 작성/최종 확정 출처를 구분해 확인할 수 있다.
 - 질문별 세션 조회는 전역 승인 예문과 현재 문항의 승인 예문만 prompt context에 포함한다. 다른 문항의 예문이나 다른 사용자의 자료는 포함하지 않는다.
+- 생성 context가 길이 제한을 넘을 때는 현재 문항 예문을 전역 예문보다 먼저 잘라 사용해, 질문에 맞는 사용자의 실제 문체가 우선 유지된다. 문항별 예문·전역 예문·생성 context의 소유권 경계는 그대로 유지한다.
 - 검증: `npm run harness:verify`(21개 스위트/169개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check` 통과.

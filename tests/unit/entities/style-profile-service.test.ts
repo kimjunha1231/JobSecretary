@@ -91,6 +91,59 @@ describe('style profile service boundary', () => {
         expect(examplesQuery.eq).toHaveBeenCalledWith('approved', true);
     });
 
+    it('prioritizes approved examples written for the active question in generation context', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const questionQuery = queryWithResult({ data: { id: questionId }, error: null });
+        const globalExampleId = '44444444-4444-4444-8444-444444444444';
+        const questionExampleId = '55555555-5555-4555-8555-555555555555';
+        const examplesQuery = {
+            select: jest.fn(),
+            eq: jest.fn(),
+            order: jest.fn(),
+            or: jest.fn(),
+        };
+        examplesQuery.select.mockReturnValue(examplesQuery);
+        examplesQuery.eq.mockReturnValue(examplesQuery);
+        examplesQuery.order.mockReturnValue(examplesQuery);
+        examplesQuery.or.mockResolvedValue({ data: [
+            {
+                id: globalExampleId,
+                style_profile_id: profileId,
+                user_id: userId,
+                question_id: null,
+                source: 'user_authored',
+                content: '전역 말투 예문입니다.',
+                approved: true,
+                created_at: '2026-01-01T00:00:00.000Z',
+            },
+            {
+                id: questionExampleId,
+                style_profile_id: profileId,
+                user_id: userId,
+                question_id: questionId,
+                source: 'approved_final',
+                content: '현재 문항에서 확정한 말투 예문입니다.',
+                approved: true,
+                created_at: '2025-01-01T00:00:00.000Z',
+            },
+        ], error: null });
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn()
+                .mockReturnValueOnce(profileQuery)
+                .mockReturnValueOnce(questionQuery)
+                .mockReturnValueOnce(examplesQuery),
+        });
+
+        await expect(styleProfileService.getForGeneration(profileId, { questionId })).resolves.toMatchObject({
+            examples: [
+                expect.objectContaining({ id: questionExampleId, questionId }),
+                expect.objectContaining({ id: globalExampleId, questionId: undefined }),
+            ],
+        });
+        expect(examplesQuery.or).toHaveBeenCalledWith(`question_id.is.null,question_id.eq.${questionId}`);
+    });
+
     it('does not allow the general example endpoint to self-label arbitrary text as a final answer', async () => {
         await expect(styleProfileService.addExample(profileId, {
             source: 'approved_final',

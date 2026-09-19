@@ -144,7 +144,20 @@ async function fetchExamples(
     if (questionId) query = query.or(`question_id.is.null,question_id.eq.${questionId}`);
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map(row => mapExample(row as Record<string, unknown>));
+    const examples = (data ?? []).map(row => mapExample(row as Record<string, unknown>));
+    if (!questionId) return examples;
+
+    // Keep examples written for the current question ahead of global style
+    // examples. The generation context is intentionally capped, so this
+    // deterministic ordering prevents unrelated older questions from taking
+    // all available example slots.
+    return examples.sort((left, right) => {
+        const leftIsQuestionSpecific = left.questionId === questionId ? 1 : 0;
+        const rightIsQuestionSpecific = right.questionId === questionId ? 1 : 0;
+        return rightIsQuestionSpecific - leftIsQuestionSpecific
+            || right.createdAt.localeCompare(left.createdAt)
+            || left.id.localeCompare(right.id);
+    });
 }
 
 async function fetchProfile(
