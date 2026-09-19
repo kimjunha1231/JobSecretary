@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Archive, BriefcaseBusiness, Command, PanelLeftClose, FileText, Shield, Mail, LayoutDashboard, FolderOpen, PenLine } from 'lucide-react';
+import { Archive, BriefcaseBusiness, Command, PanelLeftClose, FileText, Shield, Mail, LayoutDashboard, FolderOpen, PenLine, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useGlobalSidebarLogic } from '../model';
@@ -90,6 +90,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({ isOpen, onClose })
                         <SidebarItem to="/archive" icon={<Archive size={18} />} label="자기소개서 저장소" />
                         <SidebarItem to="/career" icon={<FolderOpen size={18} />} label="경력 자료 라이브러리" />
                         <SidebarItem to="/style" icon={<PenLine size={18} />} label="말투 프로필" />
+                        <SidebarItem to="/exports" icon={<Download size={18} />} label="출력 센터" />
                     </nav>
                 </div>
 

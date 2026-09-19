@@ -81,8 +81,8 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 
 - `/api/source-documents/[id]/text` PATCH와 `sourceDocumentService.updateManualText`를 추가했다. 서버가 사용자 소유·입력 크기·문서 종류를 확인하고 본문 hash와 fragment를 다시 만든다.
 - `/career`의 `manual_input` 자료에 `본문 보정` 편집기를 연결했다. 저장 뒤에는 자동으로 검수 필요 상태가 되며, 기존 자료·원본 PDF는 삭제하지 않는다.
-- OCR 공급자 없이 자동 성공으로 표시하지 않고, 텍스트 레이어가 없는 자료는 사용자가 확인 가능한 수동 경로로 전환한다.
-- 검증: 수동 보정 ID·인증 경계 테스트와 기존 source ingestion 테스트, `npm run harness:verify`(23개 스위트/180개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
+- OCR 공급자가 비활성화된 환경에서는 자동 성공으로 표시하지 않고 수동 경로로 전환한다. 활성화된 환경에서도 OCR은 사용자가 명시적으로 실행한 뒤 `needs_review`로 남아 대조·승인을 요구한다.
+- 검증: 수동 보정·OCR ID·인증 경계 테스트와 기존 source ingestion 테스트, `npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
 
 ## M2-d 검수형 활동 후보 추출
 
@@ -358,6 +358,25 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 ### M6-d 검증 결과
 
 `tests/unit/features/source-ocr.test.ts`, `tests/unit/entities/source-document-service.test.ts`, `tests/unit/api/source-document-ocr-route.test.ts`에서 PDF inline data 전송, 빈 결과 fail-closed, 소유권·Storage 다운로드, 승인 상태 덮어쓰기 방지와 상태 코드를 검증한다. 전체 harness/build/diff 검증과 외부 구현 계획 갱신은 커밋 후 기록한다.
+
+## M6-e 출력 센터 진입점
+
+### 범위와 완료 조건
+
+1. 승인 활동 PDF와 자기소개서 PDF 기능을 한 페이지에서 찾을 수 있다.
+2. 출력 센터는 기존 `/career`, `/writing/new`, `/archive` 흐름으로만 연결하고 별도 복제 데이터를 만들지 않는다.
+3. 인증되지 않은 사용자는 다른 보호 경로와 동일하게 랜딩 페이지로 돌아간다.
+
+### 실행 결과
+
+- `/exports`에 이력서·포트폴리오·자기소개서·기존 문서 카드를 추가하고, 승인 데이터만 출력한다는 검수 원칙과 A4 PDF 안내를 표시했다.
+- 전역 사이드바에 `출력 센터`를 추가하고 middleware 보호 경로에 `/exports`를 포함했다.
+- 기존 PDF API와 데이터 소유권·승인 검증은 변경하지 않아 출력 허브가 새로운 우회 경계를 만들지 않는다.
+- E2E 보호 경로 목록과 랜딩 페이지 접근성 선택자를 현재 UI에 맞게 갱신했다.
+
+### M6-e 검증 결과
+
+`npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
 
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 
