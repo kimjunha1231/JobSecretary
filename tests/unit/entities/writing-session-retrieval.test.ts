@@ -1,4 +1,4 @@
-import { evaluateEvidenceRetrieval, rankEvidence, scoreEvidence, tokenize } from '@/entities/writing-session/api';
+import { buildEvidenceRetrievalCases, evaluateEvidenceRetrieval, rankEvidence, scoreEvidence, tokenize } from '@/entities/writing-session/api';
 import type { EvidenceRecordDetails } from '@/entities/evidence-record/api';
 import type { JobRequirement } from '@/entities/job-target/model';
 
@@ -112,5 +112,23 @@ describe('writing evidence retrieval baseline', () => {
 
         expect(result).toMatchObject({ caseCount: 1, evaluatedCaseCount: 0, emptyRelevantLabelCount: 1, recallAtK: 0, ndcgAtK: 0, mrrAtK: 0 });
         expect(() => evaluateEvidenceRetrieval([], { k: 0 })).toThrow('검색 평가의 k는 1에서 100 사이의 정수여야 합니다.');
+    });
+
+    it('builds labels from selected or locked session matches and ignores stale IDs', () => {
+        const evidence = withIds(makeEvidence(), 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+        const requirement = makeRequirement('검색');
+        const cases = buildEvidenceRetrievalCases({
+            requirements: [requirement],
+            evidence: [evidence],
+            matches: [
+                { match: { jobRequirementId: requirement.id, evidenceRecordId: evidence.record.id, selectionState: 'selected' } },
+                { match: { jobRequirementId: requirement.id, evidenceRecordId: evidence.record.id, selectionState: 'locked' } },
+                { match: { jobRequirementId: requirement.id, evidenceRecordId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', selectionState: 'selected' } },
+                { match: { jobRequirementId: requirement.id, evidenceRecordId: evidence.record.id, selectionState: 'rejected' } },
+            ],
+        } as never);
+
+        expect(cases).toHaveLength(1);
+        expect(cases[0].relevantEvidenceIds).toEqual([evidence.record.id]);
     });
 });

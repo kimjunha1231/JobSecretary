@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { EvidenceRecordDetails } from '@/entities/evidence-record/api';
 import type { JobRequirement } from '@/entities/job-target/model';
+import type { WritingSessionDetails } from './writing-session.service';
 import { rankEvidence } from './writing-session.service';
 
 const retrievalEvaluationOptionsSchema = z.object({
@@ -23,6 +24,35 @@ export type RetrievalEvaluationCase = {
     evidence: EvidenceRecordDetails[];
     relevantEvidenceIds: string[];
 };
+
+/**
+ * Builds evaluation labels from the evidence a user selected or locked in the
+ * current writing session. Rejected and merely suggested matches are not
+ * treated as relevant labels, and stale IDs are ignored when an approved
+ * activity is no longer available in the session snapshot.
+ */
+export function buildEvidenceRetrievalCases(
+    details: Pick<WritingSessionDetails, 'requirements' | 'evidence' | 'matches'>,
+): RetrievalEvaluationCase[] {
+    const approvedEvidenceIds = new Set(details.evidence.map(item => item.record.id));
+    const relevantByRequirement = new Map<string, Set<string>>();
+
+    for (const item of details.matches) {
+        const requirementId = item.match.jobRequirementId;
+        const evidenceId = item.match.evidenceRecordId;
+        if (!requirementId || !approvedEvidenceIds.has(evidenceId)) continue;
+        if (!['selected', 'locked'].includes(item.match.selectionState)) continue;
+        const relevant = relevantByRequirement.get(requirementId) ?? new Set<string>();
+        relevant.add(evidenceId);
+        relevantByRequirement.set(requirementId, relevant);
+    }
+
+    return details.requirements.map(requirement => ({
+        requirement,
+        evidence: details.evidence,
+        relevantEvidenceIds: [...(relevantByRequirement.get(requirement.id) ?? new Set<string>())],
+    }));
+}
 
 function roundMetric(value: number): number {
     return Math.round(value * 10_000) / 10_000;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
     AlertTriangle,
     ArrowLeft,
+    BarChart3,
     Check,
     CheckCircle2,
     ChevronRight,
@@ -23,7 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { JobRequirement, JobTarget } from '@/entities/job-target';
-import type { EvidenceMatch, OutlineCandidate, WritingSession } from '@/entities/writing-session';
+import type { EvidenceMatch, OutlineCandidate, RetrievalEvaluationSummary, WritingSession } from '@/entities/writing-session';
 import type { DraftCandidate } from '@/entities/draft-candidate';
 import type { EvidenceRecord } from '@/entities/evidence-record';
 import type { CareerItem } from '@/entities/career-item';
@@ -148,6 +149,8 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
     const [evaluationCase, setEvaluationCase] = useState<EvaluationCase | null>(null);
     const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([]);
     const [evaluationError, setEvaluationError] = useState<string | null>(null);
+    const [retrievalEvaluation, setRetrievalEvaluation] = useState<RetrievalEvaluationSummary | null>(null);
+    const [retrievalEvaluationError, setRetrievalEvaluationError] = useState<string | null>(null);
 
     const setCitationSelections = (draft: DraftCandidate | undefined) => {
         const citations = draft?.evidenceMap.citations;
@@ -228,6 +231,8 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : fallback);
         const next = result as unknown as SessionResponse;
         setDetails(next);
+        setRetrievalEvaluation(null);
+        setRetrievalEvaluationError(null);
         return next;
     };
 
@@ -278,6 +283,26 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             toast.success('승인된 활동 근거를 다시 연결했습니다.');
         } catch (refreshError) {
             setError(refreshError instanceof Error ? refreshError.message : '활동 근거 목록을 새로 연결하지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    const runRetrievalEvaluation = async () => {
+        setBusy('retrieval-evaluation');
+        setRetrievalEvaluationError(null);
+        try {
+            const response = await fetch(`/api/writing-sessions/${sessionId}/retrieval-evaluation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ k: 3 }),
+            });
+            const result = await readJson(response);
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '검색 품질을 측정하지 못했습니다.');
+            setRetrievalEvaluation(result as unknown as RetrievalEvaluationSummary);
+            toast.success('현재 선택을 기준으로 검색 품질을 측정했습니다.');
+        } catch (evaluationError) {
+            setRetrievalEvaluationError(evaluationError instanceof Error ? evaluationError.message : '검색 품질을 측정하지 못했습니다.');
         } finally {
             setBusy(null);
         }
@@ -579,6 +604,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                 <section className="space-y-5" aria-labelledby="evidence-step-title">
                     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">01 · Evidence</p><h2 id="evidence-step-title" className="mt-1 text-2xl font-bold text-white">활동 근거를 직접 고르세요</h2><p className="mt-1 text-sm text-zinc-400">선택한 근거만 개요와 초안 생성에 전달됩니다. 추천 이유를 읽고 제외하거나 고정할 수 있습니다.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowEvidenceForm(previous => !previous)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5"><Plus size={15} aria-hidden="true" /> 활동 직접 추가</button><button type="button" onClick={() => void refreshMatches()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RotateCcw size={15} aria-hidden="true" /> 추천 갱신</button></div></div>
                     {showEvidenceForm && <form onSubmit={addManualEvidence} className="grid gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 md:grid-cols-2"><label className="space-y-1.5 text-xs text-zinc-300 md:col-span-2"><span>활동명</span><input value={manualEvidence.title} onChange={event => setManualEvidence(previous => ({ ...previous, title: event.target.value }))} maxLength={200} placeholder="예: 사내 검색 서비스 개선" className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300"><span>내가 한 일</span><textarea value={manualEvidence.action} onChange={event => setManualEvidence(previous => ({ ...previous, action: event.target.value }))} maxLength={10_000} className="min-h-24 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300"><span>결과</span><textarea value={manualEvidence.result} onChange={event => setManualEvidence(previous => ({ ...previous, result: event.target.value }))} maxLength={10_000} className="min-h-24 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300 md:col-span-2"><span>배운 점 (선택)</span><textarea value={manualEvidence.learning} onChange={event => setManualEvidence(previous => ({ ...previous, learning: event.target.value }))} maxLength={10_000} className="min-h-20 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><div className="flex justify-end gap-2 md:col-span-2"><button type="button" onClick={() => setShowEvidenceForm(false)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-400 hover:bg-white/5">취소</button><button type="submit" disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">{busy === 'manual-evidence' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />} 저장</button></div></form>}
+                    <section className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4" aria-labelledby="retrieval-evaluation-title"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex items-center gap-2"><BarChart3 size={18} className="text-sky-300" aria-hidden="true" /><h3 id="retrieval-evaluation-title" className="text-base font-semibold text-white">검색 품질 기준선</h3></div><p className="mt-1 text-xs leading-5 text-zinc-400">현재 질문에서 선택하거나 고정한 근거를 relevance label로 삼아 추천 순위를 측정합니다. 이 결과는 사용자의 선택 기반 기준선이며, 정답 데이터로 자동 확정하지 않습니다.</p></div><button type="button" onClick={() => void runRetrievalEvaluation()} disabled={busy !== null || approvedRequirementCount === 0} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-50">{busy === 'retrieval-evaluation' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />} 현재 선택으로 측정</button></div>{approvedRequirementCount === 0 && <p className="mt-3 rounded-lg border border-white/10 bg-background/30 px-3 py-2 text-xs text-zinc-500">승인된 공고 요구사항이 있어야 질문별 검색 품질을 측정할 수 있습니다.</p>}{retrievalEvaluationError && <p role="alert" className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{retrievalEvaluationError}</p>}{retrievalEvaluation && <div className="mt-4 grid gap-2 sm:grid-cols-3"><div className="rounded-lg border border-white/10 bg-background/30 px-3 py-2"><p className="text-[11px] text-zinc-500">Recall@{retrievalEvaluation.k}</p><p className="mt-1 text-lg font-semibold text-white">{Math.round(retrievalEvaluation.recallAtK * 100)}%</p></div><div className="rounded-lg border border-white/10 bg-background/30 px-3 py-2"><p className="text-[11px] text-zinc-500">nDCG@{retrievalEvaluation.k}</p><p className="mt-1 text-lg font-semibold text-white">{Math.round(retrievalEvaluation.ndcgAtK * 100)}%</p></div><div className="rounded-lg border border-white/10 bg-background/30 px-3 py-2"><p className="text-[11px] text-zinc-500">MRR@{retrievalEvaluation.k}</p><p className="mt-1 text-lg font-semibold text-white">{Math.round(retrievalEvaluation.mrrAtK * 100)}%</p></div><div className="sm:col-span-3"><p className="text-xs text-zinc-500">라벨이 있는 요구사항 {retrievalEvaluation.evaluatedCaseCount}/{retrievalEvaluation.caseCount}개 · 선택 라벨이 비어 있는 요구사항 {retrievalEvaluation.emptyRelevantLabelCount}개</p></div></div>}</section>
                     <div className="grid gap-3">{details.matches.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center"><FileText size={25} className="mx-auto mb-3 text-zinc-600" aria-hidden="true" /><p className="text-sm font-medium text-zinc-300">추천할 승인 활동 근거가 없습니다.</p><p className="mt-1 text-xs leading-5 text-zinc-500">활동을 직접 추가하거나 경력 자료를 검수한 뒤 추천 갱신을 눌러 주세요.</p></div> : details.matches.map(item => { const selected = ['selected', 'locked'].includes(item.match.selectionState); const matchBusy = busy === item.match.id; return <article key={item.match.id} className={`rounded-2xl border p-4 transition md:p-5 ${selected ? 'border-primary/40 bg-primary/5' : 'border-white/10 bg-surface/50'}`}><div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Badge variant={selected ? 'success' : item.match.selectionState === 'rejected' ? 'fail' : 'pending'}>{selected ? item.match.selectionState === 'locked' ? '고정됨' : '선택됨' : item.match.selectionState === 'rejected' ? '제외됨' : '추천됨'}</Badge>{item.requirement && <span className="text-xs text-primary/80">{item.requirement.category} · 우선순위 {item.requirement.priority}</span>}</div><h3 className="mt-2 text-base font-semibold text-white">{item.evidence.careerItem.title}</h3><p className="mt-1 text-xs text-zinc-500">{item.evidence.careerItem.organization || '직접 입력한 활동'} · 관련도 {Math.round((item.match.rerankScore ?? 0) * 100)}%</p><p className="mt-3 text-sm leading-6 text-zinc-300">{item.evidence.record.action || item.evidence.record.result || item.evidence.careerItem.summary}</p>{item.match.reason && <p className="mt-2 text-xs leading-5 text-zinc-500">추천 이유: {item.match.reason}</p>}{item.evidence.record.metrics.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{item.evidence.record.metrics.map(metric => <span key={`${metric.label}-${metric.value}`} className="rounded-md bg-white/5 px-2 py-1 text-xs text-zinc-400">{metric.label}: {metric.value}{metric.unit ? ` ${metric.unit}` : ''}</span>)}</div>}</div><div className="flex shrink-0 flex-wrap gap-2"><button type="button" onClick={() => void changeMatch(item, selected ? 'rejected' : 'selected')} disabled={matchBusy} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${selected ? 'bg-emerald-500/15 text-emerald-300 hover:bg-red-500/15 hover:text-red-300' : 'bg-primary/15 text-primary hover:bg-primary/25'}`}>{matchBusy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : selected ? <Check size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}{selected ? '선택 해제' : '근거 선택'}</button>{selected && <button type="button" onClick={() => void changeMatch(item, item.match.selectionState === 'locked' ? 'selected' : 'locked')} disabled={matchBusy} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><Lock size={14} aria-hidden="true" />{item.match.selectionState === 'locked' ? '고정 해제' : '고정'}</button>}</div></div></article>; })}</div>
                     <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-surface/40 p-4 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-medium text-white">선택한 근거 {selectedMatches.length}개 · 승인 요구사항 {approvedRequirementCount}개</p><p className="mt-1 text-xs text-zinc-500">근거와 승인된 요구사항이 각각 하나 이상 있어야 개요 후보를 만들 수 있습니다.</p></div><button type="button" onClick={() => void generateOutlines()} disabled={selectedMatches.length === 0 || approvedRequirementCount === 0 || busy !== null} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">{busy === 'outlines' ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />} 개요 후보 3개 만들기</button></div>
                 </section>

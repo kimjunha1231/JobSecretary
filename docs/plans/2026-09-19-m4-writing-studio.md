@@ -239,6 +239,24 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 
 `npm run harness:verify`(27개 스위트/199개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. 이 기능은 모델 fine-tuning이 아니라 사용자가 승인한 자료에서 설명 가능한 말투 제안을 만드는 기준선이다.
 
+## M5-g 작성 세션 검색 품질 측정 연결
+
+### 범위와 완료 조건
+
+1. 작성 작업대에서 사용자가 현재 질문의 근거를 선택한 뒤 동일한 runner를 호출할 수 있다.
+2. 서버는 사용자 소유 세션의 승인 근거와 승인 요구사항만 읽고, 선택·고정된 match를 relevance label로 변환한다.
+3. 빈 label을 숨기지 않고 별도 개수로 표시하며, 원문·답변·평가 결과를 새로 저장하지 않는다.
+
+### 실행 결과
+
+- `POST /api/writing-sessions/[id]/retrieval-evaluation`이 `k`(1~100, 기본 3)를 검증하고 세션 snapshot에서 평가 case를 만든다. 선택·고정된 근거만 label로 사용하고, 승인 목록에 없는 stale ID는 제외한다.
+- `/writing/[sessionId]`의 근거 선택 단계에 `검색 품질 기준선` 카드를 추가해 Recall@k·nDCG@k·MRR@k, label이 있는 요구사항 수, 빈 label 수를 즉시 보여준다.
+- 이 지표는 사용자의 현재 선택을 이용한 기준선이지 자동 정답 판정이 아니다. 실제 blind A/B와 충분한 골든셋을 수집한 뒤에만 검색 모델 교체나 pgvector/RAG를 결정한다.
+
+### M5-g 검증 결과
+
+라우트의 입력 검증·세션 소유권 위임·오류 응답을 단위 테스트로 고정하고, label 변환은 선택/고정·stale·중복 match 회귀를 검증한다. `npm run harness:verify`와 더미 환경변수 `npm run build`를 완료한 뒤 커밋한다.
+
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
 ### 범위와 완료 조건
