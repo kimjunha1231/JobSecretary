@@ -63,6 +63,19 @@ export type RegisteredSourceDocument = {
     warnings: string[];
 };
 
+const DEFAULT_SOURCE_STORAGE_BUCKET = 'source-documents';
+type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
+type SourceStorageApi = ReturnType<ServerSupabaseClient['storage']['from']>;
+type OriginalSource = {
+    bytes: Uint8Array;
+    filename?: string;
+    mimeType: string;
+};
+type ExtractedInput = {
+    extraction: SourceExtractionResult;
+    original: OriginalSource;
+};
+
 export class SourceDocumentServiceError extends Error {
     constructor(
         public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'extraction' | 'fetch' | 'storage',
@@ -158,7 +171,7 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
     kind: SourceDocumentKind;
     originType: SourceDocumentOrigin;
     sourceUrl?: string;
-}): Promise<SourceExtractionResult> {
+}): Promise<ExtractedInput> {
     try {
         if (metadata.originType === 'url') {
             if (!metadata.sourceUrl) {
@@ -179,29 +192,53 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
                     mimeType: fetched.contentType,
                 });
             return {
-                ...extraction,
-                sourceUrl: fetched.finalUrl,
-                fetchedAt: new Date().toISOString(),
+                extraction: {
+                    ...extraction,
+                    sourceUrl: fetched.finalUrl,
+                    fetchedAt: new Date().toISOString(),
+                },
+                original: {
+                    bytes: Buffer.from(fetched.body, 'utf8'),
+                    filename: `${metadata.kind}.${fetched.contentType === 'text/plain' ? 'txt' : 'html'}`,
+                    mimeType: fetched.contentType,
+                },
             };
         }
 
         if (typeof input.text === 'string') {
-            return extractTextSource({
+            const extraction = extractTextSource({
                 text: input.text,
                 kind: metadata.kind,
                 originType: metadata.originType,
                 mimeType: typeof input.mimeType === 'string' ? input.mimeType : 'text/plain',
             });
+            return {
+                extraction,
+                original: {
+                    bytes: Buffer.from(input.text, 'utf8'),
+                    filename: 'pasted',
+                    mimeType: extraction.mimeType,
+                },
+            };
         }
 
         if (input.buffer && input.buffer.byteLength > 0) {
-            return extractSourceFile({
+            const filename = typeof input.filename === 'string' ? input.filename : undefined;
+            const extraction = await extractSourceFile({
                 buffer: input.buffer,
-                filename: typeof input.filename === 'string' ? input.filename : undefined,
+                filename,
                 mimeType: typeof input.mimeType === 'string' ? input.mimeType : undefined,
                 kind: metadata.kind,
                 originType: metadata.originType,
             });
+            return {
+                extraction,
+                original: {
+                    bytes: input.buffer,
+                    filename,
+                    mimeType: extraction.mimeType,
+                },
+            };
         }
 
         throw new SourceExtractionError('empty_input', '파일 또는 붙여넣은 텍스트가 필요합니다.');
@@ -214,6 +251,55 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
     }
 }
 
+function getSourceStorageBucket(): string {
+    return process.env.SUPABASE_SOURCE_STORAGE_BUCKET?.trim() || DEFAULT_SOURCE_STORAGE_BUCKET;
+}
+
+function getSourceStorageApi(supabase: ServerSupabaseClient): SourceStorageApi | null {
+    const storage = (supabase as ServerSupabaseClient & { storage?: ServerSupabaseClient['storage'] }).storage;
+    return storage && typeof storage.from === 'function' ? storage.from(getSourceStorageBucket()) : null;
+}
+
+function getStorageExtension(filename: string | undefined, mimeType: string): string {
+    const filenameExtension = filename?.split(/[\\/]/).pop()?.match(/(\.[a-z0-9]{1,8})$/i)?.[1]?.toLowerCase();
+    const allowedExtensions = new Set(['.pdf', '.docx', '.txt', '.text', '.md', '.markdown', '.csv', '.json', '.html']);
+    if (filenameExtension && allowedExtensions.has(filenameExtension)) return filenameExtension;
+
+    const extensionByMime: Record<string, string> = {
+        'application/pdf': '.pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'text/markdown': '.md',
+        'text/plain': '.txt',
+        'text/csv': '.csv',
+        'application/json': '.json',
+        'text/html': '.html',
+        'application/xhtml+xml': '.html',
+    };
+    return extensionByMime[mimeType] ?? '.bin';
+}
+
+async function cleanupSourceDocument(
+    supabase: ServerSupabaseClient,
+    userId: string,
+    documentId: string,
+    storagePath?: string,
+): Promise<void> {
+    if (storagePath) {
+        const storage = getSourceStorageApi(supabase);
+        if (storage) {
+            const { error } = await storage.remove([storagePath]);
+            if (error) logger.error('Failed to clean up source document object:', error);
+        }
+    }
+
+    const { error } = await supabase
+        .from('source_documents')
+        .delete()
+        .eq('id', documentId)
+        .eq('user_id', userId);
+    if (error) logger.error('Failed to clean up incomplete source document:', error);
+}
+
 const SOURCE_DOCUMENT_LIST_COLUMNS = [
     'id',
     'user_id',
@@ -221,6 +307,7 @@ const SOURCE_DOCUMENT_LIST_COLUMNS = [
     'title',
     'origin_type',
     'source_url',
+    'storage_path',
     'content_hash',
     'mime_type',
     'page_count',
@@ -295,12 +382,44 @@ export const sourceDocumentService = {
         };
     },
 
+    async createOriginalDownloadUrl(id: unknown): Promise<string> {
+        const parsedId = sourceDocumentIdSchema.safeParse(id);
+        if (!parsedId.success) {
+            throw new SourceDocumentServiceError('invalid_input', '자료 ID를 확인해 주세요.', 400);
+        }
+
+        const supabase = await createServerSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = getUserIdOrThrow(user);
+        const { data, error } = await supabase
+            .from('source_documents')
+            .select('storage_path')
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (error) throw error;
+        const storagePath = nullableString((data as Record<string, unknown> | null)?.storage_path);
+        if (!storagePath) {
+            throw new SourceDocumentServiceError('not_found', '보관된 원본 파일이 없습니다.', 404);
+        }
+
+        const storage = getSourceStorageApi(supabase);
+        if (!storage) {
+            throw new SourceDocumentServiceError('storage', '원본 파일 저장소가 설정되지 않았습니다.', 500);
+        }
+        const { data: signed, error: signedUrlError } = await storage.createSignedUrl(storagePath, 300);
+        if (signedUrlError || !signed?.signedUrl) {
+            throw new SourceDocumentServiceError('storage', '원본 파일 링크를 만들지 못했습니다.', 500);
+        }
+        return signed.signedUrl;
+    },
+
     async register(input: SourceDocumentRegistrationInput): Promise<RegisteredSourceDocument> {
         const metadata = mapRegistrationInput(input);
         const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
         const userId = getUserIdOrThrow(user);
-        const extraction = await extractInput(input, metadata);
+        const { extraction, original } = await extractInput(input, metadata);
 
         const record = {
             user_id: userId,
@@ -326,33 +445,54 @@ export const sourceDocumentService = {
             .single();
         if (error) throw error;
 
-        const document = mapSourceDocumentRecord(data as Record<string, unknown>);
+        let document = mapSourceDocumentRecord(data as Record<string, unknown>);
         let fragments: SourceFragment[] = [];
+        let storagePath: string | undefined;
 
-        if (extraction.fragments.length > 0) {
-            const fragmentRecords = extraction.fragments.map(fragment => ({
-                source_document_id: document.id,
-                user_id: userId,
-                locator: fragment.locator,
-                content: fragment.content,
-            }));
+        try {
+            if (extraction.fragments.length > 0) {
+                const fragmentRecords = extraction.fragments.map(fragment => ({
+                    source_document_id: document.id,
+                    user_id: userId,
+                    locator: fragment.locator,
+                    content: fragment.content,
+                }));
 
-            const { data: insertedFragments, error: fragmentError } = await supabase
-                .from('source_fragments')
-                .insert(fragmentRecords)
-                .select('*');
+                const { data: insertedFragments, error: fragmentError } = await supabase
+                    .from('source_fragments')
+                    .insert(fragmentRecords)
+                    .select('*');
 
-            if (fragmentError) {
-                const { error: cleanupError } = await supabase
-                    .from('source_documents')
-                    .delete()
-                    .eq('id', document.id)
-                    .eq('user_id', userId);
-                if (cleanupError) logger.error('Failed to clean up incomplete source document:', cleanupError);
-                throw fragmentError;
+                if (fragmentError) throw fragmentError;
+                fragments = (insertedFragments ?? []).map(record => mapSourceFragmentRecord(record as Record<string, unknown>));
             }
 
-            fragments = (insertedFragments ?? []).map(record => mapSourceFragmentRecord(record as Record<string, unknown>));
+            const storage = getSourceStorageApi(supabase);
+            if (storage) {
+                storagePath = `${userId}/${document.id}/original${getStorageExtension(original.filename, original.mimeType)}`;
+                const { error: uploadError } = await storage.upload(storagePath, Buffer.from(original.bytes), {
+                    contentType: original.mimeType,
+                    upsert: false,
+                });
+                if (uploadError) {
+                    throw new SourceDocumentServiceError('storage', '원본 자료를 안전하게 보관하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+                }
+
+                const { data: storedRecord, error: storagePathError } = await supabase
+                    .from('source_documents')
+                    .update({ storage_path: storagePath, updated_at: new Date().toISOString() })
+                    .eq('id', document.id)
+                    .eq('user_id', userId)
+                    .select('*')
+                    .single();
+                if (storagePathError || !storedRecord) {
+                    throw new SourceDocumentServiceError('storage', '원본 자료 경로를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);
+                }
+                document = mapSourceDocumentRecord(storedRecord as Record<string, unknown>);
+            }
+        } catch (error) {
+            await cleanupSourceDocument(supabase, userId, document.id, storagePath);
+            throw error;
         }
 
         return { document, fragments, warnings: extraction.warnings };

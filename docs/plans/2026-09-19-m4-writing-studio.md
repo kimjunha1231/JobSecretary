@@ -104,6 +104,26 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 
 `npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 브라우저 실사용 검증은 인증된 Supabase 환경이 필요해 실행하지 않았다.
 
+## M2-e 비공개 원본 Storage 보관
+
+### 범위와 완료 조건
+
+1. 업로드·붙여넣기·공개 URL로 등록한 원문을 사용자별 비공개 Storage 경로에 보관한다.
+2. 원본 다운로드는 문서 소유권을 서버에서 확인한 뒤 5분 만료 서명 링크로만 허용한다.
+3. Storage RLS가 `{user_id}/...` prefix를 강제하고, 등록 실패·객체 삭제 실패를 조용한 성공으로 바꾸지 않는다.
+4. 회원 탈퇴 시 원본 객체를 먼저 정리하고 auth 사용자 삭제를 수행한다.
+
+### 실행 결과
+
+- `sourceDocumentService.register`가 추출 입력의 원본 바이트를 `source-documents/{user_id}/{document_id}/original.*`에 업로드하고 `source_documents.storage_path`를 저장한다. Storage API가 없는 테스트 double에서는 기존 추출 경계를 유지한다.
+- `/api/source-documents/[id]/original`은 사용자 소유 문서만 조회하고 300초짜리 signed URL로 redirect한다. `/career` 카드에서 보관된 원본을 다시 열 수 있다.
+- `supabase/migrations/20260919060000_m2_source_storage.sql`에 private bucket과 select/insert/update/delete Storage policy를 추가하고, `supabase/verify/rls-m2-source-storage.sql`에 읽기 전용 점검 쿼리를 추가했다. 운영 Supabase에는 아직 적용하지 않았다.
+- 회원 탈퇴 route는 사용자 prefix 아래의 중첩 객체를 정리한 뒤 auth 계정을 삭제한다. 원본 정리에 실패하면 탈퇴를 완료하지 않는다.
+
+### M2-e 검증 결과
+
+`npm run harness:verify`(25개 스위트/189개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 실제 bucket/RLS와 signed URL은 운영 자격 증명이 없어 원격에서 검증하지 않았다.
+
 ## M5-a 말투 프로필과 설명 가능한 품질 요약
 
 ### 범위와 완료 조건

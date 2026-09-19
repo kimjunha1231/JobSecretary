@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronUp,
     Clock3,
+    Download,
     ExternalLink,
     FileText,
     Pencil,
@@ -361,6 +362,17 @@ export function SourceLibraryBoard() {
                                                 >
                                                     <ExternalLink size={13} className="shrink-0" aria-hidden="true" />
                                                     <span className="truncate">원문 열기</span>
+                                                </a>
+                                            )}
+                                            {document.storagePath && (
+                                                <a
+                                                    href={`/api/source-documents/${document.id}/original`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary/80 transition hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                >
+                                                    <Download size={13} aria-hidden="true" />
+                                                    원본 파일 열기
                                                 </a>
                                             )}
                                             {document.extractionWarnings?.length > 0 && (

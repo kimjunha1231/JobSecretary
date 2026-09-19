@@ -35,5 +35,6 @@
 - 한국어 글꼴은 `public/fonts`에 번들하고, 클라이언트에서 PDF renderer를 로드하지 않는다.
 - 골든셋 평가는 `style_evaluation_cases`·`style_evaluation_runs`에 답변 원문을 복제하지 않고 hash와 결정론적 지표만 저장한다. 사례·실행 API는 세션과 초안 소유권을 서버에서 다시 확인한다.
 - `/career` 활동 PDF는 승인된 `career_items`와 `evidence_records`만 서버에서 다시 조회해 렌더링하며, 승인되지 않은 후보·내부 UUID·AI 메타데이터를 제출용 문서에 넣지 않는다.
+- 업로드·붙여넣기·공개 URL 원문은 비공개 `source-documents` bucket의 `{user_id}/{document_id}/original.*` 경로에 보관하고, 원본 다운로드는 사용자 소유권 확인 뒤 5분 서명 링크로만 허용한다. 계정 삭제 시 해당 prefix의 객체도 먼저 정리한다.
 - 텍스트 레이어가 없는 PDF는 OCR 성공으로 가장하지 않고 `manual_input`으로 남긴다. 사용자가 `/career`에서 본문을 보정해 저장하면 hash·fragment를 다시 만들고 `needs_review`로 되돌린다.
 - 승인된 원본 자료에서 만드는 활동 후보는 자동 승인하지 않는다. 모델의 `sourceFragmentIds`를 사용자 소유 fragment와 대조한 뒤, 사용자가 직접 저장을 선택한 후보만 `approved` 활동으로 만들고 `evidence_sources`에 원문 인용을 연결한다.

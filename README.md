@@ -98,8 +98,8 @@
 - `/career`에서 이력서·포트폴리오·기존 자기소개서를 PDF, DOCX, TXT/Markdown 파일 또는 붙여넣은 텍스트로 등록할 수 있습니다.
 - 텍스트 레이어가 없는 PDF는 `manual_input`으로 보존되며, `/career` 자료 카드의 `본문 보정`에서 확인한 텍스트를 저장한 뒤 다시 검수할 수 있습니다. 수동 보정 저장은 승인 상태를 자동으로 유지하지 않습니다.
 - 서버 Node runtime에서 본문을 추출하고 SHA-256 해시와 페이지/문단 fragment를 저장합니다. 추출 결과는 `needs_review`로 보류되며 사용자가 검수 완료한 자료만 다음 AI 작성 단계에서 사용하도록 설계했습니다.
-- 원본 바이너리 Storage 보관과 OCR은 후속 단계로 남아 있습니다. 활동 후보 추출은 자료를 승인한 뒤 사용자가 직접 검수·저장하는 방식으로 먼저 연결했고, A4 PDF는 M6에서 구현했습니다. M2 migration은 `extraction_warnings`만 additive하게 확장합니다.
-- 운영 적용 전 `supabase/verify/rls-m2-source-ingestion.sql`로 source 문서의 RLS와 경고 컬럼을 확인한 뒤 migration을 순서대로 적용하세요.
+- 원본 바이너리는 비공개 `source-documents` Storage bucket에 사용자별 경로로 보관하고, 5분짜리 서명 링크로만 열 수 있게 연결했습니다. OCR은 아직 수동 보정 경로로 남아 있습니다. 활동 후보 추출은 자료를 승인한 뒤 사용자가 직접 검수·저장하는 방식으로 연결했고, A4 PDF는 M6에서 구현했습니다.
+- `supabase/migrations/20260919060000_m2_source_storage.sql`은 bucket과 Storage RLS를 추가합니다. 운영 적용 전 `supabase/verify/rls-m2-source-storage.sql`과 기존 `supabase/verify/rls-m2-source-ingestion.sql`을 읽기 전용으로 확인하세요. 이 작업에서는 원격 Supabase/Vercel에 migration을 적용하지 않았습니다.
 
 ### 검수형 활동 후보 추출(M2-d)
 
