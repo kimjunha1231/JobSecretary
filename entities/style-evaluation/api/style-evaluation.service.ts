@@ -1,14 +1,17 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { createServerSupabaseClient } from '@/shared/api/server';
 import { writingSessionService, isFactLikeSentence, splitSentences } from '@/entities/writing-session/api';
 import { DomainIdSchema } from '@/shared/types';
 import {
     EvaluationMetricsSchema,
     EvaluationVariantSchema,
+    BlindComparisonSideSchema,
     StyleEvaluationCaseSchema,
+    StyleEvaluationPreferenceSchema,
     StyleEvaluationRunSchema,
     type EvaluationMetrics,
     type StyleEvaluationCase,
+    type StyleEvaluationPreference,
     type StyleEvaluationRun,
 } from '../model';
 import { z } from 'zod';
@@ -16,6 +19,15 @@ import { z } from 'zod';
 const runInputSchema = z.object({
     variant: EvaluationVariantSchema,
     draftId: DomainIdSchema.optional(),
+});
+
+const blindStartInputSchema = z.object({
+    draftId: DomainIdSchema,
+});
+
+const blindSubmitInputSchema = z.object({
+    preferenceId: DomainIdSchema,
+    selectedSide: BlindComparisonSideSchema,
 });
 
 export type StyleEvaluationRunInput = z.input<typeof runInputSchema>;
@@ -132,6 +144,22 @@ function mapRun(record: Record<string, unknown>): StyleEvaluationRun {
         answerHash: record.answer_hash,
         metrics: record.metrics,
         createdAt: record.created_at,
+    });
+}
+
+function mapPreference(record: Record<string, unknown>): StyleEvaluationPreference {
+    return StyleEvaluationPreferenceSchema.parse({
+        id: record.id,
+        userId: record.user_id,
+        caseId: record.case_id,
+        leftVariant: record.left_variant,
+        rightVariant: record.right_variant,
+        leftAnswerHash: record.left_answer_hash,
+        rightAnswerHash: record.right_answer_hash,
+        selectedSide: record.selected_side ?? undefined,
+        selectedVariant: record.selected_variant ?? undefined,
+        createdAt: record.created_at,
+        respondedAt: record.responded_at ?? undefined,
     });
 }
 
@@ -279,6 +307,102 @@ export const styleEvaluationService = {
         if (error) throw error;
         return mapRun(data as Record<string, unknown>);
     },
+
+    async startBlindComparison(caseIdInput: unknown, input: unknown) {
+        const caseId = parseId(caseIdInput, '평가 사례 ID');
+        const parsed = blindStartInputSchema.safeParse(input);
+        if (!parsed.success) throw new StyleEvaluationServiceError('invalid_input', '비교할 초안 ID를 확인해 주세요.', 400);
+        const { supabase, userId } = await getAuthenticatedClient();
+        const { data: caseRecord, error: caseError } = await supabase
+            .from('style_evaluation_cases')
+            .select('*')
+            .eq('id', caseId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (caseError) throw caseError;
+        if (!caseRecord) throw new StyleEvaluationServiceError('not_found', '평가 사례를 찾을 수 없습니다.', 404);
+
+        const evaluationCase = mapCase(caseRecord as Record<string, unknown>);
+        const details = await writingSessionService.get(evaluationCase.writingSessionId);
+        if (details.question.id !== evaluationCase.questionId || details.question.status !== 'finalized' || !details.question.finalAnswer?.trim()) {
+            throw new StyleEvaluationServiceError('conflict', '현재 문항의 최종 답변을 확인할 수 없습니다.', 409);
+        }
+        const draft = details.drafts.find(item => item.id === parsed.data.draftId && item.status !== 'stale');
+        if (!draft?.content?.trim()) throw new StyleEvaluationServiceError('not_found', '비교할 초안 후보를 찾을 수 없습니다.', 404);
+
+        const finalContent = details.question.finalAnswer.trim();
+        const draftContent = draft.content.trim();
+        const finalHash = answerHash(finalContent);
+        const draftHash = answerHash(draftContent);
+        if (finalHash === draftHash) throw new StyleEvaluationServiceError('conflict', '내용이 같은 답변은 blind 비교에서 제외합니다.', 409);
+
+        const studioOnLeft = randomInt(0, 2) === 0;
+        const leftVariant: 'studio' | 'baseline' = studioOnLeft ? 'studio' : 'baseline';
+        const rightVariant: 'studio' | 'baseline' = studioOnLeft ? 'baseline' : 'studio';
+        const { data, error } = await supabase
+            .from('style_evaluation_preferences')
+            .insert({
+                user_id: userId,
+                case_id: caseId,
+                left_variant: leftVariant,
+                right_variant: rightVariant,
+                left_answer_hash: studioOnLeft ? finalHash : draftHash,
+                right_answer_hash: studioOnLeft ? draftHash : finalHash,
+            })
+            .select('*')
+            .single();
+        if (error) throw error;
+
+        const preference = mapPreference(data as Record<string, unknown>);
+        return {
+            id: preference.id,
+            leftContent: studioOnLeft ? finalContent : draftContent,
+            rightContent: studioOnLeft ? draftContent : finalContent,
+            createdAt: preference.createdAt,
+        };
+    },
+
+    async submitBlindPreference(caseIdInput: unknown, input: unknown) {
+        const caseId = parseId(caseIdInput, '평가 사례 ID');
+        const parsed = blindSubmitInputSchema.safeParse(input);
+        if (!parsed.success) throw new StyleEvaluationServiceError('invalid_input', '비교 선택을 확인해 주세요.', 400);
+        const { supabase, userId } = await getAuthenticatedClient();
+        const { data: row, error } = await supabase
+            .from('style_evaluation_preferences')
+            .select('*')
+            .eq('id', parsed.data.preferenceId)
+            .eq('case_id', caseId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (error) throw error;
+        if (!row) throw new StyleEvaluationServiceError('not_found', 'blind 비교를 찾을 수 없습니다.', 404);
+
+        const preference = mapPreference(row as Record<string, unknown>);
+        if (preference.selectedSide) throw new StyleEvaluationServiceError('conflict', '이미 선택한 비교입니다.', 409);
+        const selectedVariant = parsed.data.selectedSide === 'left' ? preference.leftVariant : preference.rightVariant;
+        const respondedAt = new Date().toISOString();
+        const { data: updated, error: updateError } = await supabase
+            .from('style_evaluation_preferences')
+            .update({
+                selected_side: parsed.data.selectedSide,
+                selected_variant: selectedVariant,
+                responded_at: respondedAt,
+            })
+            .eq('id', preference.id)
+            .eq('case_id', caseId)
+            .eq('user_id', userId)
+            .is('selected_side', null)
+            .select('*')
+            .maybeSingle();
+        if (updateError) throw updateError;
+        if (!updated) throw new StyleEvaluationServiceError('conflict', '이미 선택한 비교입니다.', 409);
+        const result = mapPreference(updated as Record<string, unknown>);
+        return {
+            id: result.id,
+            selectedSide: result.selectedSide,
+            respondedAt: result.respondedAt,
+        };
+    },
 };
 
-export { answerHash, countOccurrences, mapCase, mapRun };
+export { answerHash, countOccurrences, mapCase, mapPreference, mapRun };

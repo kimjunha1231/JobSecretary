@@ -46,3 +46,29 @@ export const StyleEvaluationRunSchema = z.object({
     createdAt: DomainTimestampSchema,
 });
 export type StyleEvaluationRun = z.infer<typeof StyleEvaluationRunSchema>;
+
+export const BlindComparisonSideSchema = z.enum(['left', 'right']);
+export type BlindComparisonSide = z.infer<typeof BlindComparisonSideSchema>;
+
+export const StyleEvaluationPreferenceSchema = z.object({
+    id: DomainIdSchema,
+    userId: DomainIdSchema,
+    caseId: DomainIdSchema,
+    leftVariant: EvaluationVariantSchema,
+    rightVariant: EvaluationVariantSchema,
+    leftAnswerHash: z.string().regex(/^[a-f0-9]{64}$/),
+    rightAnswerHash: z.string().regex(/^[a-f0-9]{64}$/),
+    selectedSide: BlindComparisonSideSchema.optional(),
+    selectedVariant: EvaluationVariantSchema.optional(),
+    createdAt: DomainTimestampSchema,
+    respondedAt: DomainTimestampSchema.optional(),
+});
+export type StyleEvaluationPreference = z.infer<typeof StyleEvaluationPreferenceSchema>;
+
+export const BlindComparisonPromptSchema = z.object({
+    id: DomainIdSchema,
+    leftContent: z.string().min(1).max(100_000),
+    rightContent: z.string().min(1).max(100_000),
+    createdAt: DomainTimestampSchema,
+});
+export type BlindComparisonPrompt = z.infer<typeof BlindComparisonPromptSchema>;

@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/shared/api/server';
+import { writingSessionService } from '@/entities/writing-session/api';
 import {
     answerHash,
     evaluateAnswer,
@@ -9,8 +10,13 @@ import {
 jest.mock('@/shared/api/server', () => ({
     createServerSupabaseClient: jest.fn(),
 }));
+jest.mock('@/entities/writing-session/api', () => {
+    const actual = jest.requireActual('@/entities/writing-session/api');
+    return { ...actual, writingSessionService: { get: jest.fn() } };
+});
 
 const mockedCreateServerSupabaseClient = createServerSupabaseClient as jest.Mock;
+const mockedWritingSessionService = writingSessionService as jest.Mocked<typeof writingSessionService>;
 
 describe('style evaluation service', () => {
     beforeEach(() => {
@@ -70,5 +76,25 @@ describe('style evaluation service', () => {
             .rejects.toBeInstanceOf(StyleEvaluationServiceError);
         await expect(styleEvaluationService.listCases('22222222-2222-4222-8222-222222222222'))
             .rejects.toMatchObject({ code: 'unauthorized', status: 401 });
+    });
+
+    it('rejects malformed blind comparison input before authentication', async () => {
+        await expect(styleEvaluationService.startBlindComparison('not-a-uuid', { draftId: 'not-a-uuid' }))
+            .rejects.toMatchObject({ code: 'invalid_input', status: 400 });
+        await expect(styleEvaluationService.submitBlindPreference('not-a-uuid', { preferenceId: 'not-a-uuid', selectedSide: 'left' }))
+            .rejects.toMatchObject({ code: 'invalid_input', status: 400 });
+        expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('requires authentication before starting a blind comparison', async () => {
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: null } }) },
+        });
+
+        await expect(styleEvaluationService.startBlindComparison(
+            '11111111-1111-4111-8111-111111111111',
+            { draftId: '22222222-2222-4222-8222-222222222222' },
+        )).rejects.toMatchObject({ code: 'unauthorized', status: 401 });
+        expect(mockedWritingSessionService.get).not.toHaveBeenCalled();
     });
 });

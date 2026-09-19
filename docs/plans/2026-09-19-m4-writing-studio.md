@@ -257,6 +257,25 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 
 라우트의 입력 검증·세션 소유권 위임·오류 응답을 단위 테스트로 고정하고, label 변환은 선택/고정·stale·중복 match 회귀를 검증한다. `npm run harness:verify`와 더미 환경변수 `npm run build`를 완료한 뒤 커밋한다.
 
+## M5-h blind 답변 선호 비교
+
+### 범위와 완료 조건
+
+1. 최종 답변과 다른 초안 후보를 변형 이름·점수 없이 A/B로 보여 주고 사용자가 선호한 쪽을 선택할 수 있다.
+2. 서버는 답변 원문을 새 평가 테이블에 복사하지 않고 두 answer hash, 좌우 배치, 선택 결과만 사용자 소유로 저장한다.
+3. 이미 선택한 비교와 동시에 제출된 선택은 409로 차단하며, 비교 시작 전에 현재 문항·최종 답변·초안 소유권을 다시 확인한다.
+4. 실제 선택 데이터가 충분히 쌓이기 전에는 해당 결과로 pgvector/RAG나 생성 모델 교체를 자동 결정하지 않는다.
+
+### 실행 결과
+
+- `style_evaluation_preferences` migration과 사용자 소유 RLS/읽기 전용 verify SQL을 추가했다. 선택 결과는 `selected_side`, `selected_variant`, `responded_at`과 hash만 저장한다.
+- `styleEvaluationService.startBlindComparison`이 현재 평가 사례의 확정 답변과 사용자가 고른 비-stale 초안을 검증하고, 서버에서 좌우 변형을 무작위 배치한 뒤 원문을 화면에만 반환한다. `submitBlindPreference`는 조건부 update로 한 번만 선택을 허용한다.
+- `/api/style-evaluation-cases/[id]/blind`와 작성 작업대의 `내용만 비교`/`이 답변 선택` UI를 연결했다. 사용자는 점수와 변형 이름을 보지 않고 내용만 비교할 수 있으며, 선택 이후에는 원문 없는 기록 안내를 받는다.
+
+### M5-h 검증 결과
+
+blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입력 검증을 단위 테스트로 추가한다. 실제 사용자 blind 선호율·작성 시간·수정률은 아직 수집 전이므로 M5 전체 완료 조건으로 기록하지 않는다.
+
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
 ### 범위와 완료 조건
