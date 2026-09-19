@@ -96,6 +96,80 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - 최종 확정 문장 승격과 질문별 예문 범위는 M5-b에서 연결했다. 남은 M5 범위는 금칙어 회귀 검증을 포함한 golden set 평가, A/B 비교, 검색 품질 측정이다.
 - 검색 품질이 실제 활동 라이브러리에서 부족하다는 측정 결과가 확인된 뒤에만 pgvector/RAG를 도입한다. 지금은 승인 근거 allowlist와 설명 가능한 지표를 기준선으로 유지한다.
 
+## M5-c 골든셋 평가와 작성 품질 비교
+
+### 범위와 완료 조건
+
+1. 승인된 최종 답변을 사실 근거·말투·글자 수 검증이 가능한 평가 사례로 등록할 수 있다.
+2. 기존 즉시 생성 경로와 작성 스튜디오 후보를 동일한 질문·근거에서 비교할 수 있다.
+3. 평가는 원문 내용을 로그에 복제하지 않고 사용자 소유의 사례와 요약 지표만 저장한다.
+4. 근거 없는 주장, 금칙어, 글자 수 초과, 사용자 수정률을 반복 실행해 회귀를 확인할 수 있다.
+
+### 접근
+
+- 새 모델 호출이나 pgvector 도입보다 먼저 결정론적 평가 runner를 만든다. 현재 서비스가 이미 계산하는 citation·금칙어·글자 수·revision 지표를 같은 기준으로 재사용한다.
+- 평가 사례와 실행 결과는 사용자 소유 RLS로 보호하고, 답변 원문은 사례 등록 시 서버에서 읽어 해시와 지표만 저장한다.
+- 벡터 검색은 전문 검색 기준선과 골든셋 결과가 부족하다는 증거가 생긴 뒤 별도 migration으로 분리한다.
+
+### 실행 순서
+
+1. [x] 골든셋 도메인 모델·migration·RLS와 평가 runner를 추가한다.
+2. [x] 작성 세션에서 최종 답변을 평가 사례로 등록하는 API와 비교 화면을 추가한다.
+3. [x] 금칙어·citation·글자 수·수정률 회귀 테스트와 결과 요약을 추가한다.
+4. [x] harness/build/diff 검증 후 외부 구현 계획을 갱신한다.
+
+### M5-c 실행 결과
+
+- `entities/style-evaluation`에 답변 원문을 저장하지 않고 SHA-256 hash와 결정론적 지표만 기록하는 평가 runner를 추가했다. 글자 수 초과, 금칙 표현, 사실 문장·citation 커버리지, 사용자 수정률을 동일한 기준으로 계산한다.
+- `supabase/migrations/20260919050000_m5c_style_evaluation.sql`에 사용자 소유 `style_evaluation_cases`·`style_evaluation_runs`와 강제 RLS를 추가했다. 세션·문항·말투 프로필·비교 초안의 소유권을 정책에서 다시 확인하며, 운영 Supabase에는 적용하지 않았다.
+- `/api/writing-sessions/[id]/evaluation-cases`와 `/api/style-evaluation-cases/[id]/runs`를 추가하고, 작성 작업대에서 최종 답변을 골든셋 사례로 저장한 뒤 최종 답변과 초안을 비교할 수 있게 연결했다.
+- `tests/unit/entities/style-evaluation-service.test.ts`에 동일 입력 결정성, citation 누락, 인증·ID 경계 테스트를 추가했다.
+- 검증: `npm run harness:verify`(23개 스위트/176개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
+
+## M6-b 승인 활동 이력서·포트폴리오 PDF
+
+### 범위와 완료 조건
+
+1. 승인된 활동 근거를 이력서형·포트폴리오형 A4 PDF로 다운로드할 수 있다.
+2. 승인 상태가 아닌 활동은 서버에서 다시 걸러지고, 활동·근거·사용자 내부 ID는 출력하지 않는다.
+3. 자료가 없을 때 빈 PDF 대신 사용자가 승인 절차를 먼저 수행하도록 안내한다.
+
+### 실행 결과
+
+- `buildCareerProfilePdfPayload`가 승인된 `career_items`·`evidence_records`만 안전한 문단으로 묶고 `/api/career/export?format=portfolio|resume`에서 서버 PDF로 반환한다.
+- `/career`에 포트폴리오·이력서 PDF 다운로드 링크를 추가했다. 기존 원본 자료와 검수 흐름은 삭제하거나 덮어쓰지 않는다.
+- 활동 PDF에 승인된 프로젝트의 역할·기여·상황/행동/결과·성과·기술만 표시하고 내부 UUID·AI metadata는 넣지 않는다.
+- 검증: PDF payload 단위 테스트에 승인 경계·내부 ID 비노출·빈 목록 차단을 추가했고 `npm run harness:verify`(23개 스위트/178개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
+
+## M6-a 한국어 PDF 출력과 기존 문서 전환
+
+### 범위와 완료 조건
+
+1. 최종 확정 자기소개서, 기존 문서, 승인된 경력 자료를 A4 PDF로 다운로드할 수 있다.
+2. 내부 evidence ID·프롬프트·평가용 메타데이터는 제출용 PDF에 노출하지 않는다.
+3. 한국어 글꼴을 외부 CDN에 의존하지 않고 페이지 나눔·줄바꿈·헤더·푸터를 유지한다.
+4. 기존 `/write` 문서는 삭제하지 않고 새 출력 API와 전환 링크를 제공한다.
+
+### 접근
+
+- 서버 Node runtime의 `@react-pdf/renderer`를 사용하고, 저장된 최종 답변을 서버에서 다시 확인한 뒤 PDF를 생성한다.
+- 새 작성 세션은 모든 문항이 `finalized`인 경우에만 제출용 자기소개서 PDF를 허용한다. 기존 문서는 사용자 소유권을 확인한 뒤 legacy adapter를 통해 같은 템플릿으로 렌더링한다.
+- OCR은 공급자 없이 자동 성공으로 가장하지 않는다. 스캔 PDF는 `manual_input` 경고로 남기고 사용자가 보정한 텍스트만 경력 근거로 승인한다.
+
+### 실행 순서
+
+1. [x] 한국어 PDF renderer·템플릿·Node API route를 추가한다.
+2. [x] 작성 작업대와 기존 문서 상세 화면에 다운로드 UI를 연결한다.
+3. [x] PDF 텍스트·페이지 수·한글 글리프·페이지 이미지 visual QA를 추가한다.
+4. [x] 기존 `/write` 전환 링크와 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED=false` rollback flag를 추가하고 계획을 갱신한다.
+
+### M6-a 실행 결과
+
+- `entities/export`에 서버 전용 PDF payload 검증·한국어 Pretendard 글꼴·A4 템플릿을 추가하고, `/api/writing-sessions/[id]/export`와 `/api/documents/[id]/export`를 연결했다.
+- 작성 세션 PDF는 모든 문항이 `finalized`이고 답변이 비어 있지 않을 때만 생성한다. 기존 문서는 `parseLegacyDocument` adapter로 문항을 복원해 같은 템플릿으로 출력한다.
+- 기존 클라이언트 `@react-pdf/renderer` 동적 로딩과 외부 CDN 글꼴 의존성을 제거하고, 브라우저는 서버 PDF 응답만 다운로드한다.
+- 검증: `npm run harness:verify`(22개 스위트/172개 테스트), 더미 환경변수 `npm run build`(exit 0), PDF 샘플 2페이지의 텍스트·PNG visual QA, `git diff --check` 통과.
+
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 
 ### 범위와 완료 조건

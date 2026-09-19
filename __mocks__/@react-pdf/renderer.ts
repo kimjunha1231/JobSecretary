@@ -52,3 +52,5 @@ export const pdf = jest.fn().mockReturnValue({
     toBuffer: jest.fn().mockResolvedValue(Buffer.from('')),
     toString: jest.fn().mockResolvedValue(''),
 });
+
+export const renderToBuffer = jest.fn().mockResolvedValue(Buffer.from('PDF'));

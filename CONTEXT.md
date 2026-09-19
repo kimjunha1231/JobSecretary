@@ -27,3 +27,11 @@
 6. 사용자가 선택하거나 직접 수정한 최종 답변은 AI 생성 후보와 구분한다.
 7. 새 도메인 모델의 입력과 상태는 Zod 스키마에서 검증하고, DB 제약조건과 RLS를 함께 둔다.
 8. 말투 자료는 `Evidence Record`와 별도 trust boundary로 전달하며, 승인되지 않은 예문이나 다른 사용자의 문장을 생성 context에 넣지 않는다.
+
+## 출력 규칙
+
+- 최종 확정된 작성 세션과 기존 `documents`는 서버 Node runtime의 PDF renderer를 통해 A4 문서로 출력한다.
+- PDF에는 내부 근거 ID나 AI 메타데이터를 노출하지 않으며, 모든 문항 확정 여부와 문서 소유권을 서버에서 다시 확인한다.
+- 한국어 글꼴은 `public/fonts`에 번들하고, 클라이언트에서 PDF renderer를 로드하지 않는다.
+- 골든셋 평가는 `style_evaluation_cases`·`style_evaluation_runs`에 답변 원문을 복제하지 않고 hash와 결정론적 지표만 저장한다. 사례·실행 API는 세션과 초안 소유권을 서버에서 다시 확인한다.
+- `/career` 활동 PDF는 승인된 `career_items`와 `evidence_records`만 서버에서 다시 조회해 렌더링하며, 승인되지 않은 후보·내부 UUID·AI 메타데이터를 제출용 문서에 넣지 않는다.

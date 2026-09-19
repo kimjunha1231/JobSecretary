@@ -8,7 +8,9 @@ import {
     Check,
     CheckCircle2,
     ChevronRight,
+    ClipboardCheck,
     Circle,
+    Download,
     FileText,
     Lock,
     Loader2,
@@ -58,6 +60,33 @@ type SessionResponse = {
 
 type Step = 'evidence' | 'outline' | 'draft' | 'edit';
 type ManualEvidence = { title: string; action: string; result: string; learning: string };
+type EvaluationMetrics = {
+    charCount: number;
+    charLimit: number;
+    overLimit: boolean;
+    bannedExpressionCount: number;
+    factSentenceCount: number;
+    verifiedFactSentenceCount: number;
+    factCitationCoverage: number;
+    userRevisionRatio: number;
+    score: number;
+};
+type EvaluationCase = {
+    id: string;
+    questionId: string;
+    label: string;
+    status: 'active' | 'archived';
+    metrics: EvaluationMetrics;
+    createdAt: string;
+};
+type EvaluationRun = {
+    id: string;
+    caseId: string;
+    variant: 'studio' | 'baseline';
+    sourceDraftId?: string;
+    metrics: EvaluationMetrics;
+    createdAt: string;
+};
 
 const STEP_LABELS: Array<{ id: Step; label: string }> = [
     { id: 'evidence', label: '근거 선택' },
@@ -116,6 +145,9 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
     const [showEvidenceForm, setShowEvidenceForm] = useState(false);
     const [editedContent, setEditedContent] = useState('');
     const [citationEvidenceBySentence, setCitationEvidenceBySentence] = useState<Record<number, string[]>>({});
+    const [evaluationCase, setEvaluationCase] = useState<EvaluationCase | null>(null);
+    const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([]);
+    const [evaluationError, setEvaluationError] = useState<string | null>(null);
 
     const setCitationSelections = (draft: DraftCandidate | undefined) => {
         const citations = draft?.evidenceMap.citations;
@@ -133,6 +165,30 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         }, {}));
     };
 
+    const loadEvaluation = async (questionId: string) => {
+        setEvaluationError(null);
+        try {
+            const casesResponse = await fetch(`/api/writing-sessions/${sessionId}/evaluation-cases`, { cache: 'no-store' });
+            const casesResult = await readJson(casesResponse);
+            if (!casesResponse.ok) throw new Error(typeof casesResult.error === 'string' ? casesResult.error : '평가 사례를 불러오지 못했습니다.');
+            const cases = Array.isArray(casesResult.cases) ? casesResult.cases as EvaluationCase[] : [];
+            const currentCase = cases.find(item => item.questionId === questionId && item.status === 'active') ?? null;
+            setEvaluationCase(currentCase);
+            if (!currentCase) {
+                setEvaluationRuns([]);
+                return;
+            }
+            const runsResponse = await fetch(`/api/style-evaluation-cases/${currentCase.id}/runs`, { cache: 'no-store' });
+            const runsResult = await readJson(runsResponse);
+            if (!runsResponse.ok) throw new Error(typeof runsResult.error === 'string' ? runsResult.error : '평가 결과를 불러오지 못했습니다.');
+            setEvaluationRuns(Array.isArray(runsResult.runs) ? runsResult.runs as EvaluationRun[] : []);
+        } catch (loadError) {
+            setEvaluationCase(null);
+            setEvaluationRuns([]);
+            setEvaluationError(loadError instanceof Error ? loadError.message : '평가 결과를 불러오지 못했습니다.');
+        }
+    };
+
     const loadSession = async (showSpinner = false) => {
         if (showSpinner) setIsLoading(true);
         setError(null);
@@ -148,6 +204,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                 setEditedContent(selectedDraft.content);
                 setCitationSelections(selectedDraft);
             }
+            void loadEvaluation(next.question.id);
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : '작성 세션을 불러오지 못했습니다.');
         } finally {
@@ -181,6 +238,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const selected = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(selected?.content ?? '');
             setCitationSelections(selected);
+            void loadEvaluation(next.question.id);
             toast.success('작업 문항을 전환했습니다.');
         } catch (switchError) {
             setError(switchError instanceof Error ? switchError.message : '문항을 전환하지 못했습니다.');
@@ -399,6 +457,80 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         }
     };
 
+    const downloadFinalPdf = async () => {
+        const allFinalized = Boolean(details?.questions.length && details.questions.every(question => question.status === 'finalized' && question.finalAnswer?.trim()));
+        if (!allFinalized) {
+            toast.error('모든 문항을 최종 확정한 뒤 PDF를 만들 수 있습니다.');
+            return;
+        }
+        setBusy('export-pdf');
+        try {
+            const response = await fetch(`/api/writing-sessions/${sessionId}/export`, { cache: 'no-store' });
+            if (!response.ok) {
+                const result = await readJson(response);
+                throw new Error(typeof result.error === 'string' ? result.error : '자기소개서 PDF를 만들지 못했습니다.');
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${details?.target.company ?? '자기소개서'}-자기소개서.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            toast.success('자기소개서 PDF를 다운로드했습니다.');
+        } catch (exportError) {
+            setError(exportError instanceof Error ? exportError.message : '자기소개서 PDF를 만들지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    const createEvaluationCase = async () => {
+        if (!finalized) {
+            toast.error('최종 확정한 답변만 골든셋 사례로 저장할 수 있습니다.');
+            return;
+        }
+        setBusy('evaluation-case');
+        try {
+            const response = await fetch(`/api/writing-sessions/${sessionId}/evaluation-cases`, { method: 'POST' });
+            const result = await readJson(response);
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '평가 사례를 저장하지 못했습니다.');
+            const nextCase = result as unknown as EvaluationCase;
+            setEvaluationCase(nextCase);
+            setEvaluationRuns([]);
+            setEvaluationError(null);
+            toast.success('현재 최종 답변을 골든셋 사례로 저장했습니다.');
+        } catch (caseError) {
+            setEvaluationError(caseError instanceof Error ? caseError.message : '평가 사례를 저장하지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    const runEvaluation = async (variant: 'studio' | 'baseline', draftId?: string) => {
+        if (!evaluationCase) return;
+        setBusy(`evaluation-${variant}-${draftId ?? 'studio'}`);
+        try {
+            const response = await fetch(`/api/style-evaluation-cases/${evaluationCase.id}/runs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variant, ...(draftId ? { draftId } : {}) }),
+            });
+            const result = await readJson(response);
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '평가를 실행하지 못했습니다.');
+            const run = result as unknown as EvaluationRun;
+            setEvaluationRuns(current => [run, ...current.filter(item => item.id !== run.id)]);
+            setEvaluationError(null);
+            toast.success(variant === 'studio' ? '최종 답변 평가를 갱신했습니다.' : '초안 비교 평가를 추가했습니다.');
+        } catch (runError) {
+            setEvaluationError(runError instanceof Error ? runError.message : '평가를 실행하지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
+    };
+
     if (isLoading) return <div className="rounded-2xl border border-white/10 bg-surface/50 px-5 py-16 text-center text-sm text-zinc-500">작성 작업대를 불러오는 중입니다…</div>;
     if (!details) return <div className="space-y-4"><Link href="/jobs" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16} aria-hidden="true" /> 지원 대상으로 돌아가기</Link><div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error ?? '작성 세션을 불러오지 못했습니다.'}</div></div>;
 
@@ -423,7 +555,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                         {details.questions.map((question, index) => <button key={question.id} type="button" role="tab" aria-selected={question.id === details.question.id} onClick={() => void switchQuestion(question.id)} disabled={busy !== null} className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${question.id === details.question.id ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 text-zinc-400 hover:bg-white/5'}`}><span className="mr-1.5 text-[10px] text-zinc-600">{index + 1}</span>{question.question.slice(0, 42)}{question.question.length > 42 ? '…' : ''}</button>)}
                     </div>}
                 </div>
-                <button type="button" onClick={() => void loadSession(true)} disabled={isLoading} className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} aria-hidden="true" /> 새로고침</button>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
+                    {finalized && <button type="button" onClick={() => void downloadFinalPdf()} disabled={busy !== null} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"><Download size={15} aria-hidden="true" /> PDF 다운로드</button>}
+                    <button type="button" onClick={() => void loadSession(true)} disabled={isLoading || busy !== null} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} aria-hidden="true" /> 새로고침</button>
+                </div>
             </div>
 
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{error}</span></div>}
@@ -451,7 +586,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
 
             {step === 'draft' && <section className="space-y-5" aria-labelledby="draft-step-title"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">03 · Draft</p><h2 id="draft-step-title" className="mt-1 text-2xl font-bold text-white">초안을 나란히 비교하세요</h2><p className="mt-1 text-sm text-zinc-400">글자 수 제한을 넘은 후보는 선택할 수 없습니다. 선택 후 직접 문장을 고칠 수 있습니다.</p></div><button type="button" onClick={() => void generateDrafts()} disabled={busy !== null || !selectedOutline} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><Sparkles size={15} aria-hidden="true" /> 다시 생성</button></div><DraftParagraphMixer drafts={activeDrafts} charLimit={charLimit} busy={busy} onSelectDraft={draftId => void selectDraft(draftId)} onMerge={paragraphs => void mergeDrafts(paragraphs)} /></section>}
 
-            {step === 'edit' && <section className="space-y-5" aria-labelledby="edit-step-title"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">04 · Final edit</p><h2 id="edit-step-title" className="mt-1 text-2xl font-bold text-white">직접 다듬고 확정하세요</h2><p className="mt-1 text-sm text-zinc-400">수정본은 revision으로 남습니다. 글자 수 제한을 넘으면 확정할 수 없습니다.</p></div>{selectedDraft ? <div className="rounded-2xl border border-white/10 bg-surface/55 p-4 md:p-6"><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={finalized ? 'success' : 'pending'}>{finalized ? '최종 확정됨' : '편집 중'}</Badge><span className={`text-xs ${editedCount > charLimit ? 'text-red-300' : 'text-zinc-500'}`}>{editedCount.toLocaleString()} / {charLimit.toLocaleString()}자</span></div><span className="text-xs text-zinc-600">revision {details.revisions.length}개</span></div><textarea value={editedContent} onChange={event => setEditedContent(event.target.value)} maxLength={100_000} disabled={finalized} className="min-h-[420px] w-full resize-y rounded-xl border border-white/10 bg-background px-4 py-4 text-sm leading-7 text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80" /><div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs leading-5 text-zinc-500">{editedCount > charLimit ? '글자 수를 줄인 뒤 저장·확정해 주세요.' : '선택한 활동 근거와 개요를 바탕으로 직접 문장을 완성하세요.'}</p><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditedContent(selectedDraft.content)} disabled={busy !== null || finalized} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><X size={14} aria-hidden="true" /> 되돌리기</button><button type="button" onClick={() => void saveDraft()} disabled={busy !== null || finalized || editedCount === 0} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><Save size={14} aria-hidden="true" /> 저장</button><button type="button" onClick={() => void finalizeDraft()} disabled={busy !== null || finalized || editedCount === 0 || editedCount > charLimit} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50"><CheckCircle2 size={14} aria-hidden="true" /> 최종 확정</button>{finalized && details.styleProfile && <button type="button" onClick={() => void promoteStyleExample()} disabled={busy !== null || styleExampleSaved} className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-50"><Sparkles size={14} aria-hidden="true" />{styleExampleSaved ? '말투 예문에 저장됨' : '말투 예문으로 저장'}</button>}</div></div></div> : <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">먼저 초안 후보를 선택해 주세요.</div>}</section>}
+            {step === 'edit' && <section className="space-y-5" aria-labelledby="edit-step-title"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">04 · Final edit</p><h2 id="edit-step-title" className="mt-1 text-2xl font-bold text-white">직접 다듬고 확정하세요</h2><p className="mt-1 text-sm text-zinc-400">수정본은 revision으로 남습니다. 글자 수 제한을 넘으면 확정할 수 없습니다.</p></div>{selectedDraft && <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4" aria-labelledby="evaluation-title"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex items-center gap-2"><ClipboardCheck size={18} className="text-primary" aria-hidden="true" /><h3 id="evaluation-title" className="text-base font-semibold text-white">골든셋 품질 비교</h3></div><p className="mt-1 text-xs leading-5 text-zinc-400">최종 답변을 사례로 저장하면 글자 수, 금칙 표현, 사실 근거를 같은 기준으로 비교할 수 있습니다. 답변 원문은 평가 테이블에 복사하지 않습니다.</p></div>{!evaluationCase ? <button type="button" onClick={() => void createEvaluationCase()} disabled={!finalized || busy !== null} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"><ClipboardCheck size={14} aria-hidden="true" /> 사례로 저장</button> : <span className="shrink-0 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs text-primary">사례 저장됨</span>}</div>{evaluationError && <p role="alert" className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{evaluationError}</p>}{evaluationCase && <><div className="mt-4 grid gap-2 sm:grid-cols-4"><div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2"><p className="text-[11px] text-zinc-500">기준 점수</p><p className="mt-1 text-lg font-semibold text-white">{evaluationCase.metrics.score.toFixed(1)}</p></div><div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2"><p className="text-[11px] text-zinc-500">글자 수</p><p className={`mt-1 text-sm font-semibold ${evaluationCase.metrics.overLimit ? 'text-red-300' : 'text-zinc-200'}`}>{evaluationCase.metrics.charCount.toLocaleString()} / {evaluationCase.metrics.charLimit.toLocaleString()}</p></div><div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2"><p className="text-[11px] text-zinc-500">금칙 표현</p><p className="mt-1 text-sm font-semibold text-zinc-200">{evaluationCase.metrics.bannedExpressionCount}개</p></div><div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2"><p className="text-[11px] text-zinc-500">사실 근거</p><p className="mt-1 text-sm font-semibold text-zinc-200">{Math.round(evaluationCase.metrics.factCitationCoverage * 100)}%</p></div></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void runEvaluation('studio')} disabled={!finalized || busy !== null} className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-50">{busy === 'evaluation-studio-studio' ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ClipboardCheck size={14} aria-hidden="true" />} 최종 답변 평가</button>{activeDrafts.filter(draft => draft.id !== selectedDraft.id).map((draft, index) => <button key={`evaluation-${draft.id}`} type="button" onClick={() => void runEvaluation('baseline', draft.id)} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50">{busy === `evaluation-baseline-${draft.id}` && <Loader2 size={14} className="animate-spin" aria-hidden="true" />} 초안 {index + 1} 비교</button>)}</div>{evaluationRuns.length > 0 && <div className="mt-4 overflow-x-auto rounded-lg border border-white/10"><table className="min-w-full text-left text-xs"><caption className="sr-only">골든셋 평가 결과</caption><thead className="bg-background/40 text-zinc-500"><tr><th scope="col" className="px-3 py-2 font-medium">변형</th><th scope="col" className="px-3 py-2 font-medium">점수</th><th scope="col" className="px-3 py-2 font-medium">글자 수</th><th scope="col" className="px-3 py-2 font-medium">사실 근거</th><th scope="col" className="px-3 py-2 font-medium">실행 시각</th></tr></thead><tbody className="divide-y divide-white/10">{evaluationRuns.map(run => <tr key={run.id} className="text-zinc-300"><td className="px-3 py-2">{run.variant === 'studio' ? '최종 답변' : '초안 비교'}</td><td className="px-3 py-2 font-semibold text-white">{run.metrics.score.toFixed(1)}</td><td className="px-3 py-2">{run.metrics.charCount.toLocaleString()} / {run.metrics.charLimit.toLocaleString()}{run.metrics.overLimit ? ' · 초과' : ''}</td><td className="px-3 py-2">{Math.round(run.metrics.factCitationCoverage * 100)}%</td><td className="px-3 py-2 text-zinc-500">{new Date(run.createdAt).toLocaleString('ko-KR')}</td></tr>)}</tbody></table></div>}</>}</section>}{selectedDraft ? <div className="rounded-2xl border border-white/10 bg-surface/55 p-4 md:p-6"><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={finalized ? 'success' : 'pending'}>{finalized ? '최종 확정됨' : '편집 중'}</Badge><span className={`text-xs ${editedCount > charLimit ? 'text-red-300' : 'text-zinc-500'}`}>{editedCount.toLocaleString()} / {charLimit.toLocaleString()}자</span></div><span className="text-xs text-zinc-600">revision {details.revisions.length}개</span></div><textarea value={editedContent} onChange={event => setEditedContent(event.target.value)} maxLength={100_000} disabled={finalized} className="min-h-[420px] w-full resize-y rounded-xl border border-white/10 bg-background px-4 py-4 text-sm leading-7 text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80" /><div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs leading-5 text-zinc-500">{editedCount > charLimit ? '글자 수를 줄인 뒤 저장·확정해 주세요.' : '선택한 활동 근거와 개요를 바탕으로 직접 문장을 완성하세요.'}</p><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditedContent(selectedDraft.content)} disabled={busy !== null || finalized} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><X size={14} aria-hidden="true" /> 되돌리기</button><button type="button" onClick={() => void saveDraft()} disabled={busy !== null || finalized || editedCount === 0} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><Save size={14} aria-hidden="true" /> 저장</button><button type="button" onClick={() => void finalizeDraft()} disabled={busy !== null || finalized || editedCount === 0 || editedCount > charLimit} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50"><CheckCircle2 size={14} aria-hidden="true" /> 최종 확정</button>{finalized && details.styleProfile && <button type="button" onClick={() => void promoteStyleExample()} disabled={busy !== null || styleExampleSaved} className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-50"><Sparkles size={14} aria-hidden="true" />{styleExampleSaved ? '말투 예문에 저장됨' : '말투 예문으로 저장'}</button>}</div></div></div> : <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">먼저 초안 후보를 선택해 주세요.</div>}</section>}
         </div>
     );
 }
