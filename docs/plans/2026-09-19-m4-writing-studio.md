@@ -96,7 +96,7 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 ### 실행 결과
 
 - `features/career-extraction`에 Gemini JSON schema·불신 데이터 경계·분당 3회 AI 사용량 제한·fragment allowlist·중복 제거를 추가하고 `/api/source-documents/[id]/suggestions`로 노출했다. 자료가 승인되지 않았거나 보관된 경우에는 호출을 시작하지 않는다.
-- `/career` 자료 카드에 `활동 후보 만들기`와 검수 패널을 추가했다. 신뢰도·요약·기여·행동·결과·성과를 비교한 뒤 `활동으로 저장`을 눌러야만 승인된 `career_items`·`evidence_records`가 생성된다.
+- `/career` 자료 카드에 `활동 후보 만들기`와 검수 패널을 추가했다. 신뢰도·요약·기여·행동·결과·성과를 비교하고 제목·조직·역할·서술을 직접 편집한 뒤 `활동으로 저장`을 눌러야만 승인된 `career_items`·`evidence_records`가 생성된다.
 - `evidenceRecordService.createManual`은 후보의 timeline과 사용자 소유 `sourceFragmentIds`를 검증하고, 저장된 근거마다 `evidence_sources` 원문 인용을 연결한다. 출처 연결에 실패하면 새 활동·근거를 정리한 뒤 오류를 반환한다.
 - 후보 parser의 코드펜스·잘못된 JSON·출처 불일치·중복 제거를 단위 테스트로 고정했다. 원격 Supabase/Vercel 설정과 migration은 이 단계에서 변경하지 않았다.
 

@@ -105,7 +105,7 @@
 
 - 승인된 이력서·포트폴리오·기존 자기소개서 카드에서 `활동 후보 만들기`를 실행하면 서버가 Gemini에 원문 fragment를 불신 데이터로 전달하고, 프로젝트·경력·교육·수상 등의 후보를 구조화합니다.
 - 모델이 반환한 후보의 `sourceFragmentIds`는 서버 allowlist와 다시 대조합니다. 출처를 확인할 수 없는 후보는 제외하고, 자료가 승인되지 않았거나 보관된 상태면 AI 호출을 시작하지 않습니다.
-- 후보는 화면에서 신뢰도·요약·기여·행동·결과·성과를 비교한 뒤 `활동으로 저장` 또는 `제외`할 수 있습니다. 저장을 누른 항목만 승인된 `career_items`·`evidence_records`로 만들어지며 `evidence_sources`에 원문 인용이 연결됩니다.
+- 후보는 화면에서 신뢰도·요약·기여·행동·결과·성과를 비교하고 제목·조직·역할·서술을 직접 편집한 뒤 `활동으로 저장` 또는 `제외`할 수 있습니다. 저장을 누른 항목만 승인된 `career_items`·`evidence_records`로 만들어지며 `evidence_sources`에 원문 인용이 연결됩니다.
 - AI 사용량은 사용자별 `career_extraction` 작업으로 분당 3회 제한합니다. Gemini 실패·잘못된 JSON·출처 불일치는 빈 성공으로 바꾸지 않고 오류로 안내합니다.
 - 후보 추출과 출처 allowlist·중복 제거·코드펜스 JSON 파싱은 `tests/unit/features/career-extraction.test.ts`에서 검증합니다. 원격 Supabase migration/Vercel 설정은 이 단계에서 변경하지 않았습니다.
 

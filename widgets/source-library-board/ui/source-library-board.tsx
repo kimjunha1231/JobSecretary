@@ -9,6 +9,7 @@ import {
     Clock3,
     ExternalLink,
     FileText,
+    Pencil,
     RefreshCw,
     Save,
     Sparkles,
@@ -69,6 +70,7 @@ export function SourceLibraryBoard() {
     const [suggestionsByDocument, setSuggestionsByDocument] = useState<Record<string, CareerCandidate[]>>({});
     const [suggestionLoadingId, setSuggestionLoadingId] = useState<string | null>(null);
     const [savingSuggestionKey, setSavingSuggestionKey] = useState<string | null>(null);
+    const [editingSuggestion, setEditingSuggestion] = useState<{ documentId: string; identity: string; value: CareerCandidate } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const loadDocuments = async (showSpinner = false) => {
@@ -210,6 +212,48 @@ export function SourceLibraryBoard() {
             ...previous,
             [documentId]: (previous[documentId] ?? []).filter(item => suggestionIdentity(item) !== identity),
         }));
+    };
+
+    const beginSuggestionEdit = (documentId: string, candidate: CareerCandidate) => {
+        setEditingSuggestion({
+            documentId,
+            identity: suggestionIdentity(candidate),
+            value: {
+                ...candidate,
+                metrics: [...candidate.metrics],
+                skills: [...candidate.skills],
+                competencyTags: [...candidate.competencyTags],
+                sourceFragmentIds: [...candidate.sourceFragmentIds],
+            },
+        });
+        setError(null);
+    };
+
+    const updateEditingSuggestion = (field: 'title' | 'organization' | 'role' | 'summary' | 'contributionNote' | 'action' | 'result' | 'learning', value: string) => {
+        setEditingSuggestion(previous => previous ? {
+            ...previous,
+            value: { ...previous.value, [field]: value },
+        } : previous);
+    };
+
+    const applySuggestionEdit = () => {
+        if (!editingSuggestion) return;
+        const value = { ...editingSuggestion.value, title: editingSuggestion.value.title.trim() };
+        if (!value.title) {
+            setError('활동 제목을 입력해 주세요.');
+            return;
+        }
+        const currentCandidates = suggestionsByDocument[editingSuggestion.documentId] ?? [];
+        if (currentCandidates.some(candidate => suggestionIdentity(candidate) !== editingSuggestion.identity && suggestionIdentity(candidate) === suggestionIdentity(value))) {
+            setError('같은 제목의 활동 후보가 이미 있습니다. 제목을 다르게 입력해 주세요.');
+            return;
+        }
+        setSuggestionsByDocument(previous => ({
+            ...previous,
+            [editingSuggestion.documentId]: (previous[editingSuggestion.documentId] ?? []).map(candidate => suggestionIdentity(candidate) === editingSuggestion.identity ? value : candidate),
+        }));
+        setEditingSuggestion(null);
+        toast.success('활동 후보를 수정했습니다. 저장 전에 다시 확인해 주세요.');
     };
 
     const saveSuggestion = async (documentId: string, candidate: CareerCandidate) => {
@@ -400,13 +444,31 @@ export function SourceLibraryBoard() {
                                                                     <p className="mt-1 text-xs text-zinc-500">{[candidate.organization, candidate.role, timeline].filter(Boolean).join(' · ') || '원문 기반 활동 후보'}</p>
                                                                 </div>
                                                             </div>
-                                                            <div className="mt-3 space-y-1.5 text-sm leading-6 text-zinc-300">
-                                                                {candidate.summary && <p>{candidate.summary}</p>}
-                                                                {candidate.contributionNote && <p><span className="text-xs text-zinc-500">기여 </span>{candidate.contributionNote}</p>}
-                                                                {candidate.action && <p><span className="text-xs text-zinc-500">행동 </span>{candidate.action}</p>}
-                                                                {candidate.result && <p><span className="text-xs text-zinc-500">결과 </span>{candidate.result}</p>}
-                                                                {candidate.learning && <p><span className="text-xs text-zinc-500">배운 점 </span>{candidate.learning}</p>}
-                                                            </div>
+                                                            {editingSuggestion?.documentId === document.id && editingSuggestion.identity === suggestionIdentity(candidate) ? (
+                                                                <div className="mt-3 space-y-3 rounded-lg border border-white/10 bg-background/50 p-3">
+                                                                    <div className="grid gap-3 sm:grid-cols-2">
+                                                                        <label className="text-xs text-zinc-400">활동 제목<input value={editingSuggestion.value.title} onChange={event => updateEditingSuggestion('title', event.target.value)} className="mt-1 w-full rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm text-white outline-none focus:border-primary/60" /></label>
+                                                                        <label className="text-xs text-zinc-400">조직 / 회사<input value={editingSuggestion.value.organization ?? ''} onChange={event => updateEditingSuggestion('organization', event.target.value)} className="mt-1 w-full rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm text-white outline-none focus:border-primary/60" /></label>
+                                                                        <label className="text-xs text-zinc-400">역할<input value={editingSuggestion.value.role ?? ''} onChange={event => updateEditingSuggestion('role', event.target.value)} className="mt-1 w-full rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm text-white outline-none focus:border-primary/60" /></label>
+                                                                    </div>
+                                                                    <label className="block text-xs text-zinc-400">요약<textarea value={editingSuggestion.value.summary ?? ''} onChange={event => updateEditingSuggestion('summary', event.target.value)} rows={2} className="mt-1 w-full resize-y rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
+                                                                    <label className="block text-xs text-zinc-400">내 기여<textarea value={editingSuggestion.value.contributionNote ?? ''} onChange={event => updateEditingSuggestion('contributionNote', event.target.value)} rows={2} className="mt-1 w-full resize-y rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
+                                                                    <div className="grid gap-3 sm:grid-cols-2">
+                                                                        <label className="text-xs text-zinc-400">행동<textarea value={editingSuggestion.value.action ?? ''} onChange={event => updateEditingSuggestion('action', event.target.value)} rows={3} className="mt-1 w-full resize-y rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
+                                                                        <label className="text-xs text-zinc-400">결과<textarea value={editingSuggestion.value.result ?? ''} onChange={event => updateEditingSuggestion('result', event.target.value)} rows={3} className="mt-1 w-full resize-y rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
+                                                                    </div>
+                                                                    <label className="block text-xs text-zinc-400">배운 점<textarea value={editingSuggestion.value.learning ?? ''} onChange={event => updateEditingSuggestion('learning', event.target.value)} rows={2} className="mt-1 w-full resize-y rounded-md border border-white/10 bg-background/70 px-2.5 py-2 text-sm leading-6 text-white outline-none focus:border-primary/60" /></label>
+                                                                    <div className="flex justify-end gap-2"><button type="button" onClick={() => setEditingSuggestion(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5"><X size={13} aria-hidden="true" /> 취소</button><button type="button" onClick={applySuggestionEdit} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"><Save size={13} aria-hidden="true" /> 수정 반영</button></div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="mt-3 space-y-1.5 text-sm leading-6 text-zinc-300">
+                                                                    {candidate.summary && <p>{candidate.summary}</p>}
+                                                                    {candidate.contributionNote && <p><span className="text-xs text-zinc-500">기여 </span>{candidate.contributionNote}</p>}
+                                                                    {candidate.action && <p><span className="text-xs text-zinc-500">행동 </span>{candidate.action}</p>}
+                                                                    {candidate.result && <p><span className="text-xs text-zinc-500">결과 </span>{candidate.result}</p>}
+                                                                    {candidate.learning && <p><span className="text-xs text-zinc-500">배운 점 </span>{candidate.learning}</p>}
+                                                                </div>
+                                                            )}
                                                             {(candidate.metrics.length > 0 || candidate.skills.length > 0 || candidate.competencyTags.length > 0) && (
                                                                 <div className="mt-3 flex flex-wrap gap-1.5">
                                                                     {candidate.metrics.map(metric => <span key={`${suggestionKey}-${metric.label}`} className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">{metric.label}: {metric.value}{metric.unit ? ` ${metric.unit}` : ''}</span>)}
@@ -414,10 +476,11 @@ export function SourceLibraryBoard() {
                                                                     {candidate.competencyTags.map(tag => <span key={`${suggestionKey}-tag-${tag}`} className="rounded-md bg-white/5 px-2 py-1 text-xs text-zinc-500">{tag}</span>)}
                                                                 </div>
                                                             )}
-                                                            <div className="mt-4 flex justify-end gap-2">
+                                                            {!(editingSuggestion?.documentId === document.id && editingSuggestion.identity === suggestionIdentity(candidate)) && <div className="mt-4 flex justify-end gap-2">
+                                                                <button type="button" onClick={() => beginSuggestionEdit(document.id, candidate)} disabled={savingSuggestionKey === suggestionKey} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5 disabled:opacity-50"><Pencil size={13} aria-hidden="true" /> 편집</button>
                                                                 <button type="button" onClick={() => dismissSuggestion(document.id, candidate)} disabled={savingSuggestionKey === suggestionKey} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5 disabled:opacity-50"><X size={13} aria-hidden="true" /> 제외</button>
                                                                 <button type="button" onClick={() => void saveSuggestion(document.id, candidate)} disabled={savingSuggestionKey === suggestionKey} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"><CheckCircle2 size={13} aria-hidden="true" /> {savingSuggestionKey === suggestionKey ? '저장 중…' : '활동으로 저장'}</button>
-                                                            </div>
+                                                            </div>}
                                                         </article>
                                                     );
                                                 })}
