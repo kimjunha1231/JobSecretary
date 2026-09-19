@@ -3,6 +3,7 @@ import {
     sourceDocumentService,
     SourceDocumentServiceError,
 } from '@/entities/source-document/api';
+import { jobTargetService } from '@/entities/job-target/api';
 
 jest.mock('@/shared/api/server', () => ({
     createServerSupabaseClient: jest.fn(),
@@ -35,5 +36,42 @@ describe('source document service boundary', () => {
         await expect(sourceDocumentService.updateStatus('not-a-uuid', { status: 'approved' }))
             .rejects.toBeInstanceOf(SourceDocumentServiceError);
         expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('checks authentication before creating a job target', async () => {
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: {
+                getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+            },
+        });
+
+        await expect(jobTargetService.create({
+            company: '회사',
+            role: '개발자',
+        })).rejects.toMatchObject({ code: 'unauthorized', status: 401 });
+    });
+
+    it('rejects malformed job target IDs before opening a session', async () => {
+        await expect(jobTargetService.get('not-a-uuid')).rejects.toMatchObject({ code: 'invalid_input', status: 400 });
+        expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('keeps the authenticated user filter when reading a job target', async () => {
+        const maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
+        const query = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle,
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: {
+                getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-a' } } }),
+            },
+            from: jest.fn().mockReturnValue(query),
+        });
+
+        await expect(jobTargetService.get('11111111-1111-4111-8111-111111111111'))
+            .rejects.toMatchObject({ code: 'not_found', status: 404 });
+        expect(query.eq).toHaveBeenCalledWith('user_id', 'user-a');
     });
 });
