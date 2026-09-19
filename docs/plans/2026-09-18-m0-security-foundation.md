@@ -46,6 +46,7 @@
 - [x] Supabase RLS migration — `documents`와 `user_profiles` 각각에 소유권 정책 migration과 읽기 전용 정책 점검 SQL을 추가했다. 예기치 않은 기존 정책이 있으면 migration이 중단되며, 운영 DB에는 적용하지 않았다.
 - [x] server data boundary 전환 — 문서 상세 조회와 생성·수정·삭제·보관 mutation을 `/api/documents` 계열 서버 repository 경계로 이전했다. 문서 API 입력 Zod 검증과 server-side 사용자 소유권 필터를 적용했다.
 - [x] 회귀 검증 — redirect/rate limit/AI 입력·인증 회귀 테스트를 추가했고 lint, TypeScript, Jest(현재 14 suites/138 tests), 더미 환경변수 기반 production build를 통과했다.
+- [x] 문서 입력 개인정보 보호 보완 — Sentry의 default PII 전송을 끄고 client Replay에서 텍스트·입력값·미디어를 명시적으로 마스킹/차단했다. 작성 문서가 관측성 데이터에 섞이지 않는 구성을 코드에 고정했으며, harness와 production build를 다시 통과했다.
 
 ## 검증 기록
 

@@ -85,6 +85,7 @@
 - 개인 문서와 `/document/*` 경로는 Supabase 세션을 확인한 뒤 사용자 소유 행만 조회합니다.
 - AI server action은 인증, 입력 크기, 작업별 호출 제한을 모델 요청 전에 검사합니다. 현재 호출 제한 저장소는 단일 Vercel 인스턴스에서 동작하는 임시 기준선이며, 다중 인스턴스 운영 전 Redis/Upstash 기반 limiter로 교체해야 합니다.
 - OAuth callback의 `next`는 같은 origin의 내부 상대 경로만 허용합니다.
+- Sentry는 default PII 전송을 사용하지 않으며, client Replay는 텍스트·입력값·미디어를 마스킹/차단합니다. 개인 문서 원문을 관측성 payload로 보내지 않는 것을 기본값으로 둡니다.
 - 운영 Supabase에 적용하기 전 `supabase/verify/rls-documents.sql`과 `supabase/verify/rls-user-profiles.sql`로 기존 정책을 확인하고 두 M0 migration을 적용하세요. 예기치 않은 기존 정책이 있으면 migration이 의도적으로 중단됩니다.
 
 ### 도메인 기반(M1)
