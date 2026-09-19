@@ -10,7 +10,10 @@ import {
     ExternalLink,
     FileText,
     RefreshCw,
+    Save,
+    X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/shared/ui';
 import type { SourceDocument, SourceFragment } from '@/entities/source-document';
 import {
@@ -45,6 +48,8 @@ export function SourceLibraryBoard() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [editingTextId, setEditingTextId] = useState<string | null>(null);
+    const [manualText, setManualText] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const loadDocuments = async (showSpinner = false) => {
@@ -105,6 +110,55 @@ export function SourceLibraryBoard() {
             setDetails(previous => previous[id] ? { ...previous, [id]: { ...previous[id], document: result } } : previous);
         } catch (approveError) {
             setError(approveError instanceof Error ? approveError.message : '검수 상태를 저장하지 못했습니다.');
+        } finally {
+            setLoadingId(null);
+        }
+    };
+
+    const openManualEditor = async (id: string) => {
+        setEditingTextId(id);
+        const existing = details[id];
+        if (existing) {
+            setManualText(existing.document.rawText ?? existing.fragments.map(fragment => fragment.content).join('\n\n'));
+            return;
+        }
+
+        setLoadingId(id);
+        try {
+            const response = await fetch(`/api/source-documents/${id}`, { cache: 'no-store' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '자료 본문을 불러오지 못했습니다.');
+            const next = result as SourceDetail;
+            setDetails(previous => ({ ...previous, [id]: next }));
+            setManualText(next.document.rawText ?? next.fragments.map(fragment => fragment.content).join('\n\n'));
+        } catch (editorError) {
+            setEditingTextId(null);
+            setError(editorError instanceof Error ? editorError.message : '자료 본문을 불러오지 못했습니다.');
+        } finally {
+            setLoadingId(null);
+        }
+    };
+
+    const saveManualText = async (id: string) => {
+        if (!manualText.trim()) {
+            setError('보정할 텍스트를 입력해 주세요.');
+            return;
+        }
+        setLoadingId(id);
+        try {
+            const response = await fetch(`/api/source-documents/${id}/text`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: manualText }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '자료 본문을 저장하지 못했습니다.');
+            setDocuments(previous => previous.map(document => document.id === id ? result : document));
+            setDetails(previous => previous[id] ? { ...previous, [id]: { ...previous[id], document: result } } : previous);
+            setEditingTextId(null);
+            toast.success('본문을 저장했습니다. 내용을 확인한 뒤 검수 완료를 눌러 주세요.');
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : '자료 본문을 저장하지 못했습니다.');
         } finally {
             setLoadingId(null);
         }
@@ -207,9 +261,16 @@ export function SourceLibraryBoard() {
                                     </div>
 
                                     {document.status === 'manual_input' && (
-                                        <div className="mt-4 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200/80">
-                                            <Clock3 size={14} aria-hidden="true" />
-                                            텍스트를 직접 입력하거나 다시 등록한 뒤 검수해 주세요.
+                                        <div className="mt-4 rounded-lg bg-amber-500/10 px-3 py-3 text-xs text-amber-200/80">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <p className="flex items-center gap-2"><Clock3 size={14} aria-hidden="true" />텍스트를 직접 입력하거나 다시 등록한 뒤 검수해 주세요.</p>
+                                                <button type="button" onClick={() => void openManualEditor(document.id)} disabled={isBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-300/20 px-2.5 py-1.5 font-semibold text-amber-200 transition hover:bg-amber-300/10 disabled:opacity-50">본문 보정</button>
+                                            </div>
+                                            {editingTextId === document.id && <div className="mt-3 border-t border-amber-300/10 pt-3">
+                                                <label className="block text-xs text-amber-100/80" htmlFor={`manual-text-${document.id}`}>추출되지 않은 PDF의 내용을 붙여넣어 주세요.</label>
+                                                <textarea id={`manual-text-${document.id}`} value={manualText} onChange={event => setManualText(event.target.value)} maxLength={500_000} className="mt-2 min-h-48 w-full resize-y rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-primary/60" />
+                                                <div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => setEditingTextId(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/5"><X size={13} aria-hidden="true" /> 취소</button><button type="button" onClick={() => void saveManualText(document.id)} disabled={isBusy || !manualText.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"><Save size={13} aria-hidden="true" /> 저장 후 검수</button></div>
+                                            </div>}
                                         </div>
                                     )}
 

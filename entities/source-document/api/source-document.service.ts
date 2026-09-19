@@ -40,6 +40,9 @@ const sourceDocumentIdSchema = DomainIdSchema;
 const sourceDocumentStatusUpdateSchema = z.object({
     status: z.enum(['needs_review', 'approved', 'archived', 'manual_input']),
 });
+const manualTextUpdateSchema = z.object({
+    text: z.string().trim().min(1, '보정할 텍스트를 입력해 주세요.').max(500_000, '텍스트는 500,000자 이하만 저장할 수 있습니다.'),
+});
 
 export type SourceDocumentRegistrationInput = {
     kind: unknown;
@@ -51,6 +54,8 @@ export type SourceDocumentRegistrationInput = {
     filename?: unknown;
     mimeType?: unknown;
 };
+
+export type ManualTextUpdateInput = z.input<typeof manualTextUpdateSchema>;
 
 export type RegisteredSourceDocument = {
     document: SourceDocument;
@@ -379,6 +384,73 @@ export const sourceDocumentService = {
         if (error) throw error;
         if (!data) {
             throw new SourceDocumentServiceError('not_found', '자료를 찾을 수 없습니다.', 404);
+        }
+
+        return mapSourceDocumentRecord(data as Record<string, unknown>);
+    },
+
+    async updateManualText(id: unknown, input: ManualTextUpdateInput): Promise<SourceDocument> {
+        const parsedId = sourceDocumentIdSchema.safeParse(id);
+        const parsedInput = manualTextUpdateSchema.safeParse(input);
+        if (!parsedId.success || !parsedInput.success) {
+            throw new SourceDocumentServiceError('invalid_input', parsedInput.success ? '자료 ID를 확인해 주세요.' : parsedInput.error.issues[0]?.message ?? '보정할 텍스트를 확인해 주세요.', 400);
+        }
+
+        const supabase = await createServerSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = getUserIdOrThrow(user);
+        const { data: existing, error: existingError } = await supabase
+            .from('source_documents')
+            .select('kind')
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (existingError) throw existingError;
+        if (!existing) throw new SourceDocumentServiceError('not_found', '자료를 찾을 수 없습니다.', 404);
+
+        const extraction = extractTextSource({
+            text: parsedInput.data.text,
+            kind: existing.kind,
+            originType: 'pasted_text',
+            mimeType: 'text/plain',
+        });
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+            .from('source_documents')
+            .update({
+                raw_text: extraction.rawText ?? parsedInput.data.text,
+                content_hash: extraction.contentHash,
+                mime_type: extraction.mimeType,
+                status: 'needs_review',
+                extraction_method: 'manual',
+                extraction_version: extraction.extractionVersion,
+                extraction_warnings: extraction.warnings,
+                approved_at: null,
+                updated_at: now,
+            })
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .select('*')
+            .single();
+        if (error) throw error;
+
+        const { error: deleteFragmentsError } = await supabase
+            .from('source_fragments')
+            .delete()
+            .eq('source_document_id', parsedId.data)
+            .eq('user_id', userId);
+        if (deleteFragmentsError) throw deleteFragmentsError;
+
+        if (extraction.fragments.length > 0) {
+            const { error: fragmentError } = await supabase
+                .from('source_fragments')
+                .insert(extraction.fragments.map(fragment => ({
+                    source_document_id: parsedId.data,
+                    user_id: userId,
+                    locator: fragment.locator,
+                    content: fragment.content,
+                })));
+            if (fragmentError) throw fragmentError;
         }
 
         return mapSourceDocumentRecord(data as Record<string, unknown>);

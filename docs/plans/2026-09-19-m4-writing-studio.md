@@ -69,6 +69,21 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 
 `npm run harness:verify`(19개 스위트/162개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. AI 문장 citation 누락 테스트는 writing studio 단위 테스트에 포함했으며, 다중 문항·문단 병합 입력은 타입 검사와 build에서 API route 생성까지 확인했다.
 
+## M2-c 이미지형 PDF 수동 보정
+
+### 범위와 완료 조건
+
+1. 텍스트 레이어가 없는 PDF가 자동 추출에 실패해도 자료를 버리지 않고 `manual_input` 상태로 보존한다.
+2. 사용자가 자료 상세 화면에서 본문을 붙여넣어 보정하고, 기존 fragment를 새 텍스트 기준으로 교체할 수 있다.
+3. 보정 저장은 승인 상태를 유지하지 않고 `needs_review`로 되돌려 다시 검수하게 한다.
+
+### 실행 결과
+
+- `/api/source-documents/[id]/text` PATCH와 `sourceDocumentService.updateManualText`를 추가했다. 서버가 사용자 소유·입력 크기·문서 종류를 확인하고 본문 hash와 fragment를 다시 만든다.
+- `/career`의 `manual_input` 자료에 `본문 보정` 편집기를 연결했다. 저장 뒤에는 자동으로 검수 필요 상태가 되며, 기존 자료·원본 PDF는 삭제하지 않는다.
+- OCR 공급자 없이 자동 성공으로 표시하지 않고, 텍스트 레이어가 없는 자료는 사용자가 확인 가능한 수동 경로로 전환한다.
+- 검증: 수동 보정 ID·인증 경계 테스트와 기존 source ingestion 테스트, `npm run harness:verify`(23개 스위트/180개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
+
 ## M5-a 말투 프로필과 설명 가능한 품질 요약
 
 ### 범위와 완료 조건

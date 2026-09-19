@@ -38,6 +38,23 @@ describe('source document service boundary', () => {
         expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
     });
 
+    it('rejects malformed manual text updates before touching the database', async () => {
+        await expect(sourceDocumentService.updateManualText('not-a-uuid', { text: '보정 본문' }))
+            .rejects.toMatchObject({ code: 'invalid_input', status: 400 });
+        expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('requires authentication before saving manual text for an image-only source', async () => {
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: {
+                getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+            },
+        });
+
+        await expect(sourceDocumentService.updateManualText('11111111-1111-4111-8111-111111111111', { text: '보정 본문' }))
+            .rejects.toMatchObject({ code: 'unauthorized', status: 401 });
+    });
+
     it('checks authentication before creating a job target', async () => {
         mockedCreateServerSupabaseClient.mockResolvedValue({
             auth: {
