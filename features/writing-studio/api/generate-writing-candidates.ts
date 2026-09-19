@@ -20,7 +20,7 @@ import {
 } from '@/entities/writing-session/api';
 
 const MAX_CONTEXT_CHARS = 48_000;
-const PROMPT_VERSION = 'm4b-v1';
+const PROMPT_VERSION = 'm5a-v1';
 
 const outlineResponseSchema = z.object({
     candidates: z.array(z.object({
@@ -81,6 +81,14 @@ function clip(value: string | undefined, length = 800): string | undefined {
     return value ? value.slice(0, length) : undefined;
 }
 
+export function findBannedExpressions(value: string, bannedExpressions: string[]): string[] {
+    const normalizedValue = value.toLocaleLowerCase('ko-KR');
+    return [...new Set(bannedExpressions
+        .map(expression => expression.trim())
+        .filter(Boolean)
+        .filter(expression => normalizedValue.includes(expression.toLocaleLowerCase('ko-KR'))))];
+}
+
 function buildContext(details: WritingSessionDetails, includeOutline = false): string {
     const requirements = details.requirements.map(requirement => ({
         id: requirement.id,
@@ -121,6 +129,15 @@ function buildContext(details: WritingSessionDetails, includeOutline = false): s
             text: clip(details.question.question, 2_000),
             charLimit: details.question.charLimit ?? 700,
         },
+        style: details.styleProfile ? {
+            name: details.styleProfile.name,
+            sentenceLength: details.styleProfile.sentenceLength,
+            endingStyle: details.styleProfile.endingStyle,
+            preferredConnectors: details.styleProfile.preferredConnectors,
+            bannedExpressions: details.styleProfile.bannedExpressions,
+            exaggerationLevel: details.styleProfile.exaggerationLevel,
+            approvedExamples: details.styleExamples.slice(0, 5).map(example => clip(example.content, 2_000)),
+        } : null,
         ...(includeOutline ? { selectedOutline: details.outlines.find(outline => outline.status === 'selected') ?? null } : {}),
     };
     while (true) {
@@ -169,6 +186,7 @@ function validateOutlineCandidates(
 function validateDraftCandidates(
     value: unknown,
     allowedEvidenceIds: Set<string>,
+    bannedExpressions: string[] = [],
 ): z.infer<typeof draftResponseSchema>['candidates'] {
     const parsed = draftResponseSchema.safeParse(value);
     if (!parsed.success) throw new WritingGenerationError('초안 후보 형식이 올바르지 않습니다.', 502);
@@ -176,6 +194,10 @@ function validateDraftCandidates(
         throw new WritingGenerationError('서로 다른 초안 후보가 필요합니다.', 422);
     }
     for (const candidate of parsed.data.candidates) {
+        const styleViolations = findBannedExpressions(candidate.content, bannedExpressions);
+        if (styleViolations.length > 0) {
+            throw new WritingGenerationError(`금지 표현이 포함된 초안 후보가 있습니다: ${styleViolations.join(', ')}`, 422);
+        }
         if (candidate.evidenceRecordIds.some(id => !allowedEvidenceIds.has(id))) {
             throw new WritingGenerationError('초안 후보가 선택하지 않은 근거를 참조했습니다.', 422);
         }
@@ -207,7 +229,8 @@ const outlineSystemInstruction = `당신은 사용자의 승인된 경험을 자
 2. 한국어 JSON만 반환합니다. JSON 밖의 설명이나 Markdown은 반환하지 않습니다.
 3. 선택된 evidenceRecordId와 requirementId만 사용하며, 원문에 없는 경험·수치·회사를 만들지 않습니다.
 4. 세 후보는 문제 해결, 협업, 성장 또는 다른 전략처럼 서로 다른 중심 주장과 전개를 가져야 합니다.
-5. 모든 후보는 최소 두 단계 이상의 structure와 하나 이상의 근거·요구사항 ID를 포함합니다.`;
+5. style 객체와 approvedExamples는 말투만 참고하고, 예문에 포함된 사실이나 고유명사는 개요 근거로 사용하지 않습니다.
+6. 모든 후보는 최소 두 단계 이상의 structure와 하나 이상의 근거·요구사항 ID를 포함합니다.`;
 
 const draftSystemInstruction = `당신은 사용자가 선택한 개요와 승인된 활동 근거로 자기소개서 초안 후보를 만드는 보조 도구입니다.
 
@@ -218,7 +241,9 @@ const draftSystemInstruction = `당신은 사용자가 선택한 개요와 승�
 4. 초안은 Markdown 헤더 없이 자연스러운 문단으로 작성합니다.
 5. 질문의 글자 수 제한을 넘겨도 내용을 자르지 말고 후보를 반환하되, 서버가 초과 여부를 표시합니다.
 6. 사실·수치·회사·프로젝트처럼 검증이 필요한 문장에는 citations 배열로 해당 문장 번호(0부터), 문장 원문, 근거 ID를 반드시 연결합니다.
-7. 세 초안은 문장과 강조점이 실제로 달라야 합니다.`;
+7. style 객체와 approvedExamples는 사실 근거가 아니라 말투 참고 자료입니다. 예문 속 회사·수치·사건을 복사하거나 새 사실로 사용하지 않습니다.
+8. bannedExpressions는 사용하지 않고, preferredConnectors와 endingStyle은 자연스러울 때만 반영합니다.
+9. 세 초안은 문장과 강조점이 실제로 달라야 합니다.`;
 
 export type WritingGenerationResult = WritingSessionDetails & { warnings: string[] };
 
@@ -257,7 +282,7 @@ export async function generateDraftCandidates(id: unknown): Promise<WritingGener
             config: { systemInstruction: draftSystemInstruction, responseMimeType: 'application/json' },
         });
         if (!response.text?.trim()) throw new WritingGenerationError('AI가 초안 후보를 반환하지 않았습니다.', 502);
-        const candidates = validateDraftCandidates(parseJson(response.text), allowedEvidenceIds);
+        const candidates = validateDraftCandidates(parseJson(response.text), allowedEvidenceIds, context.styleProfile?.bannedExpressions ?? []);
         const charLimit = context.question.charLimit ?? 700;
         const result = await writingSessionService.replaceDrafts(id, candidates.map(candidate => ({
             outlineCandidateId: context.selectedOutline.id,

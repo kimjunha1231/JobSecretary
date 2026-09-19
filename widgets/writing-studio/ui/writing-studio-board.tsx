@@ -34,6 +34,8 @@ type QuestionDetails = { id: string; question: string; charLimit?: number; statu
 type SessionResponse = {
     session: WritingSession;
     target: JobTarget;
+    styleProfile?: { id: string; name: string };
+    styleExamples?: Array<{ id: string; approved: boolean }>;
     questions: QuestionDetails[];
     question: QuestionDetails;
     requirements: JobRequirement[];
@@ -43,6 +45,15 @@ type SessionResponse = {
     drafts: DraftCandidate[];
     revisions: Array<{ id: string; editor: 'user' | 'ai'; createdAt: string; content: string }>;
     factCitations: Array<{ id: string; draftCandidateId: string; sentenceIndex: number; sentenceText: string; evidenceRecordIds: string[]; status: 'verified' | 'unverified' }>;
+    quality?: {
+        evidenceCount: number;
+        selectedEvidenceCount: number;
+        outlineCandidateCount: number;
+        draftCandidateCount: number;
+        revisionCount: number;
+        userRevisionCount: number;
+        factCitationCoverage: number;
+    };
 };
 
 type Step = 'evidence' | 'outline' | 'draft' | 'edit';
@@ -383,6 +394,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                     <div className="mt-5 flex flex-wrap items-center gap-2"><Badge variant={finalized ? 'success' : 'pending'}>{SESSION_STATE_LABELS[details.session.state]}</Badge><span className="text-xs text-zinc-500">{details.target.company} · {details.target.role}</span></div>
                     <h1 className="mt-2 text-2xl font-bold text-white md:text-3xl">작성 작업대</h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{details.question.question}</p>
+                    {(details.styleProfile || details.quality) && <div className="mt-4 flex max-w-4xl flex-wrap items-center gap-2 text-xs text-zinc-500">
+                        {details.styleProfile && <span className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-primary">말투 프로필 · {details.styleProfile.name} · 승인 예문 {(details.styleExamples ?? []).filter(example => example.approved).length}개</span>}
+                        {details.quality && <span className="rounded-lg border border-white/10 bg-surface/50 px-2.5 py-1.5">근거 {details.quality.selectedEvidenceCount}/{details.quality.evidenceCount} · 후보 {details.quality.outlineCandidateCount + details.quality.draftCandidateCount}개 · 내 수정 {details.quality.userRevisionCount}회 · 사실 근거 {(details.quality.factCitationCoverage * 100).toFixed(0)}%</span>}
+                    </div>}
                     {details.questions.length > 1 && <div className="mt-4 flex max-w-3xl gap-2 overflow-x-auto pb-1" role="tablist" aria-label="자기소개서 문항">
                         {details.questions.map((question, index) => <button key={question.id} type="button" role="tab" aria-selected={question.id === details.question.id} onClick={() => void switchQuestion(question.id)} disabled={busy !== null} className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${question.id === details.question.id ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 text-zinc-400 hover:bg-white/5'}`}><span className="mr-1.5 text-[10px] text-zinc-600">{index + 1}</span>{question.question.slice(0, 42)}{question.question.length > 42 ? '…' : ''}</button>)}
                     </div>}

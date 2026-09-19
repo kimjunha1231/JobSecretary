@@ -1,10 +1,10 @@
-# M4 작성 스튜디오 구현 계획
+# 작성 스튜디오·말투 개인화 구현 계획
 
 ## 결과와 범위
 
 승인된 지원 요구사항과 활동 근거를 세션에 연결하고, 사용자가 근거를 선택한 뒤 개요 후보 3개와 초안 후보 3개를 비교·선택·수정·확정할 수 있는 작성 작업대를 추가한다. M4-b에서는 한 세션의 여러 문항, 문단 단위 병합, 문장별 사실 근거 검증을 이어 붙인다.
 
-이번 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학습, 운영 Supabase 적용은 제외한다. AI는 서버에서만 호출하며, 사용자가 선택하지 않은 활동이나 승인되지 않은 요구사항은 생성 context에 넣지 않는다.
+M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학습, 운영 Supabase 적용을 제외한다. AI는 서버에서만 호출하며, 사용자가 선택하지 않은 활동이나 승인되지 않은 요구사항은 생성 context에 넣지 않는다.
 
 ## 현재 근거
 
@@ -68,3 +68,30 @@
 ### M4-b 검증 결과
 
 `npm run harness:verify`(19개 스위트/162개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. AI 문장 citation 누락 테스트는 writing studio 단위 테스트에 포함했으며, 다중 문항·문단 병합 입력은 타입 검사와 build에서 API route 생성까지 확인했다.
+
+## M5-a 말투 프로필과 설명 가능한 품질 요약
+
+### 범위와 완료 조건
+
+1. 사용자가 소유한 말투 프로필과 예문을 저장하고, 예문을 승인/해제/삭제할 수 있다.
+2. 작성 세션 시작 시 프로필을 선택하고, 승인된 예문만 생성 context에 전달한다.
+3. 말투 자료는 사실 근거와 별도 객체로 전달하며, 예문의 회사·수치·사건을 근거로 사용하지 않도록 AI 계약을 명시한다.
+4. 기존 선택·후보·citation·revision 데이터에서 근거 선택률, 후보 수, 사용자 수정 횟수, 사실 근거 커버리지를 설명 가능한 요약으로 계산한다.
+5. 서비스·API·RLS·프롬프트 경계를 단위 테스트와 build로 확인한다.
+
+### 실행 결과
+
+- `supabase/migrations/20260919030000_m5_style_profile_quality.sql`에 `style_profiles`, `style_examples`와 사용자 소유 RLS를 추가했다. 예문 정책은 프로필 소유권까지 확인하며, 운영 Supabase에는 적용하지 않았다.
+- `/style`에서 프로필의 끝맺음·선호 연결어·금칙어·직접 작성 예문을 입력하고 승인 상태를 관리한다. `/writing/new`에서 사용할 프로필을 선택할 수 있고, `/writing/[sessionId]` 헤더에 적용 프로필과 작업 품질 요약을 표시한다.
+- `styleProfileService.getForGeneration`은 승인된 예문만 반환한다. AI context의 `style`은 말투 참고 자료로만 취급하고, 사실·수치·고유명사를 생성 근거로 재사용하지 않도록 개요·초안 system instruction을 고정했다.
+- `buildWritingQualitySummary`는 DB 이벤트를 새로 만들지 않고 현재 세션의 선택 근거, 활성 후보, revision, 사실 citation에서 재현 가능한 지표를 계산한다. 운영용 golden set, A/B 평가, pgvector 검색은 M5 전체 범위에서 후속으로 남겼다.
+
+### 검증
+
+`npm run harness:verify`(20개 스위트/165개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 말투 context/예문 경계·금칙어 검증과 품질 요약 계산 단위 테스트를 추가했다.
+
+### 남은 위험과 다음 단계
+
+- 새 migration은 아직 원격 Supabase에 적용하지 않았다. 적용 전 migration 순서, style_examples의 프로필 소유권 RLS, 기존 세션의 null `style_profile_id`를 `supabase/verify/rls-m5-style-profile.sql`로 읽기 전용 검증해야 한다.
+- 현재 프로필 편집은 API까지 제공하지만 화면은 생성·예문 승인/삭제 중심이다. 다음 M5 단계에서 최종 확정 문장을 `approved_final` 예문으로 승격하는 UX, 질문별 말투 예시, 금칙어 자동 검증과 golden set 평가를 추가한다.
+- 검색 품질이 실제 활동 라이브러리에서 부족하다는 측정 결과가 확인된 뒤에만 pgvector/RAG를 도입한다. 지금은 승인 근거 allowlist와 설명 가능한 지표를 기준선으로 유지한다.

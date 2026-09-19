@@ -33,6 +33,8 @@ import {
     type DraftRevision,
 } from '@/entities/draft-candidate/model';
 import { DomainIdSchema } from '@/shared/types';
+import type { StyleExample, StyleProfile } from '@/entities/style-profile/model';
+import { styleProfileService } from '@/entities/style-profile/api';
 import { z } from 'zod';
 
 const sessionQuestionInputSchema = z.object({
@@ -42,6 +44,7 @@ const sessionQuestionInputSchema = z.object({
 
 const sessionCreateSchema = z.object({
     jobTargetId: DomainIdSchema,
+    styleProfileId: DomainIdSchema.optional(),
     question: z.string().trim().min(1).max(5_000).optional(),
     charLimit: z.coerce.number().int().min(100).max(100_000).default(700),
     questions: z.array(sessionQuestionInputSchema).min(1).max(20).optional(),
@@ -109,6 +112,8 @@ export type EvidenceMatchDetails = {
 export type WritingSessionDetails = {
     session: WritingSession;
     target: JobTarget;
+    styleProfile?: StyleProfile;
+    styleExamples: StyleExample[];
     questions: WritingSessionQuestion[];
     question: WritingSessionQuestion;
     requirements: JobRequirement[];
@@ -118,6 +123,24 @@ export type WritingSessionDetails = {
     drafts: DraftCandidate[];
     revisions: DraftRevision[];
     factCitations: DraftFactCitation[];
+    quality?: WritingQualitySummary;
+};
+
+export type WritingQualitySummary = {
+    evidenceCount: number;
+    selectedEvidenceCount: number;
+    outlineCandidateCount: number;
+    selectedOutline: boolean;
+    draftCandidateCount: number;
+    selectedDraftId?: string;
+    revisionCount: number;
+    userRevisionCount: number;
+    factSentenceCount: number;
+    verifiedFactSentenceCount: number;
+    factCitationCoverage: number;
+    charCount?: number;
+    charLimit: number;
+    overLimit: boolean;
 };
 
 export type WritingGenerationContext = WritingSessionDetails & {
@@ -557,6 +580,7 @@ async function fetchDetails(
         throw new WritingSessionServiceError('storage', '작성 세션 연결 정보가 부족합니다.', 500);
     }
     const { target, requirements } = await fetchTargetAndRequirements(session.jobTargetId);
+    const styleDetails = session.styleProfileId ? await styleProfileService.getForGeneration(session.styleProfileId) : null;
     const questions = session.coverLetterId
         ? await fetchQuestions(supabase, session.coverLetterId, userId)
         : [await fetchQuestion(supabase, session.coverLetterQuestionId, userId)];
@@ -570,7 +594,22 @@ async function fetchDetails(
         fetchRevisions(supabase, userId, session.id, question.id),
         fetchFactCitations(supabase, userId, session.id, question.id),
     ]);
-    return { session, target, questions, question, requirements, evidence, matches, outlines, drafts, revisions, factCitations };
+    const details: Omit<WritingSessionDetails, 'quality'> = {
+        session,
+        target,
+        styleProfile: styleDetails?.profile,
+        styleExamples: styleDetails?.examples ?? [],
+        questions,
+        question,
+        requirements,
+        evidence,
+        matches,
+        outlines,
+        drafts,
+        revisions,
+        factCitations,
+    };
+    return { ...details, quality: buildWritingQualitySummary(details) };
 }
 
 function charLength(value: string): number {
@@ -589,6 +628,40 @@ function splitParagraphs(value: string): string[] {
 
 function isFactLikeSentence(sentence: string): boolean {
     return /(?:\d|%|퍼센트|명|건|회|개월|주|일|원|년|월|회사|프로젝트|서비스|개발|개선|운영|구축|담당|달성|감소|증가|[A-Z]{2,})/u.test(sentence);
+}
+
+export function buildWritingQualitySummary(details: Pick<WritingSessionDetails, 'evidence' | 'matches' | 'outlines' | 'drafts' | 'revisions' | 'factCitations' | 'question'>): WritingQualitySummary {
+    const selectedEvidenceIds = new Set(details.matches
+        .filter(item => ['selected', 'locked'].includes(item.match.selectionState))
+        .map(item => item.match.evidenceRecordId));
+    const activeOutlines = details.outlines.filter(outline => outline.status !== 'stale');
+    const activeDrafts = details.drafts.filter(draft => draft.status !== 'stale');
+    const selectedDraft = activeDrafts.find(draft => draft.status === 'selected');
+    const factSentences = selectedDraft ? splitSentences(selectedDraft.content).filter(isFactLikeSentence) : [];
+    const verifiedFactSentenceIds = new Set(details.factCitations
+        .filter(citation => citation.draftCandidateId === selectedDraft?.id && citation.status === 'verified' && citation.evidenceRecordIds.length > 0)
+        .map(citation => citation.sentenceIndex));
+    const factCitationCoverage = factSentences.length === 0
+        ? (selectedDraft ? 1 : 0)
+        : Math.min(1, verifiedFactSentenceIds.size / factSentences.length);
+    const charCount = selectedDraft?.charCount;
+    const charLimit = details.question.charLimit ?? 700;
+    return {
+        evidenceCount: details.evidence.length,
+        selectedEvidenceCount: selectedEvidenceIds.size,
+        outlineCandidateCount: activeOutlines.length,
+        selectedOutline: activeOutlines.some(outline => outline.status === 'selected'),
+        draftCandidateCount: activeDrafts.length,
+        selectedDraftId: selectedDraft?.id,
+        revisionCount: details.revisions.length,
+        userRevisionCount: details.revisions.filter(revision => revision.editor === 'user').length,
+        factSentenceCount: factSentences.length,
+        verifiedFactSentenceCount: Math.min(factSentences.length, verifiedFactSentenceIds.size),
+        factCitationCoverage,
+        charCount,
+        charLimit,
+        overLimit: typeof charCount === 'number' && charCount > charLimit,
+    };
 }
 
 export type NormalizedDraftCitation = {
@@ -715,6 +788,7 @@ export const writingSessionService = {
         if (!parsed.success) throw new WritingSessionServiceError('invalid_input', '지원 대상과 문항을 확인해 주세요.', 400);
         const { supabase, userId } = await getAuthenticatedClient();
         const { target, requirements } = await fetchTargetAndRequirements(parsed.data.jobTargetId);
+        if (parsed.data.styleProfileId) await styleProfileService.getForGeneration(parsed.data.styleProfileId);
         const questions = parsed.data.questions ?? [{ question: parsed.data.question!, charLimit: parsed.data.charLimit }];
 
         const { data: coverLetterData, error: coverLetterError } = await supabase
@@ -760,6 +834,7 @@ export const writingSessionService = {
             .insert({
                 user_id: userId,
                 job_target_id: target.id,
+                style_profile_id: parsed.data.styleProfileId ?? null,
                 cover_letter_id: coverLetterId,
                 cover_letter_question_id: questionId,
                 state: 'evidence_selecting',

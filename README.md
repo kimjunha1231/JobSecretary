@@ -129,6 +129,13 @@
 - AI 초안은 숫자·날짜·회사·프로젝트 등 사실 문장마다 `evidenceRecordId`를 인용해야 합니다. 편집 화면에서 문장별 활동을 다시 연결할 수 있고, 근거 없는 사실 문장은 최종 확정 전에 차단됩니다.
 - `supabase/migrations/20260919020000_m4b_fact_citation_multi_question.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 M4-a migration 이후 순서와 `supabase/verify/rls-m4-writing-studio.sql`의 `draft_fact_citations` RLS를 확인해야 합니다.
 
+### 말투 프로필·품질 요약(M5-a)
+
+- `/style`에서 사용자의 문장 끝맺음, 선호 연결어, 피하고 싶은 표현과 직접 작성한 예문을 말투 프로필로 저장할 수 있습니다. 예문은 승인된 항목만 다음 생성에 사용됩니다.
+- `/writing/new`에서 말투 프로필을 선택하면 승인 예문은 사실 근거와 분리된 `style` context로만 전달됩니다. system instruction은 예문에 포함된 회사·수치·사건을 새로운 사실로 복사하지 않도록 고정되어 있습니다.
+- `/writing/[sessionId]`는 선택 근거 수, 후보 수, 사용자 수정 횟수, 사실 문장 근거 커버리지를 현재 세션 데이터에서 계산해 보여줍니다.
+- `supabase/migrations/20260919030000_m5_style_profile_quality.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 `supabase/verify/rls-m5-style-profile.sql`로 프로필·예문·세션 FK를 읽기 전용 확인해야 합니다. 최종 확정 문장 승격 UX, golden set 평가, 검색 품질 측정 후 pgvector/RAG 도입은 다음 단계입니다.
+
 <br>
 
 ## 5. 성능 최적화

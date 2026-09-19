@@ -7,11 +7,15 @@ import { ArrowLeft, Loader2, PenLine, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { JobTarget } from '@/entities/job-target';
 
+type StyleProfileOption = { profile: { id: string; name: string; bannedExpressions: string[]; endingStyle: string[] }; examples: Array<{ approved: boolean }> };
+
 export function WritingSessionStart() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const requestedTargetId = searchParams.get('jobTargetId') ?? '';
     const [targets, setTargets] = useState<JobTarget[]>([]);
+    const [styleProfiles, setStyleProfiles] = useState<StyleProfileOption[]>([]);
+    const [styleProfileId, setStyleProfileId] = useState('');
     const [jobTargetId, setJobTargetId] = useState(requestedTargetId);
     const [questions, setQuestions] = useState<Array<{ question: string; charLimit: string }>>([{ question: '', charLimit: '700' }]);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,14 +24,23 @@ export function WritingSessionStart() {
 
     useEffect(() => {
         let active = true;
-        void fetch('/api/job-targets?limit=50', { cache: 'no-store' })
-            .then(async response => {
+        void Promise.all([
+            fetch('/api/job-targets?limit=50', { cache: 'no-store' }).then(async response => {
                 const result = await response.json().catch(() => []);
                 if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '지원 대상 목록을 불러오지 못했습니다.');
+                return Array.isArray(result) ? result as JobTarget[] : [];
+            }),
+            fetch('/api/style-profiles', { cache: 'no-store' }).then(async response => {
+                const result = await response.json().catch(() => []);
+                if (!response.ok) return [];
+                return Array.isArray(result) ? result as StyleProfileOption[] : [];
+            }),
+        ])
+            .then(([nextTargets, nextProfiles]) => {
                 if (!active) return;
-                const nextTargets = Array.isArray(result) ? result as JobTarget[] : [];
                 setTargets(nextTargets);
                 setJobTargetId(current => current || nextTargets[0]?.id || '');
+                setStyleProfiles(nextProfiles);
             })
             .catch(loadError => {
                 if (active) setError(loadError instanceof Error ? loadError.message : '지원 대상 목록을 불러오지 못했습니다.');
@@ -53,6 +66,7 @@ export function WritingSessionStart() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     jobTargetId,
+                    styleProfileId: styleProfileId || undefined,
                     questions: validQuestions.map(item => ({ question: item.question.trim(), charLimit: Number(item.charLimit) })),
                 }),
             });
@@ -95,6 +109,10 @@ export function WritingSessionStart() {
                         </select>
                     )}
                 </label>
+                <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="flex-1 space-y-1.5 text-sm text-zinc-300"><span>말투 프로필 (선택)</span><select value={styleProfileId} onChange={event => setStyleProfileId(event.target.value)} className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60"><option value="">기본 말투로 작성</option>{styleProfiles.map(item => <option key={item.profile.id} value={item.profile.id}>{item.profile.name} · 승인 예문 {item.examples.filter(example => example.approved).length}개</option>)}</select></label>
+                    <Link href="/style" className="shrink-0 text-xs text-primary transition hover:text-white">말투 프로필 관리 →</Link>
+                </div>
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div><span className="text-sm text-zinc-300">자기소개서 문항</span><p className="mt-1 text-xs text-zinc-500">한 세션에서 여러 문항을 만들고 작업대의 탭으로 전환할 수 있습니다.</p></div>

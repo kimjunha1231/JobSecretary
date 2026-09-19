@@ -3,6 +3,7 @@ import { requireAiAccess } from '@/shared/lib/ai-access';
 import {
     generateDraftCandidates,
     generateOutlineCandidates,
+    findBannedExpressions,
     WritingGenerationError,
 } from '@/features/writing-studio/api';
 import { writingSessionService } from '@/entities/writing-session/api';
@@ -59,6 +60,7 @@ function createDetails(): WritingSessionDetails {
     return {
         session,
         target,
+        styleExamples: [],
         question: {
             id: session.coverLetterQuestionId!,
             coverLetterId: '66666666-6666-4666-8666-666666666666',
@@ -162,8 +164,35 @@ afterEach(() => {
 });
 
 describe('writing studio AI candidates', () => {
+    it('detects banned expressions without changing the user text', () => {
+        expect(findBannedExpressions('혁신적인 문제 해결을 했습니다.', ['혁신적인', '열정적으로'])).toEqual(['혁신적인']);
+        expect(findBannedExpressions('문제를 차분하게 해결했습니다.', ['혁신적인'])).toEqual([]);
+    });
+
     it('generates outlines from selected evidence and keeps the prompt boundary', async () => {
         const details = createDetails();
+        details.styleProfile = {
+            id: 'abababab-abab-4aba-8aba-abababababab',
+            userId: target.userId,
+            name: '담백한 회고체',
+            sentenceLength: { average: 42 },
+            endingStyle: ['했습니다'],
+            preferredConnectors: ['먼저'],
+            bannedExpressions: ['혁신적인'],
+            exaggerationLevel: 0.1,
+            rules: {},
+            createdAt: target.createdAt,
+            updatedAt: target.updatedAt,
+        };
+        details.styleExamples = [{
+            id: 'cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd',
+            styleProfileId: details.styleProfile.id,
+            userId: target.userId,
+            source: 'user_authored',
+            content: '먼저 문제를 작게 나누고 하나씩 확인했습니다.',
+            approved: true,
+            createdAt: target.createdAt,
+        }];
         details.outlines = [];
         mockWritingSessionService.getOutlineContext.mockResolvedValue({
             ...details,
@@ -182,7 +211,10 @@ describe('writing studio AI candidates', () => {
         ]));
         const request = mockGenerateContent.mock.calls[0][0];
         expect(request.config.systemInstruction).toContain('불신 데이터');
+        expect(request.config.systemInstruction).toContain('approvedExamples');
         expect(request.contents).toContain('<writing_context_json>');
+        expect(request.contents).toContain('담백한 회고체');
+        expect(request.contents).toContain('먼저 문제를 작게 나누고');
     });
 
     it('rejects an outline that references an unselected evidence record', async () => {
@@ -237,6 +269,37 @@ describe('writing studio AI candidates', () => {
         ] }) });
 
         await expect(generateDraftCandidates(session.id)).rejects.toBeInstanceOf(WritingGenerationError);
+        expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
+    });
+
+    it('rejects a draft candidate that contains a banned expression from the selected style profile', async () => {
+        const details = createDetails();
+        details.styleProfile = {
+            id: 'abababab-abab-4aba-8aba-abababababab',
+            userId: target.userId,
+            name: '담백한 회고체',
+            sentenceLength: {},
+            endingStyle: [],
+            preferredConnectors: [],
+            bannedExpressions: ['혁신적인'],
+            exaggerationLevel: 0,
+            rules: {},
+            createdAt: target.createdAt,
+            updatedAt: target.updatedAt,
+        };
+        mockWritingSessionService.getGenerationContext.mockResolvedValue({
+            ...details,
+            selectedEvidence: [],
+            selectedMatches: details.matches,
+            selectedOutline: details.outlines[0],
+        });
+        mockGenerateContent.mockResolvedValue({ text: JSON.stringify({ candidates: [
+            { content: '혁신적인 문제 해결을 했습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '두 번째 초안입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '세 번째 초안입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+        ] }) });
+
+        await expect(generateDraftCandidates(session.id)).rejects.toThrow('금지 표현');
         expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
     });
 
