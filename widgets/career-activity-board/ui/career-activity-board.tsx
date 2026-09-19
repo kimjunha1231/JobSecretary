@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Download, FolderKanban, RefreshCw } from 'lucide-react';
 import type { EvidenceRecordDetails } from '@/entities/evidence-record';
 import { Badge } from '@/shared/ui';
+import { trackProductEvent } from '@/shared/lib/product-analytics';
 
 const KIND_LABELS: Record<EvidenceRecordDetails['careerItem']['kind'], string> = {
     project: '프로젝트',
@@ -104,10 +105,10 @@ export function CareerActivityBoard() {
                         <div className="flex flex-wrap items-center gap-2">
                             <button type="button" onClick={() => setSelectedIds(activities.map(getRecordId))} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5">전체 선택</button>
                             <button type="button" onClick={() => setSelectedIds([])} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5">선택 해제</button>
-                            <a href={hasSelection ? buildExportHref('portfolio') : undefined} aria-disabled={!hasSelection} className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${hasSelection ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'cursor-not-allowed bg-primary/20 text-primary/50'}`}>
+                            <a href={hasSelection ? buildExportHref('portfolio') : undefined} onClick={() => { if (hasSelection) trackProductEvent({ name: 'career_exported', properties: { format: 'portfolio' } }); }} aria-disabled={!hasSelection} className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${hasSelection ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'cursor-not-allowed bg-primary/20 text-primary/50'}`}>
                                 <Download size={14} aria-hidden="true" /> 포트폴리오 PDF
                             </a>
-                            <a href={hasSelection ? buildExportHref('resume') : undefined} aria-disabled={!hasSelection} className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${hasSelection ? 'border-white/10 text-zinc-300 hover:bg-white/5' : 'cursor-not-allowed border-white/5 text-zinc-600'}`}>
+                            <a href={hasSelection ? buildExportHref('resume') : undefined} onClick={() => { if (hasSelection) trackProductEvent({ name: 'career_exported', properties: { format: 'resume' } }); }} aria-disabled={!hasSelection} className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${hasSelection ? 'border-white/10 text-zinc-300 hover:bg-white/5' : 'cursor-not-allowed border-white/5 text-zinc-600'}`}>
                                 <Download size={14} aria-hidden="true" /> 이력서 PDF
                             </a>
                         </div>

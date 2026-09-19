@@ -413,6 +413,24 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 기능 플래그 단위 테스트, 린트, 타입 검사를 통과했다. 실제 Vercel 환경변수 변경과 운영 트래픽 전환은 사용자 승인 없이는 실행하지 않는다.
 
+## M6-g 개인정보 없는 제품 완료율 측정
+
+### 범위와 완료 조건
+
+1. 작성 시작·근거/개요/초안/편집 단계 완료·최종 확정·PDF 출력·blind 선택을 Vercel Analytics custom event로 측정할 수 있다.
+2. 이벤트 payload에는 원문, 회사명, 직무명, 질문, 세션 ID, 사용자 ID, URL, 오류 메시지를 넣지 않고 집계 가능한 값만 허용한다.
+3. Analytics 전송 실패나 차단은 제품 동작에 영향을 주지 않으며, 기존 Sentry 오류 추적과 분리한다.
+
+### 실행 결과
+
+- `shared/lib/product-analytics.ts`에 이벤트 이름·속성 allowlist를 만들고 클라이언트에서만 호출하도록 했다.
+- `/writing/new`, `/writing/[sessionId]`, `/career`에서 작성 funnel과 PDF 출력·blind 선택을 기록한다. 이벤트는 문서 내용이나 내부 ID를 전달하지 않는다.
+- 이벤트 계층 자체를 단위 테스트해 임의의 text/identifier 제거와 Analytics 예외 무시를 고정했다.
+
+### M6-g 검증 결과
+
+제품 Analytics 단위 테스트, 린트, 타입 검사를 통과했다. 실제 Vercel Analytics 대시보드의 이벤트 수치는 운영 배포와 사용자 트래픽이 필요하므로 아직 측정하지 않았다.
+
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 
 ### 범위와 완료 조건

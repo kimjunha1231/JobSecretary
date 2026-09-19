@@ -29,6 +29,7 @@ import type { DraftCandidate } from '@/entities/draft-candidate';
 import type { EvidenceRecord } from '@/entities/evidence-record';
 import type { CareerItem } from '@/entities/career-item';
 import { Badge } from '@/shared/ui';
+import { trackProductEvent } from '@/shared/lib/product-analytics';
 import { DraftParagraphMixer } from './draft-paragraph-mixer';
 
 type EvidenceDetails = { record: EvidenceRecord; careerItem: CareerItem };
@@ -355,6 +356,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         try {
             const next = await updateDetails(await fetch(`/api/writing-sessions/${sessionId}/outlines/generate`, { method: 'POST' }), '개요 후보를 생성하지 못했습니다.');
             setStep('outline');
+            trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'evidence' } });
             toast.success('서로 다른 개요 후보 3개를 만들었습니다.');
             return next;
         } catch (generateError) {
@@ -373,6 +375,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                 body: JSON.stringify({ status: 'selected' }),
             }), '개요 선택을 저장하지 못했습니다.');
             setStep('outline');
+            trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'outline' } });
             toast.success('개요를 선택했습니다. 이제 초안을 비교할 수 있습니다.');
             return next;
         } catch (selectError) {
@@ -405,6 +408,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                 body: JSON.stringify({ status: 'selected' }),
             }), '초안 선택을 저장하지 못했습니다.');
             setStep('edit');
+            trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'draft' } });
             const selected = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(selected?.content ?? '');
             setCitationSelections(selected);
@@ -467,8 +471,11 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const finalized = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(finalized?.content ?? editedContent);
             setCitationSelections(finalized);
+            trackProductEvent({ name: 'writing_studio_finalized', properties: { question_count: next.questions.length } });
+            trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'edit' } });
             toast.success('자기소개서를 최종 확정했습니다.');
         } catch (finalizeError) {
+            trackProductEvent({ name: 'writing_studio_error', properties: { operation: 'finalize' } });
             setError(finalizeError instanceof Error ? finalizeError.message : '자기소개서를 확정하지 못했습니다.');
         } finally {
             setBusy(null);
@@ -517,8 +524,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
+            trackProductEvent({ name: 'writing_studio_exported', properties: { format: 'self_intro' } });
             toast.success('자기소개서 PDF를 다운로드했습니다.');
         } catch (exportError) {
+            trackProductEvent({ name: 'writing_studio_error', properties: { operation: 'export' } });
             setError(exportError instanceof Error ? exportError.message : '자기소개서 PDF를 만들지 못했습니다.');
         } finally {
             setBusy(null);
@@ -603,8 +612,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const result = await readJson(response);
             if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'blind 비교 선택을 저장하지 못했습니다.');
             setBlindComparison(current => current ? { ...current, selectedSide: result.selectedSide as 'left' | 'right' } : current);
+            trackProductEvent({ name: 'blind_preference_responded', properties: { selected_side: selectedSide } });
             toast.success('선호한 답변을 기록했습니다. 원문은 평가 테이블에 저장하지 않습니다.');
         } catch (submitError) {
+            trackProductEvent({ name: 'writing_studio_error', properties: { operation: 'blind_preference' } });
             setBlindError(submitError instanceof Error ? submitError.message : 'blind 비교 선택을 저장하지 못했습니다.');
         } finally {
             setBusy(null);
