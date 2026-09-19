@@ -8,8 +8,11 @@ export const maxDuration = 60;
 
 export async function GET(request: Request) {
     try {
-        const format = new URL(request.url).searchParams.get('format') === 'resume' ? 'resume' : 'portfolio';
-        const buffer = await pdfExportService.renderCareerProfile(format);
+        const searchParams = new URL(request.url).searchParams;
+        const format = searchParams.get('format') === 'resume' ? 'resume' : 'portfolio';
+        const idsParam = searchParams.get('ids');
+        const evidenceIds = idsParam === null ? undefined : idsParam.split(',').map(id => id.trim()).filter(Boolean);
+        const buffer = await pdfExportService.renderCareerProfile(format, evidenceIds);
         return createPdfDownloadResponse(buffer, `${format === 'resume' ? '경력-이력서' : '활동-포트폴리오'}.pdf`);
     } catch (error) {
         if (error instanceof PdfExportServiceError) return NextResponse.json({ error: error.message }, { status: error.status });

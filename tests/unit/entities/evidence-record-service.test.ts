@@ -109,4 +109,76 @@ describe('evidence record source provenance', () => {
             is_primary: true,
         })]);
     });
+
+    it('preserves the requested order when selecting approved activities for export', async () => {
+        const firstRecordId = '44444444-4444-4444-8444-444444444444';
+        const secondRecordId = '55555555-5555-4555-8555-555555555555';
+        const firstCareerId = '66666666-6666-4666-8666-666666666666';
+        const secondCareerId = '77777777-7777-4777-8777-777777777777';
+        const makeEvidenceRow = (id: string, careerItemId: string, title: string) => ({
+            id,
+            career_item_id: careerItemId,
+            user_id: userId,
+            action: `${title} 행동`,
+            result: `${title} 결과`,
+            metrics: [],
+            skills: [],
+            competency_tags: [],
+            status: 'approved',
+            version: 1,
+            created_at: timestamp,
+            updated_at: timestamp,
+        });
+        const makeCareerRow = (id: string, title: string) => ({
+            id,
+            user_id: userId,
+            kind: 'project',
+            title,
+            organization: null,
+            role: null,
+            started_at: null,
+            ended_at: null,
+            is_current: false,
+            summary: null,
+            contribution_note: null,
+            skills: [],
+            competency_tags: [],
+            status: 'approved',
+            version: 1,
+            created_at: timestamp,
+            updated_at: timestamp,
+        });
+        const evidenceRows = [
+            makeEvidenceRow(firstRecordId, firstCareerId, '첫 활동'),
+            makeEvidenceRow(secondRecordId, secondCareerId, '두 번째 활동'),
+        ];
+        const evidenceQuery: { select: jest.Mock; in: jest.Mock; eq: jest.Mock } = {
+            select: jest.fn(),
+            in: jest.fn(),
+            eq: jest.fn(),
+        };
+        evidenceQuery.select.mockReturnValue(evidenceQuery);
+        evidenceQuery.in.mockReturnValue(evidenceQuery);
+        evidenceQuery.eq.mockImplementation((column: string) => column === 'status'
+            ? Promise.resolve({ data: evidenceRows, error: null })
+            : evidenceQuery);
+        const careerQuery = {
+            select: jest.fn().mockReturnThis(),
+            in: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({
+                data: [makeCareerRow(firstCareerId, '첫 활동'), makeCareerRow(secondCareerId, '두 번째 활동')],
+                error: null,
+            }),
+        };
+        const from = jest.fn((table: string) => table === 'evidence_records' ? evidenceQuery : careerQuery);
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from,
+        });
+
+        const result = await evidenceRecordService.getApprovedByIds([secondRecordId, firstRecordId]);
+
+        expect(result.map(item => item.record.id)).toEqual([secondRecordId, firstRecordId]);
+        expect(evidenceQuery.in).toHaveBeenCalledWith('id', [secondRecordId, firstRecordId]);
+    });
 });

@@ -258,15 +258,21 @@ export const evidenceRecordService = {
         if (!parsedIds.success) {
             throw new EvidenceRecordServiceError('invalid_input', '근거 ID를 확인해 주세요.', 400);
         }
-        if (parsedIds.data.length === 0) return [];
+        const uniqueIds = [...new Set(parsedIds.data)];
+        if (uniqueIds.length === 0) return [];
         const { supabase, userId } = await getAuthenticatedClient();
         const { data, error } = await supabase
             .from('evidence_records')
             .select('*')
-            .in('id', parsedIds.data)
+            .in('id', uniqueIds)
             .eq('user_id', userId)
             .eq('status', 'approved');
         if (error) throw error;
-        return attachCareerItems(supabase, userId, (data ?? []).map(row => mapEvidenceRecord(row as Record<string, unknown>)));
+        const details = await attachCareerItems(supabase, userId, (data ?? []).map(row => mapEvidenceRecord(row as Record<string, unknown>)));
+        const byRecordId = new Map(details.map(item => [item.record.id, item] as const));
+        return uniqueIds.flatMap(id => {
+            const item = byRecordId.get(id);
+            return item ? [item] : [];
+        });
     },
 };

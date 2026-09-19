@@ -3,6 +3,7 @@ import { parseLegacyDocument } from '@/entities/cover-letter/api';
 import { evidenceRecordService, type EvidenceRecordDetails, EvidenceRecordServiceError } from '@/entities/evidence-record/api';
 import { writingSessionService, type WritingSessionDetails } from '@/entities/writing-session/api';
 import { DomainIdSchema } from '@/shared/types';
+import { z } from 'zod';
 import { renderPdfDocument } from './pdf-document';
 import type { PdfExportPayload } from '../model';
 
@@ -134,11 +135,24 @@ export const pdfExportService = {
         return renderPdfDocument(buildLegacyDocumentPdfPayload(document));
     },
 
-    async renderCareerProfile(kind: 'resume' | 'portfolio' = 'portfolio'): Promise<Buffer> {
+    async renderCareerProfile(kind: 'resume' | 'portfolio' = 'portfolio', evidenceIds?: string[]): Promise<Buffer> {
         let items: EvidenceRecordDetails[];
         try {
-            items = await evidenceRecordService.listApproved({ limit: 100 });
+            if (evidenceIds === undefined) {
+                items = await evidenceRecordService.listApproved({ limit: 100 });
+            } else {
+                const parsedIds = z.array(DomainIdSchema).max(100).safeParse(evidenceIds);
+                if (!parsedIds.success || parsedIds.data.length === 0) {
+                    throw new PdfExportServiceError('invalid_input', 'PDF에 넣을 활동을 하나 이상 선택해 주세요.', 400);
+                }
+                const uniqueIds = [...new Set(parsedIds.data)];
+                items = await evidenceRecordService.getApprovedByIds(uniqueIds);
+                if (items.length !== uniqueIds.length) {
+                    throw new PdfExportServiceError('conflict', '선택한 활동을 다시 확인해 주세요.', 409);
+                }
+            }
         } catch (error) {
+            if (error instanceof PdfExportServiceError) throw error;
             if (error instanceof EvidenceRecordServiceError) {
                 throw new PdfExportServiceError(
                     error.code === 'unauthorized' ? 'unauthorized' : error.code === 'invalid_input' ? 'invalid_input' : 'storage',
