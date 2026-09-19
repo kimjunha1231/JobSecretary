@@ -27,6 +27,7 @@ export const StyleExampleSchema = z.object({
     id: DomainIdSchema,
     styleProfileId: DomainIdSchema,
     userId: DomainUserIdSchema,
+    questionId: DomainIdSchema.optional(),
     source: StyleExampleSourceSchema,
     content: z.string().min(1).max(20_000),
     approved: z.boolean().default(false),

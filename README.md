@@ -134,7 +134,13 @@
 - `/style`에서 사용자의 문장 끝맺음, 선호 연결어, 피하고 싶은 표현과 직접 작성한 예문을 말투 프로필로 저장할 수 있습니다. 예문은 승인된 항목만 다음 생성에 사용됩니다.
 - `/writing/new`에서 말투 프로필을 선택하면 승인 예문은 사실 근거와 분리된 `style` context로만 전달됩니다. system instruction은 예문에 포함된 회사·수치·사건을 새로운 사실로 복사하지 않도록 고정되어 있습니다.
 - `/writing/[sessionId]`는 선택 근거 수, 후보 수, 사용자 수정 횟수, 사실 문장 근거 커버리지를 현재 세션 데이터에서 계산해 보여줍니다.
-- `supabase/migrations/20260919030000_m5_style_profile_quality.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 `supabase/verify/rls-m5-style-profile.sql`로 프로필·예문·세션 FK를 읽기 전용 확인해야 합니다. 최종 확정 문장 승격 UX, golden set 평가, 검색 품질 측정 후 pgvector/RAG 도입은 다음 단계입니다.
+- `supabase/migrations/20260919030000_m5_style_profile_quality.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 `supabase/verify/rls-m5-style-profile.sql`로 프로필·예문·세션 FK를 읽기 전용 확인해야 합니다. 최종 확정 문장 승격 UX와 문항별 예문 범위는 M5-b에서 구현했고, golden set 평가·검색 품질 측정 후 pgvector/RAG 도입은 다음 단계입니다.
+
+### 최종 답변 예문 승격·문항별 말투 자료(M5-b)
+
+- 최종 확정된 문항에서만 현재 답변을 `approved_final` 말투 예문으로 저장할 수 있습니다. 본문은 클라이언트 입력이 아니라 서버의 `cover_letter_questions.final_answer`에서 읽습니다.
+- 예문은 전역 자료와 특정 문항 자료로 구분되며, 작성 중인 문항에는 전역 승인 예문과 현재 문항의 승인 예문만 전달됩니다.
+- `supabase/migrations/20260919040000_m5b_question_style_examples.sql`은 운영 DB에 아직 적용하지 않았습니다. 기존 예문은 전역 예문으로 유지되며, 적용 전 M5 RLS 확인 SQL과 함께 migration 순서를 검증해야 합니다.
 
 <br>
 

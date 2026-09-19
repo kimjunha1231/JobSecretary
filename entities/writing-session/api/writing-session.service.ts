@@ -580,12 +580,14 @@ async function fetchDetails(
         throw new WritingSessionServiceError('storage', '작성 세션 연결 정보가 부족합니다.', 500);
     }
     const { target, requirements } = await fetchTargetAndRequirements(session.jobTargetId);
-    const styleDetails = session.styleProfileId ? await styleProfileService.getForGeneration(session.styleProfileId) : null;
     const questions = session.coverLetterId
         ? await fetchQuestions(supabase, session.coverLetterId, userId)
         : [await fetchQuestion(supabase, session.coverLetterQuestionId, userId)];
     const question = questions.find(item => item.id === session.coverLetterQuestionId) ?? questions[0];
     if (!question) throw new WritingSessionServiceError('storage', '작성 문항이 없습니다.', 500);
+    const styleDetails = session.styleProfileId
+        ? await styleProfileService.getForGeneration(session.styleProfileId, { questionId: question.id })
+        : null;
     const [evidence, matches, outlines, drafts, revisions, factCitations] = await Promise.all([
         evidenceRecordService.listApproved({ limit: 100 }),
         fetchMatches(supabase, userId, session.id, question.id, requirements),

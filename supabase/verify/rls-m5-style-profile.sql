@@ -1,5 +1,7 @@
--- Read-only M5 check. Run after the style profile migration in Supabase SQL editor.
--- Examples must be owned by both the authenticated user and that user's profile.
+-- Read-only M5 check. Run after the style profile and question-example migrations
+-- in Supabase SQL editor. Examples must be owned by both the authenticated user
+-- and that user's profile; question-scoped examples must also reference that
+-- user's cover-letter question.
 
 select
     c.relname as table_name,
@@ -46,5 +48,11 @@ join information_schema.constraint_column_usage ccu
  and ccu.table_schema = tc.table_schema
 where tc.constraint_type = 'FOREIGN KEY'
   and tc.table_schema = 'public'
-  and tc.table_name in ('style_profiles', 'style_examples', 'writing_sessions')
+  and tc.table_name in ('style_profiles', 'style_examples', 'writing_sessions', 'cover_letter_questions')
 order by tc.table_name, tc.constraint_name;
+
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'style_examples'
+  and column_name = 'question_id';

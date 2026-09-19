@@ -93,5 +93,37 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 ### 남은 위험과 다음 단계
 
 - 새 migration은 아직 원격 Supabase에 적용하지 않았다. 적용 전 migration 순서, style_examples의 프로필 소유권 RLS, 기존 세션의 null `style_profile_id`를 `supabase/verify/rls-m5-style-profile.sql`로 읽기 전용 검증해야 한다.
-- 현재 프로필 편집은 API까지 제공하지만 화면은 생성·예문 승인/삭제 중심이다. 다음 M5 단계에서 최종 확정 문장을 `approved_final` 예문으로 승격하는 UX, 질문별 말투 예시, 금칙어 자동 검증과 golden set 평가를 추가한다.
+- 최종 확정 문장 승격과 질문별 예문 범위는 M5-b에서 연결했다. 남은 M5 범위는 금칙어 회귀 검증을 포함한 golden set 평가, A/B 비교, 검색 품질 측정이다.
 - 검색 품질이 실제 활동 라이브러리에서 부족하다는 측정 결과가 확인된 뒤에만 pgvector/RAG를 도입한다. 지금은 승인 근거 allowlist와 설명 가능한 지표를 기준선으로 유지한다.
+
+## M5-b 최종 답변 예문 승격과 문항별 말투 자료
+
+### 범위와 완료 조건
+
+1. 최종 확정된 자기소개서 문항만 `approved_final` 말투 예문으로 승격할 수 있다.
+2. 승격 API가 인증 사용자, 확정 문항, 선택된 말투 프로필을 모두 다시 확인하고 임의의 본문을 받지 않는다.
+3. 예문은 전역 자료 또는 특정 문항 자료로 구분되며, 생성 시 현재 문항에 맞는 전역·문항별 승인 예문만 사용한다.
+4. `/writing/[sessionId]`에서 확정 답변을 예문으로 저장하고 `/style`에서 문항별 출처를 확인할 수 있다.
+5. 기존 예문과 세션은 migration 후에도 유지되고, 문항 소유권 RLS를 통과한다.
+
+### 접근
+
+- `style_examples.question_id`를 nullable FK로 추가해 기존 전역 예문과 호환한다.
+- 본문을 클라이언트에서 전달받아 `approved_final`로 표시하지 않고, 서비스가 `cover_letter_questions.final_answer`와 `status = finalized`를 읽어 저장한다.
+- 질문별 조회는 프로필 소유권과 질문 소유권을 모두 확인한 뒤 전역 예문과 현재 문항 예문만 합친다. pgvector나 새 검색 계층은 추가하지 않는다.
+
+### 실행 순서
+
+1. [x] style example 모델·migration·RLS에 `question_id`와 문항 소유권을 추가한다.
+2. [x] 확정 답변 승격 서비스와 API를 추가하고 중복 저장을 방지한다.
+3. [x] 작성 작업대의 승격 버튼과 `/style`의 문항별 표시를 연결한다.
+4. [x] 질문별 prompt context, 소유권·승격·중복 방지 테스트를 추가한다.
+5. [x] harness/build/diff 검증 후 이 계획과 외부 구현 계획을 갱신한다.
+
+### M5-b 실행 결과
+
+- `supabase/migrations/20260919040000_m5b_question_style_examples.sql`에서 기존 예문을 전역(`question_id is null`)으로 유지하면서 문항별 FK·인덱스·문항 소유권 RLS를 추가했다. 운영 Supabase에는 적용하지 않았다.
+- `styleProfileService.promoteFinalAnswer`는 본문을 클라이언트에서 받지 않고 사용자 소유의 `cover_letter_questions.final_answer`와 `status = finalized`를 확인해 `approved_final` 예문으로 저장한다. 같은 프로필·문항·본문을 다시 저장하면 기존 예문을 반환한다.
+- 작성 작업대의 최종 확정 화면에서 선택된 말투 프로필로 답변을 예문에 승격할 수 있고, `/style`에서는 전역/문항별·직접 작성/최종 확정 출처를 구분해 확인할 수 있다.
+- 질문별 세션 조회는 전역 승인 예문과 현재 문항의 승인 예문만 prompt context에 포함한다. 다른 문항의 예문이나 다른 사용자의 자료는 포함하지 않는다.
+- 검증: `npm run harness:verify`(21개 스위트/169개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check` 통과.

@@ -33,9 +33,10 @@ const profileInputSchema = z.object({
 });
 
 const exampleInputSchema = z.object({
-    source: z.enum(['user_authored', 'approved_final']).default('user_authored'),
+    source: z.literal('user_authored').default('user_authored'),
     content: z.string().trim().min(1).max(20_000),
     approved: z.boolean().default(false),
+    questionId: DomainIdSchema.optional(),
 });
 
 export type StyleProfileDetails = {
@@ -117,6 +118,7 @@ function mapExample(record: Record<string, unknown>): StyleExample {
         id: record.id,
         styleProfileId: record.style_profile_id,
         userId: record.user_id,
+        questionId: typeof record.question_id === 'string' ? record.question_id : undefined,
         source: record.source,
         content: record.content,
         approved: Boolean(record.approved),
@@ -129,6 +131,7 @@ async function fetchExamples(
     profileId: string,
     userId: string,
     includeUnapproved = true,
+    questionId?: string,
 ): Promise<StyleExample[]> {
     let query = supabase
         .from('style_examples')
@@ -137,6 +140,7 @@ async function fetchExamples(
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
     if (!includeUnapproved) query = query.eq('approved', true);
+    if (questionId) query = query.or(`question_id.is.null,question_id.eq.${questionId}`);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(row => mapExample(row as Record<string, unknown>));
@@ -165,6 +169,40 @@ function parseProfileInput(input: StyleProfileCreateInput | StyleProfileUpdateIn
     return parsed.data;
 }
 
+async function fetchQuestionOwner(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    questionId: string,
+    userId: string,
+): Promise<void> {
+    const { data, error } = await supabase
+        .from('cover_letter_questions')
+        .select('id')
+        .eq('id', questionId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new StyleProfileServiceError('not_found', '자기소개서 문항을 찾을 수 없습니다.', 404);
+}
+
+async function fetchFinalizedQuestion(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    questionId: string,
+    userId: string,
+): Promise<string> {
+    const { data, error } = await supabase
+        .from('cover_letter_questions')
+        .select('id, final_answer, status')
+        .eq('id', questionId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new StyleProfileServiceError('not_found', '자기소개서 문항을 찾을 수 없습니다.', 404);
+    if (data.status !== 'finalized' || typeof data.final_answer !== 'string' || data.final_answer.trim().length === 0) {
+        throw new StyleProfileServiceError('conflict', '최종 확정된 문항만 말투 예문으로 저장할 수 있습니다.', 409);
+    }
+    return data.final_answer;
+}
+
 export const styleProfileService = {
     async list(): Promise<StyleProfileDetails[]> {
         const { supabase, userId } = await getAuthenticatedClient();
@@ -187,12 +225,14 @@ export const styleProfileService = {
         return { profile, examples: await fetchExamples(supabase, id, userId, !options.approvedOnly) };
     },
 
-    async getForGeneration(idInput: unknown): Promise<StyleProfileDetails | null> {
+    async getForGeneration(idInput: unknown, options: { questionId?: unknown } = {}): Promise<StyleProfileDetails | null> {
         if (!idInput) return null;
         const id = parseId(idInput, '말투 프로필 ID');
         const { supabase, userId } = await getAuthenticatedClient();
         const profile = await fetchProfile(supabase, id, userId);
-        return { profile, examples: await fetchExamples(supabase, id, userId, false) };
+        const questionId = options.questionId ? parseId(options.questionId, '문항 ID') : undefined;
+        if (questionId) await fetchQuestionOwner(supabase, questionId, userId);
+        return { profile, examples: await fetchExamples(supabase, id, userId, false, questionId) };
     },
 
     async create(input: StyleProfileCreateInput): Promise<StyleProfileDetails> {
@@ -248,9 +288,11 @@ export const styleProfileService = {
         if (!parsed.success) throw new StyleProfileServiceError('invalid_input', '말투 예문을 확인해 주세요.', 400);
         const { supabase, userId } = await getAuthenticatedClient();
         await fetchProfile(supabase, profileId, userId);
+        if (parsed.data.questionId) await fetchQuestionOwner(supabase, parsed.data.questionId, userId);
         const { error } = await supabase.from('style_examples').insert({
             style_profile_id: profileId,
             user_id: userId,
+            question_id: parsed.data.questionId ?? null,
             source: parsed.data.source,
             content: parsed.data.content,
             approved: parsed.data.approved,
@@ -277,6 +319,41 @@ export const styleProfileService = {
             .maybeSingle();
         if (error) throw error;
         if (!data) throw new StyleProfileServiceError('not_found', '말투 예문을 찾을 수 없습니다.', 404);
+        return mapExample(data as Record<string, unknown>);
+    },
+
+    async promoteFinalAnswer(profileIdInput: unknown, questionIdInput: unknown): Promise<StyleExample> {
+        const profileId = parseId(profileIdInput, '말투 프로필 ID');
+        const questionId = parseId(questionIdInput, '문항 ID');
+        const { supabase, userId } = await getAuthenticatedClient();
+        await fetchProfile(supabase, profileId, userId);
+        const finalAnswer = await fetchFinalizedQuestion(supabase, questionId, userId);
+        if (Array.from(finalAnswer).length > 20_000) {
+            throw new StyleProfileServiceError('invalid_input', '최종 답변이 말투 예문 최대 길이를 넘었습니다.', 400);
+        }
+        const { data: existing, error: existingError } = await supabase
+            .from('style_examples')
+            .select('*')
+            .eq('style_profile_id', profileId)
+            .eq('question_id', questionId)
+            .eq('source', 'approved_final')
+            .eq('content', finalAnswer)
+            .limit(1);
+        if (existingError) throw existingError;
+        if (existing?.[0]) return mapExample(existing[0] as Record<string, unknown>);
+        const { data, error } = await supabase
+            .from('style_examples')
+            .insert({
+                style_profile_id: profileId,
+                user_id: userId,
+                question_id: questionId,
+                source: 'approved_final',
+                content: finalAnswer,
+                approved: true,
+            })
+            .select('*')
+            .single();
+        if (error) throw error;
         return mapExample(data as Record<string, unknown>);
     },
 
