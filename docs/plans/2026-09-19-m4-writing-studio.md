@@ -84,6 +84,26 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - OCR 공급자 없이 자동 성공으로 표시하지 않고, 텍스트 레이어가 없는 자료는 사용자가 확인 가능한 수동 경로로 전환한다.
 - 검증: 수동 보정 ID·인증 경계 테스트와 기존 source ingestion 테스트, `npm run harness:verify`(23개 스위트/180개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
 
+## M2-d 검수형 활동 후보 추출
+
+### 범위와 완료 조건
+
+1. 승인된 이력서·포트폴리오·기존 자기소개서에서 프로젝트·경력·교육·수상 등의 활동 후보를 서버에서 구조화한다.
+2. 모델이 반환한 원문 fragment ID를 사용자 소유 allowlist와 대조하고, 출처가 없는 후보·중복 후보를 저장하지 않는다.
+3. 후보를 자동 승인하지 않고 사용자가 비교한 뒤 저장 또는 제외를 선택할 수 있다.
+4. 저장된 활동은 원문 `evidence_sources` 인용과 함께 승인된 활동 라이브러리·PDF 출력에서 재사용할 수 있다.
+
+### 실행 결과
+
+- `features/career-extraction`에 Gemini JSON schema·불신 데이터 경계·분당 3회 AI 사용량 제한·fragment allowlist·중복 제거를 추가하고 `/api/source-documents/[id]/suggestions`로 노출했다. 자료가 승인되지 않았거나 보관된 경우에는 호출을 시작하지 않는다.
+- `/career` 자료 카드에 `활동 후보 만들기`와 검수 패널을 추가했다. 신뢰도·요약·기여·행동·결과·성과를 비교한 뒤 `활동으로 저장`을 눌러야만 승인된 `career_items`·`evidence_records`가 생성된다.
+- `evidenceRecordService.createManual`은 후보의 timeline과 사용자 소유 `sourceFragmentIds`를 검증하고, 저장된 근거마다 `evidence_sources` 원문 인용을 연결한다. 출처 연결에 실패하면 새 활동·근거를 정리한 뒤 오류를 반환한다.
+- 후보 parser의 코드펜스·잘못된 JSON·출처 불일치·중복 제거를 단위 테스트로 고정했다. 원격 Supabase/Vercel 설정과 migration은 이 단계에서 변경하지 않았다.
+
+### M2-d 검증 결과
+
+`npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 브라우저 실사용 검증은 인증된 Supabase 환경이 필요해 실행하지 않았다.
+
 ## M5-a 말투 프로필과 설명 가능한 품질 요약
 
 ### 범위와 완료 조건
@@ -139,7 +159,7 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - `supabase/migrations/20260919050000_m5c_style_evaluation.sql`에 사용자 소유 `style_evaluation_cases`·`style_evaluation_runs`와 강제 RLS를 추가했다. 세션·문항·말투 프로필·비교 초안의 소유권을 정책에서 다시 확인하며, 운영 Supabase에는 적용하지 않았다.
 - `/api/writing-sessions/[id]/evaluation-cases`와 `/api/style-evaluation-cases/[id]/runs`를 추가하고, 작성 작업대에서 최종 답변을 골든셋 사례로 저장한 뒤 최종 답변과 초안을 비교할 수 있게 연결했다.
 - `tests/unit/entities/style-evaluation-service.test.ts`에 동일 입력 결정성, citation 누락, 인증·ID 경계 테스트를 추가했다.
-- 검증: `npm run harness:verify`(23개 스위트/176개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
+- 검증: `npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
 
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
@@ -154,7 +174,7 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - `buildCareerProfilePdfPayload`가 승인된 `career_items`·`evidence_records`만 안전한 문단으로 묶고 `/api/career/export?format=portfolio|resume`에서 서버 PDF로 반환한다.
 - `/career`에 승인된 활동 라이브러리와 포트폴리오·이력서 PDF 다운로드 링크를 추가했다. 기존 원본 자료와 검수 흐름은 삭제하거나 덮어쓰지 않는다.
 - 활동 PDF에 승인된 프로젝트의 역할·기여·상황/행동/결과·성과·기술만 표시하고 내부 UUID·AI metadata는 넣지 않는다.
-- 검증: PDF payload 단위 테스트에 승인 경계·내부 ID 비노출·빈 목록 차단을 추가했고 `npm run harness:verify`(23개 스위트/178개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
+- 검증: PDF payload 단위 테스트에 승인 경계·내부 ID 비노출·빈 목록 차단을 추가했고 `npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
 
 ## M6-a 한국어 PDF 출력과 기존 문서 전환
 

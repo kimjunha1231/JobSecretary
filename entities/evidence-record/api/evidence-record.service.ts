@@ -22,6 +22,9 @@ const manualEvidenceSchema = z.object({
     kind: CareerItemKindSchema.default('project'),
     organization: z.string().trim().max(200).optional(),
     role: z.string().trim().max(200).optional(),
+    startedAt: z.string().trim().max(100).optional(),
+    endedAt: z.string().trim().max(100).optional(),
+    isCurrent: z.boolean().default(false),
     summary: z.string().trim().max(10_000).optional(),
     contributionNote: z.string().trim().max(10_000).optional(),
     situation: z.string().trim().max(10_000).optional(),
@@ -32,6 +35,7 @@ const manualEvidenceSchema = z.object({
     metrics: z.array(EvidenceMetricSchema).max(20).default([]),
     skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
     competencyTags: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
+    sourceFragmentIds: z.array(DomainIdSchema).max(20).default([]),
 }).refine(value => [value.summary, value.contributionNote, value.situation, value.problem, value.action, value.result, value.learning]
     .some(item => Boolean(item?.trim())) || value.metrics.length > 0, {
     message: '활동 설명이나 결과 근거를 하나 이상 입력해 주세요.',
@@ -168,12 +172,30 @@ export const evidenceRecordService = {
             throw new EvidenceRecordServiceError('invalid_input', parsed.error.issues[0]?.message ?? '활동 근거를 확인해 주세요.', 400);
         }
         const { supabase, userId } = await getAuthenticatedClient();
+        const sourceFragmentIds = [...new Set(parsed.data.sourceFragmentIds)];
+        const sourceFragments = sourceFragmentIds.length > 0
+            ? await (async () => {
+                const { data, error } = await supabase
+                    .from('source_fragments')
+                    .select('id, content')
+                    .in('id', sourceFragmentIds)
+                    .eq('user_id', userId);
+                if (error) throw error;
+                if ((data ?? []).length !== sourceFragmentIds.length) {
+                    throw new EvidenceRecordServiceError('invalid_input', '출처 fragment를 확인해 주세요.', 400);
+                }
+                return data ?? [];
+            })()
+            : [];
         const careerInsert = {
             user_id: userId,
             kind: parsed.data.kind,
             title: parsed.data.title,
             organization: parsed.data.organization || null,
             role: parsed.data.role || null,
+            started_at: parsed.data.startedAt || null,
+            ended_at: parsed.data.endedAt || null,
+            is_current: parsed.data.isCurrent,
             summary: parsed.data.summary || null,
             contribution_note: parsed.data.contributionNote || null,
             status: 'approved',
@@ -209,6 +231,23 @@ export const evidenceRecordService = {
         if (evidenceError) {
             await supabase.from('career_items').delete().eq('id', careerItem.id).eq('user_id', userId);
             throw evidenceError;
+        }
+
+        if (sourceFragments.length > 0) {
+            const { error: sourceError } = await supabase.from('evidence_sources').insert(sourceFragments.map((fragment, index) => ({
+                evidence_record_id: (evidenceData as Record<string, unknown>).id,
+                source_fragment_id: fragment.id,
+                user_id: userId,
+                claim_type: 'action',
+                quote_excerpt: String(fragment.content).slice(0, 2_000),
+                is_primary: index === 0,
+                metadata: { source: 'career_candidate_review' },
+            })));
+            if (sourceError) {
+                await supabase.from('evidence_records').delete().eq('id', (evidenceData as Record<string, unknown>).id).eq('user_id', userId);
+                await supabase.from('career_items').delete().eq('id', careerItem.id).eq('user_id', userId);
+                throw sourceError;
+            }
         }
 
         return { careerItem, record: mapEvidenceRecord(evidenceData as Record<string, unknown>) };

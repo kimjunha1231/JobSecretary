@@ -11,11 +11,13 @@ import {
     FileText,
     RefreshCw,
     Save,
+    Sparkles,
     X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/shared/ui';
 import type { SourceDocument, SourceFragment } from '@/entities/source-document';
+import type { CareerCandidate } from '@/features/career-extraction';
 import {
     SOURCE_KIND_LABELS,
     SOURCE_ORIGIN_LABELS,
@@ -26,6 +28,16 @@ import {
 type SourceDetail = {
     document: SourceDocument;
     fragments: SourceFragment[];
+};
+
+const CAREER_KIND_LABELS: Record<CareerCandidate['kind'], string> = {
+    project: '프로젝트',
+    work: '경력',
+    education: '교육',
+    award: '수상',
+    leadership: '리더십',
+    community: '커뮤니티',
+    other: '기타',
 };
 
 function statusVariant(status: SourceDocument['status']) {
@@ -41,6 +53,10 @@ function formatDate(value: string): string {
     return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(date);
 }
 
+function suggestionIdentity(candidate: CareerCandidate): string {
+    return `${candidate.kind}:${candidate.title}:${candidate.sourceFragmentIds.join(',')}`;
+}
+
 export function SourceLibraryBoard() {
     const [documents, setDocuments] = useState<SourceDocument[]>([]);
     const [details, setDetails] = useState<Record<string, SourceDetail>>({});
@@ -50,6 +66,9 @@ export function SourceLibraryBoard() {
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [editingTextId, setEditingTextId] = useState<string | null>(null);
     const [manualText, setManualText] = useState('');
+    const [suggestionsByDocument, setSuggestionsByDocument] = useState<Record<string, CareerCandidate[]>>({});
+    const [suggestionLoadingId, setSuggestionLoadingId] = useState<string | null>(null);
+    const [savingSuggestionKey, setSavingSuggestionKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const loadDocuments = async (showSpinner = false) => {
@@ -164,6 +183,75 @@ export function SourceLibraryBoard() {
         }
     };
 
+    const generateSuggestions = async (id: string) => {
+        setSuggestionLoadingId(id);
+        setError(null);
+        try {
+            const response = await fetch(`/api/source-documents/${id}/suggestions`, { method: 'POST' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '활동 후보를 만들지 못했습니다.');
+            const candidates = Array.isArray(result.candidates) ? result.candidates as CareerCandidate[] : [];
+            setSuggestionsByDocument(previous => ({ ...previous, [id]: candidates }));
+            if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+                toast.info(result.warnings[0]);
+            } else {
+                toast.success(candidates.length > 0 ? `${candidates.length}개의 활동 후보를 만들었습니다.` : '검토할 활동 후보가 없습니다.');
+            }
+        } catch (suggestionError) {
+            setError(suggestionError instanceof Error ? suggestionError.message : '활동 후보를 만들지 못했습니다.');
+        } finally {
+            setSuggestionLoadingId(null);
+        }
+    };
+
+    const dismissSuggestion = (documentId: string, candidate: CareerCandidate) => {
+        const identity = suggestionIdentity(candidate);
+        setSuggestionsByDocument(previous => ({
+            ...previous,
+            [documentId]: (previous[documentId] ?? []).filter(item => suggestionIdentity(item) !== identity),
+        }));
+    };
+
+    const saveSuggestion = async (documentId: string, candidate: CareerCandidate) => {
+        const key = `${documentId}-${suggestionIdentity(candidate)}`;
+        setSavingSuggestionKey(key);
+        setError(null);
+        try {
+            const response = await fetch('/api/evidence-records', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: candidate.title,
+                    kind: candidate.kind,
+                    organization: candidate.organization ?? undefined,
+                    role: candidate.role ?? undefined,
+                    startedAt: candidate.startedAt ?? undefined,
+                    endedAt: candidate.endedAt ?? undefined,
+                    isCurrent: candidate.isCurrent,
+                    summary: candidate.summary ?? undefined,
+                    contributionNote: candidate.contributionNote ?? undefined,
+                    situation: candidate.situation ?? undefined,
+                    problem: candidate.problem ?? undefined,
+                    action: candidate.action ?? undefined,
+                    result: candidate.result ?? undefined,
+                    learning: candidate.learning ?? undefined,
+                    metrics: candidate.metrics,
+                    skills: candidate.skills,
+                    competencyTags: candidate.competencyTags,
+                    sourceFragmentIds: candidate.sourceFragmentIds,
+                }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '활동을 저장하지 못했습니다.');
+            dismissSuggestion(documentId, candidate);
+            toast.success('활동 라이브러리에 저장했습니다.');
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : '활동을 저장하지 못했습니다.');
+        } finally {
+            setSavingSuggestionKey(null);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <SourceImportForm onCreated={() => void loadDocuments(true)} />
@@ -207,6 +295,8 @@ export function SourceLibraryBoard() {
                             const detail = details[document.id];
                             const isExpanded = expandedId === document.id;
                             const isBusy = loadingId === document.id;
+                            const suggestions = suggestionsByDocument[document.id] ?? [];
+                            const canSuggest = ['resume', 'portfolio', 'cover_letter'].includes(document.kind) && document.status === 'approved';
                             return (
                                 <article key={document.id} className="rounded-2xl border border-white/10 bg-surface/55 p-4 transition hover:border-white/15 md:p-5">
                                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -248,6 +338,17 @@ export function SourceLibraryBoard() {
                                                     검수 완료
                                                 </button>
                                             )}
+                                            {canSuggest && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void generateSuggestions(document.id)}
+                                                    disabled={isBusy || suggestionLoadingId === document.id}
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-50"
+                                                >
+                                                    <Sparkles size={14} aria-hidden="true" />
+                                                    {suggestionLoadingId === document.id ? '후보 만드는 중…' : '활동 후보 만들기'}
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 aria-expanded={isExpanded}
@@ -271,6 +372,56 @@ export function SourceLibraryBoard() {
                                                 <textarea id={`manual-text-${document.id}`} value={manualText} onChange={event => setManualText(event.target.value)} maxLength={500_000} className="mt-2 min-h-48 w-full resize-y rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-primary/60" />
                                                 <div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => setEditingTextId(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/5"><X size={13} aria-hidden="true" /> 취소</button><button type="button" onClick={() => void saveManualText(document.id)} disabled={isBusy || !manualText.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"><Save size={13} aria-hidden="true" /> 저장 후 검수</button></div>
                                             </div>}
+                                        </div>
+                                    )}
+
+                                    {suggestions.length > 0 && (
+                                        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
+                                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                                <div>
+                                                    <h4 className="text-sm font-semibold text-primary">검수할 활동 후보</h4>
+                                                    <p className="mt-1 text-xs leading-5 text-zinc-400">원문에서 찾은 후보입니다. 저장을 눌러 승인한 항목만 활동 라이브러리에 추가됩니다.</p>
+                                                </div>
+                                                <span className="text-xs text-zinc-500">{suggestions.length}개 대기 중</span>
+                                            </div>
+                                            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                                {suggestions.map(candidate => {
+                                                    const suggestionKey = `${document.id}-${suggestionIdentity(candidate)}`;
+                                                    const timeline = [candidate.startedAt, candidate.endedAt ?? (candidate.isCurrent ? '현재' : undefined)].filter(Boolean).join(' ~ ');
+                                                    return (
+                                                        <article key={suggestionKey} className="rounded-xl border border-white/10 bg-background/40 p-4">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="min-w-0">
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <Badge variant="pending">{CAREER_KIND_LABELS[candidate.kind]}</Badge>
+                                                                        {candidate.confidence != null && <span className="text-xs text-zinc-500">신뢰도 {Math.round(candidate.confidence * 100)}%</span>}
+                                                                    </div>
+                                                                    <h5 className="mt-2 text-sm font-semibold text-white">{candidate.title}</h5>
+                                                                    <p className="mt-1 text-xs text-zinc-500">{[candidate.organization, candidate.role, timeline].filter(Boolean).join(' · ') || '원문 기반 활동 후보'}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-3 space-y-1.5 text-sm leading-6 text-zinc-300">
+                                                                {candidate.summary && <p>{candidate.summary}</p>}
+                                                                {candidate.contributionNote && <p><span className="text-xs text-zinc-500">기여 </span>{candidate.contributionNote}</p>}
+                                                                {candidate.action && <p><span className="text-xs text-zinc-500">행동 </span>{candidate.action}</p>}
+                                                                {candidate.result && <p><span className="text-xs text-zinc-500">결과 </span>{candidate.result}</p>}
+                                                                {candidate.learning && <p><span className="text-xs text-zinc-500">배운 점 </span>{candidate.learning}</p>}
+                                                            </div>
+                                                            {(candidate.metrics.length > 0 || candidate.skills.length > 0 || candidate.competencyTags.length > 0) && (
+                                                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                                                    {candidate.metrics.map(metric => <span key={`${suggestionKey}-${metric.label}`} className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">{metric.label}: {metric.value}{metric.unit ? ` ${metric.unit}` : ''}</span>)}
+                                                                    {candidate.skills.map(skill => <span key={`${suggestionKey}-skill-${skill}`} className="rounded-md bg-white/5 px-2 py-1 text-xs text-zinc-400">{skill}</span>)}
+                                                                    {candidate.competencyTags.map(tag => <span key={`${suggestionKey}-tag-${tag}`} className="rounded-md bg-white/5 px-2 py-1 text-xs text-zinc-500">{tag}</span>)}
+                                                                </div>
+                                                            )}
+                                                            <div className="mt-4 flex justify-end gap-2">
+                                                                <button type="button" onClick={() => dismissSuggestion(document.id, candidate)} disabled={savingSuggestionKey === suggestionKey} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5 disabled:opacity-50"><X size={13} aria-hidden="true" /> 제외</button>
+                                                                <button type="button" onClick={() => void saveSuggestion(document.id, candidate)} disabled={savingSuggestionKey === suggestionKey} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"><CheckCircle2 size={13} aria-hidden="true" /> {savingSuggestionKey === suggestionKey ? '저장 중…' : '활동으로 저장'}</button>
+                                                            </div>
+                                                        </article>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
 
