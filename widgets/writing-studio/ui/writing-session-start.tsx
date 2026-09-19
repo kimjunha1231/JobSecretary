@@ -1,0 +1,114 @@
+'use client';
+
+import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Loader2, PenLine } from 'lucide-react';
+import { toast } from 'sonner';
+import type { JobTarget } from '@/entities/job-target';
+
+export function WritingSessionStart() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const requestedTargetId = searchParams.get('jobTargetId') ?? '';
+    const [targets, setTargets] = useState<JobTarget[]>([]);
+    const [jobTargetId, setJobTargetId] = useState(requestedTargetId);
+    const [question, setQuestion] = useState('');
+    const [charLimit, setCharLimit] = useState('700');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        void fetch('/api/job-targets?limit=50', { cache: 'no-store' })
+            .then(async response => {
+                const result = await response.json().catch(() => []);
+                if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '지원 대상 목록을 불러오지 못했습니다.');
+                if (!active) return;
+                const nextTargets = Array.isArray(result) ? result as JobTarget[] : [];
+                setTargets(nextTargets);
+                setJobTargetId(current => current || nextTargets[0]?.id || '');
+            })
+            .catch(loadError => {
+                if (active) setError(loadError instanceof Error ? loadError.message : '지원 대상 목록을 불러오지 못했습니다.');
+            })
+            .finally(() => {
+                if (active) setIsLoading(false);
+            });
+        return () => { active = false; };
+    }, []);
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!jobTargetId || !question.trim()) {
+            toast.error('지원 대상과 자기소개서 문항을 입력해 주세요.');
+            return;
+        }
+        setIsSubmitting(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/writing-sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobTargetId, question: question.trim(), charLimit: Number(charLimit) }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.session?.id) {
+                throw new Error(typeof result.error === 'string' ? result.error : '작성 세션을 만들지 못했습니다.');
+            }
+            router.push(`/writing/${result.session.id}`);
+        } catch (submitError) {
+            const message = submitError instanceof Error ? submitError.message : '작성 세션을 만들지 못했습니다.';
+            setError(message);
+            toast.error(message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="mx-auto max-w-3xl space-y-6 pb-20">
+            <Link href="/jobs" className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+                <ArrowLeft size={16} aria-hidden="true" /> 지원 대상으로 돌아가기
+            </Link>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/80">Writing studio</p>
+                <h1 className="mt-2 text-3xl font-bold text-white md:text-4xl">근거를 고르고 작성 시작</h1>
+                <p className="mt-3 text-sm leading-6 text-zinc-400 md:text-base">AI가 바로 답을 확정하지 않습니다. 먼저 문항과 글자 수를 정한 뒤 활동 근거, 개요, 초안을 차례로 비교합니다.</p>
+            </div>
+
+            {error && <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-white/10 bg-surface/60 p-5 md:p-7">
+                <label className="block space-y-2 text-sm text-zinc-300">
+                    <span>지원 대상</span>
+                    {isLoading ? (
+                        <span className="flex items-center gap-2 rounded-xl border border-white/10 bg-background px-3 py-3 text-sm text-zinc-500"><Loader2 size={16} className="animate-spin" aria-hidden="true" /> 지원 대상을 불러오는 중입니다…</span>
+                    ) : (
+                        <select value={jobTargetId} onChange={event => setJobTargetId(event.target.value)} className="w-full rounded-xl border border-white/10 bg-background px-3 py-3 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20">
+                            <option value="">지원 대상을 선택해 주세요</option>
+                            {targets.map(target => <option key={target.id} value={target.id}>{target.company} · {target.role}</option>)}
+                        </select>
+                    )}
+                </label>
+                <label className="block space-y-2 text-sm text-zinc-300">
+                    <span>자기소개서 문항</span>
+                    <textarea value={question} onChange={event => setQuestion(event.target.value)} maxLength={5_000} placeholder="예: 지원한 직무를 수행하기 위해 준비해 온 과정을 구체적인 경험과 함께 작성해 주세요." className="min-h-32 w-full resize-y rounded-xl border border-white/10 bg-background px-3 py-3 text-sm leading-6 text-white placeholder:text-zinc-600 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20" />
+                    <span className="block text-right text-xs text-zinc-600">{question.length.toLocaleString()} / 5,000자</span>
+                </label>
+                <label className="block max-w-xs space-y-2 text-sm text-zinc-300">
+                    <span>답변 글자 수 제한</span>
+                    <input type="number" min={100} max={100_000} value={charLimit} onChange={event => setCharLimit(event.target.value)} className="w-full rounded-xl border border-white/10 bg-background px-3 py-3 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20" />
+                </label>
+                <div className="flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs leading-5 text-zinc-500">승인된 요구사항과 활동 근거가 없으면 AI 생성 단계로 넘어갈 수 없습니다.</p>
+                    <button type="submit" disabled={isSubmitting || isLoading || targets.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+                        {isSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <PenLine size={16} aria-hidden="true" />}
+                        {isSubmitting ? '작업대 준비 중…' : '작성 작업대 열기'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
     AlertTriangle,
     BriefcaseBusiness,
@@ -11,6 +12,7 @@ import {
     Link2,
     Loader2,
     Pencil,
+    PenLine,
     Plus,
     RefreshCw,
     Save,
@@ -446,6 +448,10 @@ export function JobTargetBoard() {
                                                 {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <FileSearch size={14} aria-hidden="true" />}
                                                 요구사항 분석
                                             </button>
+                                            <Link href={`/writing/new?jobTargetId=${encodeURIComponent(target.id)}`} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20">
+                                                <PenLine size={14} aria-hidden="true" />
+                                                작성 시작
+                                            </Link>
                                             <button type="button" aria-expanded={expanded} onClick={() => void toggleDetail(target.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5">
                                                 {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
                                                 상세 보기

@@ -7,7 +7,9 @@ export type AiOperation =
     | 'draft'
     | 'refine'
     | 'interview'
-    | 'job_analysis';
+    | 'job_analysis'
+    | 'outline_generation'
+    | 'draft_generation';
 
 export class AiAccessError extends Error {
     public readonly code: 'UNAUTHORIZED' | 'RATE_LIMITED';
@@ -32,6 +34,8 @@ const OPERATION_LIMITS: Record<AiOperation, { limit: number; windowMs: number }>
     refine: { limit: 20, windowMs: 60_000 },
     interview: { limit: 10, windowMs: 60_000 },
     job_analysis: { limit: 5, windowMs: 60_000 },
+    outline_generation: { limit: 5, windowMs: 60_000 },
+    draft_generation: { limit: 5, windowMs: 60_000 },
 };
 
 export async function requireAiAccess(operation: AiOperation) {
