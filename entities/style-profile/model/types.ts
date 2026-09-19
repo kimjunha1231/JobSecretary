@@ -34,3 +34,17 @@ export const StyleExampleSchema = z.object({
     createdAt: DomainTimestampSchema,
 });
 export type StyleExample = z.infer<typeof StyleExampleSchema>;
+
+export const StyleProfileAnalysisSchema = z.object({
+    analyzedExampleCount: z.number().int().min(0).max(10_000),
+    sentenceCount: z.number().int().min(0).max(100_000),
+    sentenceLength: z.object({
+        min: z.number().int().min(1).max(10_000).optional(),
+        max: z.number().int().min(1).max(10_000).optional(),
+        average: z.number().min(0).max(10_000).optional(),
+    }),
+    endingStyle: z.array(z.string().min(1).max(100)).max(20),
+    preferredConnectors: z.array(z.string().min(1).max(100)).max(100),
+    confidence: z.number().min(0).max(1),
+});
+export type StyleProfileAnalysis = z.infer<typeof StyleProfileAnalysisSchema>;

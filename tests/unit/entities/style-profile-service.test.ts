@@ -56,6 +56,41 @@ describe('style profile service boundary', () => {
         await expect(styleProfileService.promoteFinalAnswer(profileId, questionId)).rejects.toMatchObject({ code: 'unauthorized', status: 401 });
     });
 
+    it('analyzes only approved examples after checking profile ownership', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const examplesQuery: { select: jest.Mock; eq: jest.Mock; order: jest.Mock } = {
+            select: jest.fn(),
+            eq: jest.fn(),
+            order: jest.fn(),
+        };
+        examplesQuery.select.mockReturnValue(examplesQuery);
+        examplesQuery.order.mockReturnValue(examplesQuery);
+        examplesQuery.eq.mockImplementation((column: string) => column === 'approved'
+            ? Promise.resolve({ data: [{
+                id: exampleId,
+                style_profile_id: profileId,
+                user_id: userId,
+                source: 'user_authored',
+                content: '먼저 문제를 나누었습니다.',
+                approved: true,
+                created_at: '2026-01-01T00:00:00.000Z',
+            }], error: null })
+            : examplesQuery);
+        const from = jest.fn()
+            .mockReturnValueOnce(profileQuery)
+            .mockReturnValueOnce(examplesQuery);
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from,
+        });
+
+        await expect(styleProfileService.analyze(profileId)).resolves.toMatchObject({
+            analyzedExampleCount: 1,
+            sentenceCount: 1,
+        });
+        expect(examplesQuery.eq).toHaveBeenCalledWith('approved', true);
+    });
+
     it('does not allow the general example endpoint to self-label arbitrary text as a final answer', async () => {
         await expect(styleProfileService.addExample(profileId, {
             source: 'approved_final',

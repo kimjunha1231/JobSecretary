@@ -5,6 +5,7 @@ import {
     type StyleExample,
     type StyleProfile,
 } from '@/entities/style-profile/model';
+import { analyzeStyleExamples } from './style-profile-analysis';
 import { DomainIdSchema } from '@/shared/types';
 import { z } from 'zod';
 
@@ -233,6 +234,14 @@ export const styleProfileService = {
         const questionId = options.questionId ? parseId(options.questionId, '문항 ID') : undefined;
         if (questionId) await fetchQuestionOwner(supabase, questionId, userId);
         return { profile, examples: await fetchExamples(supabase, id, userId, false, questionId) };
+    },
+
+    async analyze(idInput: unknown) {
+        const id = parseId(idInput, '말투 프로필 ID');
+        const { supabase, userId } = await getAuthenticatedClient();
+        await fetchProfile(supabase, id, userId);
+        const examples = await fetchExamples(supabase, id, userId, false);
+        return analyzeStyleExamples(examples);
     },
 
     async create(input: StyleProfileCreateInput): Promise<StyleProfileDetails> {
