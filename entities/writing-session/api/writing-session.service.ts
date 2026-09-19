@@ -373,12 +373,38 @@ async function fetchQuestions(
     return (data ?? []).map(row => mapQuestion(row as Record<string, unknown>));
 }
 
-function tokenize(value: string): Set<string> {
-    return new Set(value
-        .toLowerCase()
-        .split(/[^\p{L}\p{N}]+/u)
-        .map(token => token.trim())
-        .filter(token => token.length >= 2));
+const KOREAN_PARTICLE_SUFFIXES = [
+    '으로부터', '으로', '에서', '에게', '까지', '부터', '처럼', '하고', '하며',
+    '이라', '라는', '이다', '했다', '한다', '한', '은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만',
+];
+
+function normalizeSearchText(value: string): string {
+    return value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+}
+
+function addKoreanVariants(token: string, output: Set<string>): void {
+    if (!/\p{Script=Hangul}/u.test(token)) return;
+
+    const stripped = token.replace(new RegExp(`(?:${KOREAN_PARTICLE_SUFFIXES.join('|')})$`, 'u'), '');
+    if (stripped.length >= 2) output.add(stripped);
+
+    // Korean compounds are frequently written with or without spaces. Bigrams
+    // preserve useful recall without requiring an embedding provider first.
+    if (token.length >= 2) {
+        for (let index = 0; index <= token.length - 2; index += 1) {
+            output.add(token.slice(index, index + 2));
+        }
+    }
+}
+
+export function tokenize(value: string): Set<string> {
+    const tokens = new Set<string>();
+    for (const token of normalizeSearchText(value).split(/[^\p{L}\p{N}]+/u)) {
+        if (token.length < 2) continue;
+        tokens.add(token);
+        addKoreanVariants(token, tokens);
+    }
+    return tokens;
 }
 
 function evidenceSearchText(evidence: EvidenceRecordDetails): string {
@@ -401,12 +427,39 @@ function evidenceSearchText(evidence: EvidenceRecordDetails): string {
     ].filter(Boolean).join(' ');
 }
 
-function scoreEvidence(requirement: JobRequirement, evidence: EvidenceRecordDetails): number {
+export function scoreEvidence(requirement: JobRequirement, evidence: EvidenceRecordDetails): number {
     const requirementTokens = tokenize(requirement.text);
-    const evidenceTokens = tokenize(evidenceSearchText(evidence));
-    if (requirementTokens.size === 0 || evidenceTokens.size === 0) return 0.05;
-    const overlap = [...requirementTokens].filter(token => evidenceTokens.has(token)).length;
-    return Math.min(1, 0.1 + overlap / Math.max(requirementTokens.size, 1));
+    if (requirementTokens.size === 0) return 0.05;
+
+    const { careerItem, record } = evidence;
+    const highPriorityTokens = tokenize([
+        careerItem.title,
+        careerItem.organization,
+        careerItem.role,
+        ...careerItem.skills,
+        ...careerItem.competencyTags,
+        ...record.skills,
+        ...record.competencyTags,
+    ].filter(Boolean).join(' '));
+    const detailTokens = tokenize([
+        careerItem.summary,
+        careerItem.contributionNote,
+        record.situation,
+        record.problem,
+        record.action,
+        record.result,
+        record.learning,
+    ].filter(Boolean).join(' '));
+    if (highPriorityTokens.size === 0 && detailTokens.size === 0) return 0.05;
+
+    const highPriorityOverlap = [...requirementTokens].filter(token => highPriorityTokens.has(token)).length;
+    const detailOverlap = [...requirementTokens].filter(token => detailTokens.has(token)).length;
+    const weightedOverlap = (highPriorityOverlap * 1.5 + detailOverlap * 0.75) / Math.max(requirementTokens.size, 1);
+    const overlapScore = Math.min(1, weightedOverlap);
+    const normalizedRequirement = normalizeSearchText(requirement.text);
+    const normalizedEvidence = normalizeSearchText(evidenceSearchText(evidence));
+    const phraseBoost = normalizedRequirement.length >= 4 && normalizedEvidence.includes(normalizedRequirement) ? 0.15 : 0;
+    return Math.min(1, 0.1 + overlapScore * 0.8 + phraseBoost);
 }
 
 function matchReason(score: number, requirement: JobRequirement): string {

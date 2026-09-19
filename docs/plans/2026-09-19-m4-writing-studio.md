@@ -181,6 +181,25 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 - `tests/unit/entities/style-evaluation-service.test.ts`에 동일 입력 결정성, citation 누락, 인증·ID 경계 테스트를 추가했다.
 - 검증: `npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`, `git diff --check` 통과.
 
+## M5-d 한국어 근거 검색 기준선
+
+### 범위와 판단 기준
+
+1. 공고 요구사항과 승인된 활동을 연결하는 현재 결정론적 검색이 한국어 띄어쓰기·조사·복합어에서도 같은 활동을 놓치지 않도록 정규화한다.
+2. 활동 제목·조직·역할·기술·역량 태그는 서술 본문보다 높은 가중치를 주어 사용자가 검토할 우선순위를 설명 가능하게 만든다.
+3. 검색 결과는 여전히 승인된 활동과 사용자 소유 데이터만 대상으로 하며, 벡터 저장소나 외부 임베딩 호출을 추가하지 않는다.
+4. pgvector/RAG 도입은 실제 사용자 골든셋의 Recall@k·nDCG@k가 이 기준선에 미달하는 측정 결과가 나온 뒤 별도 migration으로 결정한다.
+
+### 실행 결과
+
+- `entities/writing-session/api/writing-session.service.ts`에 NFKC·한국어 소문자·공백 정규화, 조사 접미사 제거, 복합어 문자 bigram 변형을 추가했다. 예를 들어 `검색개선`과 `검색 개선`이 같은 검색 후보로 비교된다.
+- 제목·조직·역할·기술·역량 태그의 겹침에는 높은 가중치를, 상황·행동·결과 서술에는 보조 가중치를 적용하고, 설명 가능한 phrase boost와 검토 가능한 최소 점수를 유지한다.
+- `tests/unit/entities/writing-session-retrieval.test.ts`에서 복합어 recall, 제목/기술 태그 우선순위, 무관 활동의 검토용 점수 바닥값을 결정론적으로 고정했다.
+
+### M5-d 검증 결과
+
+`npm run harness:verify`(26개 스위트/192개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. 이 단계는 검색 기준선만 개선하며, 실제 사용자 blind A/B나 pgvector/RAG 품질 개선을 완료했다고 의미하지 않는다.
+
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
 ### 범위와 완료 조건
