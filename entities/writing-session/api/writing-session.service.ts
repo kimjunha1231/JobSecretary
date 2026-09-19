@@ -462,6 +462,23 @@ export function scoreEvidence(requirement: JobRequirement, evidence: EvidenceRec
     return Math.min(1, 0.1 + overlapScore * 0.8 + phraseBoost);
 }
 
+export type RankedEvidence = {
+    evidence: EvidenceRecordDetails;
+    score: number;
+};
+
+export function rankEvidence(
+    requirement: JobRequirement,
+    evidence: EvidenceRecordDetails[],
+    limit = evidence.length,
+): RankedEvidence[] {
+    const safeLimit = Math.max(0, Math.min(Math.floor(limit), evidence.length));
+    return evidence
+        .map(item => ({ evidence: item, score: scoreEvidence(requirement, item) }))
+        .sort((left, right) => right.score - left.score || left.evidence.record.id.localeCompare(right.evidence.record.id))
+        .slice(0, safeLimit);
+}
+
 function matchReason(score: number, requirement: JobRequirement): string {
     if (score >= 0.6) return `“${requirement.text.slice(0, 60)}”와 직접 연결되는 활동입니다.`;
     if (score >= 0.3) return `“${requirement.text.slice(0, 60)}”에 활용할 수 있는 관련 활동입니다.`;
@@ -501,11 +518,8 @@ async function insertMatches(
         }));
     } else {
         for (const requirement of requirements) {
-            const ranked = [...evidence]
-                .sort((left, right) => scoreEvidence(requirement, right) - scoreEvidence(requirement, left))
-                .slice(0, 3);
-            ranked.forEach(item => {
-                const score = scoreEvidence(requirement, item);
+            const ranked = rankEvidence(requirement, evidence, 3);
+            ranked.forEach(({ evidence: item, score }) => {
                 rows.push({
                     writing_session_id: sessionId,
                     question_id: questionId,

@@ -1,4 +1,4 @@
-import { scoreEvidence, tokenize } from '@/entities/writing-session/api';
+import { evaluateEvidenceRetrieval, rankEvidence, scoreEvidence, tokenize } from '@/entities/writing-session/api';
 import type { EvidenceRecordDetails } from '@/entities/evidence-record/api';
 import type { JobRequirement } from '@/entities/job-target/model';
 
@@ -53,6 +53,13 @@ function makeRequirement(text: string): JobRequirement {
     };
 }
 
+function withIds(evidence: EvidenceRecordDetails, recordId: string, careerItemId: string): EvidenceRecordDetails {
+    return {
+        careerItem: { ...evidence.careerItem, id: careerItemId },
+        record: { ...evidence.record, id: recordId, careerItemId },
+    };
+}
+
 describe('writing evidence retrieval baseline', () => {
     it('keeps Korean compound words searchable with spaced requirements', () => {
         const tokens = tokenize('검색개선 프로젝트');
@@ -73,5 +80,37 @@ describe('writing evidence retrieval baseline', () => {
 
         expect(score).toBeGreaterThanOrEqual(0.1);
         expect(score).toBeLessThan(0.3);
+    });
+
+    it('uses deterministic ranking and reports Recall@k, nDCG@k, and MRR@k', () => {
+        const relevant = withIds(makeEvidence({ title: 'TypeScript 검색 플랫폼', skills: ['TypeScript'] }), '44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555');
+        const distractor = withIds(makeEvidence({ title: '브랜드 캠페인', summary: 'TypeScript라는 단어를 회고에서 한 번 언급했습니다.', skills: [], competencyTags: [] }), '66666666-6666-4666-8666-666666666666', '77777777-7777-4777-8777-777777777777');
+        const requirement = makeRequirement('TypeScript');
+
+        expect(rankEvidence(requirement, [distractor, relevant], 2).map(item => item.evidence.record.id)).toEqual([relevant.record.id, distractor.record.id]);
+        expect(evaluateEvidenceRetrieval([{ requirement, evidence: [distractor, relevant], relevantEvidenceIds: [relevant.record.id] }], { k: 1 })).toMatchObject({
+            caseCount: 1,
+            evaluatedCaseCount: 1,
+            recallAtK: 1,
+            ndcgAtK: 1,
+            mrrAtK: 1,
+        });
+    });
+
+    it('exposes a measurable miss when the relevant activity is outside the top k', () => {
+        const relevant = withIds(makeEvidence({ title: '브랜드 캠페인', summary: '운영 경험을 정리했습니다.', skills: [] }), '88888888-8888-4888-8888-888888888888', '99999999-9999-4999-8999-999999999999');
+        const distractor = withIds(makeEvidence({ title: '운영 플랫폼', skills: ['운영'] }), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+        const result = evaluateEvidenceRetrieval([{ requirement: makeRequirement('운영'), evidence: [relevant, distractor], relevantEvidenceIds: [relevant.record.id] }], { k: 1 });
+
+        expect(result.recallAtK).toBe(0);
+        expect(result.ndcgAtK).toBe(0);
+        expect(result.mrrAtK).toBe(0);
+    });
+
+    it('does not hide empty relevance labels and rejects an invalid k', () => {
+        const result = evaluateEvidenceRetrieval([{ requirement: makeRequirement('검색'), evidence: [makeEvidence()], relevantEvidenceIds: [] }]);
+
+        expect(result).toMatchObject({ caseCount: 1, evaluatedCaseCount: 0, emptyRelevantLabelCount: 1, recallAtK: 0, ndcgAtK: 0, mrrAtK: 0 });
+        expect(() => evaluateEvidenceRetrieval([], { k: 0 })).toThrow('검색 평가의 k는 1에서 100 사이의 정수여야 합니다.');
     });
 });

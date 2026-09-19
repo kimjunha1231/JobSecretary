@@ -200,6 +200,25 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 
 `npm run harness:verify`(26개 스위트/192개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다. 이 단계는 검색 기준선만 개선하며, 실제 사용자 blind A/B나 pgvector/RAG 품질 개선을 완료했다고 의미하지 않는다.
 
+## M5-e 근거 검색 품질 측정 runner
+
+### 범위와 완료 조건
+
+1. 실제 작성 흐름에서 사용하는 동일한 결정론적 ranking으로 Recall@k·nDCG@k·MRR@k를 계산한다.
+2. 골든셋 사례마다 정답 근거 ID를 별도로 지정하고, 답변·활동 원문을 평가 결과에 복제하지 않는다.
+3. 관련 근거가 없는 사례는 전체 평균에 조용히 0점으로 섞지 않고 별도 개수로 표시한다.
+4. 동점 점수의 순서를 evidence ID로 고정해 같은 입력이 항상 같은 결과를 낸다.
+
+### 실행 결과
+
+- `rankEvidence`를 작성 세션의 실제 추천 생성 경로와 평가 runner가 함께 사용하도록 추출했다. 점수 내림차순 뒤 evidence ID 오름차순으로 tie-break하며, 기존 추천 수 제한도 같은 함수로 적용한다.
+- `evaluateEvidenceRetrieval`은 승인 근거 후보와 사용자가 표시한 정답 evidence ID만 받아 `caseCount`, `evaluatedCaseCount`, `emptyRelevantLabelCount`, `recallAtK`, `ndcgAtK`, `mrrAtK`를 반환한다. 원문·프롬프트·답변은 저장하거나 반환하지 않는다.
+- `tests/unit/entities/writing-session-retrieval.test.ts`에 완전 적중, top-k 누락, 빈 relevance label, 잘못된 k 및 결정론적 tie-break 회귀를 추가했다.
+
+### M5-e 검증 결과
+
+runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 데이터가 아직 없어 운영 검색 품질 수치를 주장하지 않는다. pgvector/RAG 도입 여부는 이 runner에 실제 사례를 넣은 뒤 기준선과 비교해 결정한다.
+
 ## M6-b 승인 활동 이력서·포트폴리오 PDF
 
 ### 범위와 완료 조건

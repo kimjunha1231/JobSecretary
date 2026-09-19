@@ -164,6 +164,12 @@
 - 외부 임베딩이나 pgvector는 아직 추가하지 않았습니다. 실제 골든셋에서 Recall@k·nDCG@k가 기준선에 미달하는 경우에만 사용자 격리·비용·지연시간을 포함한 별도 migration으로 도입합니다.
 - `npm run harness:verify`(26 suites/192 tests)와 더미 production build를 통과했습니다.
 
+### 근거 검색 품질 측정(M5-e)
+
+- 작성 작업대가 사용하는 동일한 ranking을 `evaluateEvidenceRetrieval` runner가 재사용해 Recall@k·nDCG@k·MRR@k를 계산합니다. 동점은 evidence ID로 정렬해 실행마다 결과가 바뀌지 않습니다.
+- 골든셋에는 정답 evidence ID만 넣고 원문·답변은 평가 결과에 복제하지 않습니다. 관련 근거가 표시되지 않은 사례는 `emptyRelevantLabelCount`로 따로 확인합니다.
+- 실제 사용자 사례 측정 전에는 pgvector/RAG를 추가하지 않습니다. 기준선 수치와 비교해 검색 실패가 확인될 때만 별도 migration과 hybrid retrieval을 검토합니다.
+
 ### 서버 PDF 출력·기존 문서 전환(M6-a)
 
 - 최종 확정된 작성 세션은 `/api/writing-sessions/[id]/export`에서 모든 문항의 확정 상태를 다시 확인한 뒤 A4 PDF로 내려받을 수 있습니다. 미확정 문항이 하나라도 있으면 409로 차단합니다.
