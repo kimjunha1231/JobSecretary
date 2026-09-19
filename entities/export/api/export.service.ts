@@ -147,7 +147,7 @@ export const pdfExportService = {
                 }
                 const uniqueIds = [...new Set(parsedIds.data)];
                 items = await evidenceRecordService.getApprovedByIds(uniqueIds);
-                if (items.length !== uniqueIds.length) {
+                if (items.length !== uniqueIds.length || items.some(item => item.record.status !== 'approved' || item.careerItem.status !== 'approved')) {
                     throw new PdfExportServiceError('conflict', '선택한 활동을 다시 확인해 주세요.', 409);
                 }
             }
