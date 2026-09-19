@@ -78,9 +78,9 @@ type ExtractedInput = {
 
 export class SourceDocumentServiceError extends Error {
     constructor(
-        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'extraction' | 'fetch' | 'storage',
+        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'conflict' | 'extraction' | 'fetch' | 'storage',
         message: string,
-        public readonly status: 400 | 401 | 404 | 413 | 422 | 500 | 502 | 504 = 500,
+        public readonly status: 400 | 401 | 404 | 409 | 413 | 422 | 500 | 502 | 504 = 500,
     ) {
         super(message);
         this.name = 'SourceDocumentServiceError';
@@ -382,6 +382,46 @@ export const sourceDocumentService = {
         };
     },
 
+    async getOriginalBytes(id: unknown): Promise<{ document: SourceDocument; bytes: Uint8Array }> {
+        const parsedId = sourceDocumentIdSchema.safeParse(id);
+        if (!parsedId.success) {
+            throw new SourceDocumentServiceError('invalid_input', '자료 ID를 확인해 주세요.', 400);
+        }
+
+        const supabase = await createServerSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = getUserIdOrThrow(user);
+        const { data, error } = await supabase
+            .from('source_documents')
+            .select('*')
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new SourceDocumentServiceError('not_found', '자료를 찾을 수 없습니다.', 404);
+
+        const document = mapSourceDocumentRecord(data as Record<string, unknown>);
+        if (!document.storagePath) {
+            throw new SourceDocumentServiceError('not_found', '보관된 원본 파일이 없습니다.', 404);
+        }
+
+        const storage = getSourceStorageApi(supabase);
+        if (!storage) {
+            throw new SourceDocumentServiceError('storage', '원본 파일 저장소가 설정되지 않았습니다.', 500);
+        }
+        const { data: original, error: downloadError } = await storage.download(document.storagePath);
+        if (downloadError || !original) {
+            throw new SourceDocumentServiceError('storage', '원본 파일을 읽지 못했습니다.', 500);
+        }
+
+        try {
+            const arrayBuffer = await original.arrayBuffer();
+            return { document, bytes: new Uint8Array(arrayBuffer) };
+        } catch {
+            throw new SourceDocumentServiceError('storage', '원본 파일을 읽지 못했습니다.', 500);
+        }
+    },
+
     async createOriginalDownloadUrl(id: unknown): Promise<string> {
         const parsedId = sourceDocumentIdSchema.safeParse(id);
         if (!parsedId.success) {
@@ -565,6 +605,81 @@ export const sourceDocumentService = {
                 extraction_method: 'manual',
                 extraction_version: extraction.extractionVersion,
                 extraction_warnings: extraction.warnings,
+                approved_at: null,
+                updated_at: now,
+            })
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .select('*')
+            .single();
+        if (error) throw error;
+
+        const { error: deleteFragmentsError } = await supabase
+            .from('source_fragments')
+            .delete()
+            .eq('source_document_id', parsedId.data)
+            .eq('user_id', userId);
+        if (deleteFragmentsError) throw deleteFragmentsError;
+
+        if (extraction.fragments.length > 0) {
+            const { error: fragmentError } = await supabase
+                .from('source_fragments')
+                .insert(extraction.fragments.map(fragment => ({
+                    source_document_id: parsedId.data,
+                    user_id: userId,
+                    locator: fragment.locator,
+                    content: fragment.content,
+                })));
+            if (fragmentError) throw fragmentError;
+        }
+
+        return mapSourceDocumentRecord(data as Record<string, unknown>);
+    },
+
+    async updateOcrText(id: unknown, input: ManualTextUpdateInput): Promise<SourceDocument> {
+        const parsedId = sourceDocumentIdSchema.safeParse(id);
+        const parsedInput = manualTextUpdateSchema.safeParse(input);
+        if (!parsedId.success || !parsedInput.success) {
+            throw new SourceDocumentServiceError('invalid_input', parsedInput.success ? '자료 ID를 확인해 주세요.' : parsedInput.error.issues[0]?.message ?? 'OCR 텍스트를 확인해 주세요.', 400);
+        }
+
+        const supabase = await createServerSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = getUserIdOrThrow(user);
+        const { data: existing, error: existingError } = await supabase
+            .from('source_documents')
+            .select('*')
+            .eq('id', parsedId.data)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (existingError) throw existingError;
+        if (!existing) throw new SourceDocumentServiceError('not_found', '자료를 찾을 수 없습니다.', 404);
+        if (existing.status !== 'manual_input') {
+            throw new SourceDocumentServiceError('conflict', '검수 대기 자료만 OCR 결과로 덮어쓸 수 있습니다.', 409);
+        }
+
+        const extraction = extractTextSource({
+            text: parsedInput.data.text,
+            kind: existing.kind,
+            originType: 'pasted_text',
+            mimeType: 'text/plain',
+        });
+        const now = new Date().toISOString();
+        const warnings = [
+            ...extraction.warnings,
+            'AI OCR 결과입니다. 원본과 대조한 뒤 검수 완료를 눌러 주세요.',
+        ].slice(0, 20);
+        const { data, error } = await supabase
+            .from('source_documents')
+            .update({
+                raw_text: extraction.rawText ?? parsedInput.data.text,
+                // Keep the hash and MIME type of the original PDF so the source identity remains tied to the upload.
+                content_hash: existing.content_hash,
+                mime_type: existing.mime_type,
+                status: 'needs_review',
+                extraction_method: 'ocr',
+                extraction_version: 'm2-gemini-ocr-v1',
+                extraction_warnings: warnings,
                 approved_at: null,
                 updated_at: now,
             })

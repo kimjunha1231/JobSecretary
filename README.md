@@ -96,9 +96,10 @@
 ### 자료 가져오기(M2)
 
 - `/career`에서 이력서·포트폴리오·기존 자기소개서를 PDF, DOCX, TXT/Markdown 파일 또는 붙여넣은 텍스트로 등록할 수 있습니다.
-- 텍스트 레이어가 없는 PDF는 `manual_input`으로 보존되며, `/career` 자료 카드의 `본문 보정`에서 확인한 텍스트를 저장한 뒤 다시 검수할 수 있습니다. 수동 보정 저장은 승인 상태를 자동으로 유지하지 않습니다.
+- 텍스트 레이어가 없는 PDF는 `manual_input`으로 보존되며, `/career` 자료 카드에서 직접 본문을 보정하거나 원본 PDF를 명시적으로 Gemini OCR에 보낼 수 있습니다. 어느 경로든 결과는 `needs_review`로 돌아가며 사용자가 원본과 대조한 뒤 승인해야 합니다.
 - 서버 Node runtime에서 본문을 추출하고 SHA-256 해시와 페이지/문단 fragment를 저장합니다. 추출 결과는 `needs_review`로 보류되며 사용자가 검수 완료한 자료만 다음 AI 작성 단계에서 사용하도록 설계했습니다.
-- 원본 바이너리는 비공개 `source-documents` Storage bucket에 사용자별 경로로 보관하고, 5분짜리 서명 링크로만 열 수 있게 연결했습니다. OCR은 아직 수동 보정 경로로 남아 있습니다. 활동 후보 추출은 자료를 승인한 뒤 사용자가 직접 검수·저장하는 방식으로 연결했고, A4 PDF는 M6에서 구현했습니다.
+- 원본 바이너리는 비공개 `source-documents` Storage bucket에 사용자별 경로로 보관하고, 5분짜리 서명 링크로만 열 수 있게 연결했습니다. 활동 후보 추출은 자료를 승인한 뒤 사용자가 직접 검수·저장하는 방식으로 연결했고, A4 PDF는 M6에서 구현했습니다.
+- 스캔 PDF의 선택형 OCR은 `POST /api/source-documents/[id]/ocr`에서만 실행되며 사용자별 `source_ocr` 분당 2회 제한을 적용합니다. 원본 PDF는 호출 순간에만 Gemini로 전송되고, OCR 결과는 자동 승인·자동 활동 생성에 사용되지 않습니다. `SOURCE_OCR_PROVIDER=disabled`로 수동 보정만 유지할 수 있습니다.
 - `supabase/migrations/20260919060000_m2_source_storage.sql`은 bucket과 Storage RLS를 추가합니다. 운영 적용 전 `supabase/verify/rls-m2-source-storage.sql`과 기존 `supabase/verify/rls-m2-source-ingestion.sql`을 읽기 전용으로 확인하세요. 이 작업에서는 원격 Supabase/Vercel에 migration을 적용하지 않았습니다.
 
 ### 검수형 활동 후보 추출(M2-d)
@@ -202,6 +203,12 @@
 - `/career`에서 승인된 활동을 checkbox로 고르고, 위/아래 버튼으로 이력서·포트폴리오에 들어갈 순서를 정할 수 있습니다. 선택 상태는 다운로드 URL의 `ids`에 담겨 새로고침·공유한 링크에서도 같은 출력 대상을 가리킵니다.
 - 서버는 선택한 evidence ID를 현재 사용자 소유·승인 상태로 다시 조회하고 요청 순서를 복원합니다. 하나라도 누락되거나 변조되면 부분 PDF를 만들지 않고 409를 반환합니다.
 - `ids`가 없는 기존 다운로드 링크는 모든 승인 활동을 출력하는 호환 경로로 유지합니다.
+
+### 선택형 스캔 PDF OCR 보정(M6-d)
+
+- 텍스트 레이어가 없는 PDF 카드에서 `AI OCR 실행`을 눌렀을 때만 원본 PDF를 Gemini에 전송합니다. OCR 결과는 원본 PDF의 hash·저장 경로를 유지한 채 `ocr` 추출 방식과 새 fragment로 저장합니다.
+- 결과는 항상 `needs_review`에 머물며, 원본과 대조하기 전에는 자기소개서 근거·활동 후보 추출에 사용할 수 없습니다. 이미 검수 중이거나 승인된 자료를 OCR 결과로 덮어쓰는 요청은 서버에서 409로 거부합니다.
+- Gemini가 비활성화됐거나 결과가 비어 있으면 수동 본문 보정으로 복구할 수 있습니다. OCR 호출·원본 다운로드·결과 저장은 모두 사용자 소유권과 서버 인증 경계를 통과합니다.
 
 <br>
 

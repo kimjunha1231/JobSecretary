@@ -305,7 +305,7 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 
 - 서버 Node runtime의 `@react-pdf/renderer`를 사용하고, 저장된 최종 답변을 서버에서 다시 확인한 뒤 PDF를 생성한다.
 - 새 작성 세션은 모든 문항이 `finalized`인 경우에만 제출용 자기소개서 PDF를 허용한다. 기존 문서는 사용자 소유권을 확인한 뒤 legacy adapter를 통해 같은 템플릿으로 렌더링한다.
-- OCR은 공급자 없이 자동 성공으로 가장하지 않는다. 스캔 PDF는 `manual_input` 경고로 남기고 사용자가 보정한 텍스트만 경력 근거로 승인한다.
+- 스캔 PDF OCR은 M6-d의 선택형 경로로 분리한다. 이 단계에서는 OCR 성공을 자동 승인으로 가장하지 않고, 수동 보정 또는 명시적 OCR 실행 뒤 항상 `needs_review`로 되돌린다.
 
 ### 실행 순서
 
@@ -320,6 +320,25 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 - 작성 세션 PDF는 모든 문항이 `finalized`이고 답변이 비어 있지 않을 때만 생성한다. 기존 문서는 `parseLegacyDocument` adapter로 문항을 복원해 같은 템플릿으로 출력한다.
 - 기존 클라이언트 `@react-pdf/renderer` 동적 로딩과 외부 CDN 글꼴 의존성을 제거하고, 브라우저는 서버 PDF 응답만 다운로드한다.
 - 검증: `npm run harness:verify`(22개 스위트/172개 테스트), 더미 환경변수 `npm run build`(exit 0), PDF 샘플 2페이지의 텍스트·PNG visual QA, `git diff --check` 통과.
+
+## M6-d 선택형 스캔 PDF OCR fallback
+
+### 범위와 완료 조건
+
+1. 텍스트 레이어가 없는 PDF를 사용자가 직접 요청했을 때만 OCR adapter로 보낸다.
+2. 원본 PDF의 사용자 소유권과 10MB 제한을 서버에서 확인하고, OCR 결과는 기존 원본 hash·저장 경로와 연결한다.
+3. OCR 결과는 자동 승인·자동 활동 생성에 사용하지 않고 `needs_review`와 경고를 유지한다.
+4. Gemini가 비활성화되거나 빈 결과를 반환하면 수동 본문 보정으로 복구하며, 승인·검수 완료 자료를 OCR로 덮어쓰지 않는다.
+
+### 실행 결과
+
+- `features/source-ocr`에 선택형 Gemini PDF adapter를 추가했다. 요청 전 `source_ocr` 사용자별 분당 2회 제한을 적용하고, 문서 안의 지시문은 불신 데이터로 처리하도록 system instruction을 고정했다.
+- `sourceDocumentService.getOriginalBytes`는 사용자 소유 행과 private Storage 경로를 함께 확인해 원본 바이트를 읽는다. `updateOcrText`는 `manual_input` 자료만 허용하고 기존 PDF `content_hash`·`mime_type`·Storage 경로를 보존한 채 `ocr` fragment를 재생성한다.
+- `/api/source-documents/[id]/ocr`와 `/career` 카드의 `AI OCR 실행` 버튼을 연결했다. 사용자는 원본 PDF가 Gemini로 전송된다는 사실을 확인할 수 있고, 결과를 본문에서 대조한 뒤에만 검수 완료할 수 있다. `SOURCE_OCR_PROVIDER=disabled` 설정은 수동 보정만 허용한다.
+
+### M6-d 검증 결과
+
+`tests/unit/features/source-ocr.test.ts`, `tests/unit/entities/source-document-service.test.ts`, `tests/unit/api/source-document-ocr-route.test.ts`에서 PDF inline data 전송, 빈 결과 fail-closed, 소유권·Storage 다운로드, 승인 상태 덮어쓰기 방지와 상태 코드를 검증한다. 전체 harness/build/diff 검증과 외부 구현 계획 갱신은 커밋 후 기록한다.
 
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 

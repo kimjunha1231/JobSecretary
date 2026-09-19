@@ -66,6 +66,7 @@ export function SourceLibraryBoard() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [ocrLoadingId, setOcrLoadingId] = useState<string | null>(null);
     const [editingTextId, setEditingTextId] = useState<string | null>(null);
     const [manualText, setManualText] = useState('');
     const [suggestionsByDocument, setSuggestionsByDocument] = useState<Record<string, CareerCandidate[]>>({});
@@ -183,6 +184,24 @@ export function SourceLibraryBoard() {
             setError(saveError instanceof Error ? saveError.message : '자료 본문을 저장하지 못했습니다.');
         } finally {
             setLoadingId(null);
+        }
+    };
+
+    const runOcr = async (id: string) => {
+        setOcrLoadingId(id);
+        setError(null);
+        try {
+            const response = await fetch(`/api/source-documents/${id}/ocr`, { method: 'POST' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'PDF OCR에 실패했습니다.');
+            const document = result.document as SourceDocument;
+            setDocuments(previous => previous.map(item => item.id === id ? document : item));
+            setDetails(previous => previous[id] ? { ...previous, [id]: { ...previous[id], document } } : previous);
+            toast.success('AI OCR 결과를 저장했습니다. 본문을 확인하고 검수 완료를 눌러 주세요.');
+        } catch (ocrError) {
+            setError(ocrError instanceof Error ? ocrError.message : 'PDF OCR에 실패했습니다.');
+        } finally {
+            setOcrLoadingId(null);
         }
     };
 
@@ -339,9 +358,10 @@ export function SourceLibraryBoard() {
                         {documents.map(document => {
                             const detail = details[document.id];
                             const isExpanded = expandedId === document.id;
-                            const isBusy = loadingId === document.id;
+                            const isBusy = loadingId === document.id || ocrLoadingId === document.id;
                             const suggestions = suggestionsByDocument[document.id] ?? [];
                             const canSuggest = ['resume', 'portfolio', 'cover_letter'].includes(document.kind) && document.status === 'approved';
+                            const canRunOcr = document.status === 'manual_input' && document.mimeType === 'application/pdf' && Boolean(document.storagePath);
                             return (
                                 <article key={document.id} className="rounded-2xl border border-white/10 bg-surface/55 p-4 transition hover:border-white/15 md:p-5">
                                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -420,9 +440,13 @@ export function SourceLibraryBoard() {
                                     {document.status === 'manual_input' && (
                                         <div className="mt-4 rounded-lg bg-amber-500/10 px-3 py-3 text-xs text-amber-200/80">
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                <p className="flex items-center gap-2"><Clock3 size={14} aria-hidden="true" />텍스트를 직접 입력하거나 다시 등록한 뒤 검수해 주세요.</p>
-                                                <button type="button" onClick={() => void openManualEditor(document.id)} disabled={isBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-300/20 px-2.5 py-1.5 font-semibold text-amber-200 transition hover:bg-amber-300/10 disabled:opacity-50">본문 보정</button>
+                                                <p className="flex items-center gap-2"><Clock3 size={14} aria-hidden="true" />본문을 읽지 못했습니다. AI OCR 또는 직접 보정 후 검수해 주세요.</p>
+                                                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                                                    {canRunOcr && <button type="button" onClick={() => void runOcr(document.id)} disabled={isBusy} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-50">{ocrLoadingId === document.id ? 'OCR 처리 중…' : 'AI OCR 실행'}</button>}
+                                                    <button type="button" onClick={() => void openManualEditor(document.id)} disabled={isBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-300/20 px-2.5 py-1.5 font-semibold text-amber-200 transition hover:bg-amber-300/10 disabled:opacity-50">본문 보정</button>
+                                                </div>
                                             </div>
+                                            {canRunOcr && <p className="mt-2 leading-5 text-amber-100/60">AI OCR을 실행하면 원본 PDF가 Gemini로 전송됩니다. 결과는 반드시 원본과 대조해 주세요.</p>}
                                             {editingTextId === document.id && <div className="mt-3 border-t border-amber-300/10 pt-3">
                                                 <label className="block text-xs text-amber-100/80" htmlFor={`manual-text-${document.id}`}>추출되지 않은 PDF의 내용을 붙여넣어 주세요.</label>
                                                 <textarea id={`manual-text-${document.id}`} value={manualText} onChange={event => setManualText(event.target.value)} maxLength={500_000} className="mt-2 min-h-48 w-full resize-y rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-primary/60" />

@@ -183,4 +183,120 @@ describe('source document service boundary', () => {
         expect(query.eq).toHaveBeenCalledWith('user_id', userId);
         expect(createSignedUrl).toHaveBeenCalledWith(`${userId}/${sourceId}/original.pdf`, 300);
     });
+
+    it('downloads an original only through the authenticated owner-scoped storage path', async () => {
+        const sourceRow = {
+            id: sourceId,
+            user_id: userId,
+            kind: 'portfolio',
+            title: '스캔 포트폴리오',
+            origin_type: 'upload',
+            source_url: null,
+            storage_path: `${userId}/${sourceId}/original.pdf`,
+            raw_text: null,
+            content_hash: 'a'.repeat(64),
+            mime_type: 'application/pdf',
+            page_count: 1,
+            status: 'manual_input',
+            extraction_method: 'none',
+            extraction_version: 'm2-direct-text-v1',
+            extraction_warnings: ['PDF 본문을 추출하지 못했습니다.'],
+            fetched_at: null,
+            approved_at: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+        };
+        const query = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: sourceRow, error: null }),
+        };
+        const download = jest.fn().mockResolvedValue({ data: { arrayBuffer: jest.fn().mockResolvedValue(Uint8Array.from([37, 80, 68, 70]).buffer) }, error: null });
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn().mockReturnValue(query),
+            storage: { from: jest.fn().mockReturnValue({ download }) },
+        });
+
+        const result = await sourceDocumentService.getOriginalBytes(sourceId);
+
+        expect(query.eq).toHaveBeenCalledWith('user_id', userId);
+        expect(download).toHaveBeenCalledWith(`${userId}/${sourceId}/original.pdf`);
+        expect(Buffer.from(result.bytes).toString()).toBe('%PDF');
+        expect(result.document.status).toBe('manual_input');
+    });
+
+    it('keeps the original PDF identity while replacing only OCR text and fragments', async () => {
+        const sourceRow = {
+            id: sourceId,
+            user_id: userId,
+            kind: 'portfolio',
+            title: '스캔 포트폴리오',
+            origin_type: 'upload',
+            source_url: null,
+            storage_path: `${userId}/${sourceId}/original.pdf`,
+            raw_text: null,
+            content_hash: 'b'.repeat(64),
+            mime_type: 'application/pdf',
+            page_count: 2,
+            status: 'manual_input',
+            extraction_method: 'none',
+            extraction_version: 'm2-direct-text-v1',
+            extraction_warnings: ['PDF 본문을 추출하지 못했습니다.'],
+            fetched_at: null,
+            approved_at: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+        };
+        const updatedRow = {
+            ...sourceRow,
+            raw_text: 'OCR로 읽은 프로젝트',
+            status: 'needs_review',
+            extraction_method: 'ocr',
+            extraction_version: 'm2-gemini-ocr-v1',
+            extraction_warnings: ['AI OCR 결과입니다. 원본과 대조한 뒤 검수 완료를 눌러 주세요.'],
+        };
+        const existingQuery = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: sourceRow, error: null }),
+        };
+        const updateQuery = {
+            eq: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: updatedRow, error: null }),
+        };
+        const deleteQuery = { eq: jest.fn().mockReturnThis() };
+        const insertQuery = {};
+        const from = jest.fn()
+            .mockReturnValueOnce({ select: jest.fn().mockReturnValue(existingQuery) })
+            .mockReturnValueOnce({ update: jest.fn().mockReturnValue(updateQuery) })
+            .mockReturnValueOnce({ delete: jest.fn().mockReturnValue(deleteQuery) })
+            .mockReturnValueOnce({ insert: jest.fn().mockReturnValue(insertQuery) });
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from,
+        });
+
+        const result = await sourceDocumentService.updateOcrText(sourceId, { text: 'OCR로 읽은 프로젝트' });
+
+        expect(result).toEqual(expect.objectContaining({ extractionMethod: 'ocr', status: 'needs_review', mimeType: 'application/pdf', contentHash: 'b'.repeat(64) }));
+        expect(updateQuery.eq).toHaveBeenCalledWith('user_id', userId);
+        expect(from).toHaveBeenCalledTimes(4);
+    });
+
+    it('does not overwrite an already reviewed source with OCR', async () => {
+        const query = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: { status: 'approved', kind: 'portfolio' }, error: null }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn().mockReturnValue(query),
+        });
+
+        await expect(sourceDocumentService.updateOcrText(sourceId, { text: '덮어쓰면 안 됨' }))
+            .rejects.toMatchObject({ code: 'conflict', status: 409 });
+    });
 });

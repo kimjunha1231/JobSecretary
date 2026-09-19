@@ -9,6 +9,7 @@ export type AiOperation =
     | 'interview'
     | 'job_analysis'
     | 'career_extraction'
+    | 'source_ocr'
     | 'outline_generation'
     | 'draft_generation';
 
@@ -36,6 +37,7 @@ const OPERATION_LIMITS: Record<AiOperation, { limit: number; windowMs: number }>
     interview: { limit: 10, windowMs: 60_000 },
     job_analysis: { limit: 5, windowMs: 60_000 },
     career_extraction: { limit: 3, windowMs: 60_000 },
+    source_ocr: { limit: 2, windowMs: 60_000 },
     outline_generation: { limit: 5, windowMs: 60_000 },
     draft_generation: { limit: 5, windowMs: 60_000 },
 };
