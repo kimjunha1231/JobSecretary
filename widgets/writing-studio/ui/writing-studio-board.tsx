@@ -182,10 +182,12 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const runsResult = await readJson(runsResponse);
             if (!runsResponse.ok) throw new Error(typeof runsResult.error === 'string' ? runsResult.error : '평가 결과를 불러오지 못했습니다.');
             setEvaluationRuns(Array.isArray(runsResult.runs) ? runsResult.runs as EvaluationRun[] : []);
-        } catch (loadError) {
+        } catch {
             setEvaluationCase(null);
             setEvaluationRuns([]);
-            setEvaluationError(loadError instanceof Error ? loadError.message : '평가 결과를 불러오지 못했습니다.');
+            // The evaluation migration may be rolled out after the writing studio.
+            // Keep the main writing flow usable until the user explicitly starts an evaluation.
+            setEvaluationError(null);
         }
     };
 
