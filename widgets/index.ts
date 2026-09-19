@@ -8,4 +8,5 @@ export * from './global-sidebar';
 export * from './global-alert';
 export * from './landing-board';
 export * from './source-library-board';
+export * from './career-activity-board';
 export * from './style-profile';

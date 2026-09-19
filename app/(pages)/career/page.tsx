@@ -1,4 +1,4 @@
-import { SourceLibraryBoard } from '@/widgets/source-library-board';
+import { CareerActivityBoard, SourceLibraryBoard } from '@/widgets';
 import { Download } from 'lucide-react';
 
 export default function CareerLibraryPage() {
@@ -29,6 +29,7 @@ export default function CareerLibraryPage() {
                 </div>
             </section>
             <SourceLibraryBoard />
+            <CareerActivityBoard />
         </div>
     );
 }

@@ -152,7 +152,7 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 ### 실행 결과
 
 - `buildCareerProfilePdfPayload`가 승인된 `career_items`·`evidence_records`만 안전한 문단으로 묶고 `/api/career/export?format=portfolio|resume`에서 서버 PDF로 반환한다.
-- `/career`에 포트폴리오·이력서 PDF 다운로드 링크를 추가했다. 기존 원본 자료와 검수 흐름은 삭제하거나 덮어쓰지 않는다.
+- `/career`에 승인된 활동 라이브러리와 포트폴리오·이력서 PDF 다운로드 링크를 추가했다. 기존 원본 자료와 검수 흐름은 삭제하거나 덮어쓰지 않는다.
 - 활동 PDF에 승인된 프로젝트의 역할·기여·상황/행동/결과·성과·기술만 표시하고 내부 UUID·AI metadata는 넣지 않는다.
 - 검증: PDF payload 단위 테스트에 승인 경계·내부 ID 비노출·빈 목록 차단을 추가했고 `npm run harness:verify`(23개 스위트/178개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
 
