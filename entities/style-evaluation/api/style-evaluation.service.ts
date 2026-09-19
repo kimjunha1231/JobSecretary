@@ -323,6 +323,9 @@ export const styleEvaluationService = {
         if (!caseRecord) throw new StyleEvaluationServiceError('not_found', '평가 사례를 찾을 수 없습니다.', 404);
 
         const evaluationCase = mapCase(caseRecord as Record<string, unknown>);
+        if (evaluationCase.status !== 'active') {
+            throw new StyleEvaluationServiceError('conflict', '보관된 평가 사례는 blind 비교에 사용할 수 없습니다.', 409);
+        }
         const details = await writingSessionService.get(evaluationCase.writingSessionId);
         if (details.question.id !== evaluationCase.questionId || details.question.status !== 'finalized' || !details.question.finalAnswer?.trim()) {
             throw new StyleEvaluationServiceError('conflict', '현재 문항의 최종 답변을 확인할 수 없습니다.', 409);
