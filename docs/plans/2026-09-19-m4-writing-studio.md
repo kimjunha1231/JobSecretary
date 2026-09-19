@@ -426,6 +426,7 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 - `shared/lib/product-analytics.ts`에 이벤트 이름·속성 allowlist를 만들고 클라이언트에서만 호출하도록 했다.
 - `/writing/new`, `/writing/[sessionId]`, `/career`에서 작성 funnel과 PDF 출력·blind 선택을 기록한다. 이벤트는 문서 내용이나 내부 ID를 전달하지 않는다.
 - 이벤트 계층 자체를 단위 테스트해 임의의 text/identifier 제거와 Analytics 예외 무시를 고정했다.
+- Supabase/Vercel 운영 적용 순서와 제안 완료율 기준은 `docs/operations/jobsecretary-rollout.md`에 별도로 기록해 실제 트래픽 전환 전 검증 항목을 재현할 수 있게 했다.
 
 ### M6-g 검증 결과
 

@@ -233,6 +233,11 @@
 - `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 활성화이며, 배포 환경에서 정확히 `false`로 설정하면 기존 `/write`의 새 작업대 링크와 `/writing/new` 직접 접근이 모두 기존 작성 화면으로 돌아갑니다.
 - 링크와 직접 접근이 같은 공통 판정을 사용하므로 점진적 노출 중 장애가 발생해도 우회 진입이 남지 않습니다. 실제 Vercel 환경변수 변경은 원격 운영 승인 후 적용합니다.
 
+### 운영 rollout
+
+- Supabase migration 순서, Preview 검증, 개인정보 없는 Analytics 지표, 작성 작업대 롤백 기준은 [`docs/operations/jobsecretary-rollout.md`](docs/operations/jobsecretary-rollout.md)에 정리했습니다.
+- 마지막으로 확인한 Production은 원격 `main`의 2026-09-14 커밋이며, 로컬 개선 커밋은 Preview와 운영 승인 후 별도로 승격해야 합니다.
+
 ### 제품 완료율 측정(M6-g)
 
 - 작성 시작, 근거·개요·초안·편집 단계 완료, 최종 확정, 자기소개서/경력 PDF 출력, blind 선택을 Vercel Analytics custom event로 측정할 수 있습니다.
