@@ -14,11 +14,13 @@ import {
 import {
     WritingSessionServiceError,
     writingSessionService,
+    isFactLikeSentence,
+    splitSentences,
     type WritingSessionDetails,
 } from '@/entities/writing-session/api';
 
 const MAX_CONTEXT_CHARS = 48_000;
-const PROMPT_VERSION = 'm4a-v1';
+const PROMPT_VERSION = 'm4b-v1';
 
 const outlineResponseSchema = z.object({
     candidates: z.array(z.object({
@@ -34,6 +36,12 @@ const draftResponseSchema = z.object({
     candidates: z.array(z.object({
         content: z.string().trim().min(1).max(100_000),
         evidenceRecordIds: z.array(z.string().uuid()).min(1).max(50),
+        citations: z.array(z.object({
+            sentenceIndex: z.number().int().min(0),
+            sentenceText: z.string().trim().min(1).max(10_000),
+            factType: z.enum(['metric', 'date', 'named_entity', 'claim']).default('claim'),
+            evidenceRecordIds: z.array(z.string().uuid()).min(1).max(50),
+        })).max(100),
     })).length(3),
 });
 
@@ -171,6 +179,23 @@ function validateDraftCandidates(
         if (candidate.evidenceRecordIds.some(id => !allowedEvidenceIds.has(id))) {
             throw new WritingGenerationError('초안 후보가 선택하지 않은 근거를 참조했습니다.', 422);
         }
+        const sentences = splitSentences(candidate.content);
+        const citationIndexes = new Set<number>();
+        for (const citation of candidate.citations) {
+            if (citation.sentenceIndex >= sentences.length || citationIndexes.has(citation.sentenceIndex)) {
+                throw new WritingGenerationError('초안의 문장 근거 연결이 올바르지 않습니다.', 422);
+            }
+            if (citation.sentenceText !== sentences[citation.sentenceIndex]) {
+                throw new WritingGenerationError('초안의 문장과 근거 인용문이 일치하지 않습니다.', 422);
+            }
+            if (citation.evidenceRecordIds.some(id => !allowedEvidenceIds.has(id))) {
+                throw new WritingGenerationError('초안의 문장 근거가 선택한 활동을 벗어났습니다.', 422);
+            }
+            citationIndexes.add(citation.sentenceIndex);
+        }
+        if (sentences.some((sentence, index) => isFactLikeSentence(sentence) && !citationIndexes.has(index))) {
+            throw new WritingGenerationError('사실 문장마다 활동 근거를 연결해야 합니다.', 422);
+        }
     }
     return parsed.data.candidates;
 }
@@ -192,7 +217,8 @@ const draftSystemInstruction = `당신은 사용자가 선택한 개요와 승�
 3. 선택된 근거에 직접 드러난 사실·수치·역할만 사용합니다. 사실을 추론해 새로 만들지 않습니다.
 4. 초안은 Markdown 헤더 없이 자연스러운 문단으로 작성합니다.
 5. 질문의 글자 수 제한을 넘겨도 내용을 자르지 말고 후보를 반환하되, 서버가 초과 여부를 표시합니다.
-6. 세 초안은 문장과 강조점이 실제로 달라야 합니다.`;
+6. 사실·수치·회사·프로젝트처럼 검증이 필요한 문장에는 citations 배열로 해당 문장 번호(0부터), 문장 원문, 근거 ID를 반드시 연결합니다.
+7. 세 초안은 문장과 강조점이 실제로 달라야 합니다.`;
 
 export type WritingGenerationResult = WritingSessionDetails & { warnings: string[] };
 
@@ -238,10 +264,13 @@ export async function generateDraftCandidates(id: unknown): Promise<WritingGener
             content: candidate.content,
             charCount: Array.from(candidate.content).length,
             evidenceRecordIds: candidate.evidenceRecordIds,
+            citations: candidate.citations,
             validationResult: {
                 charCount: Array.from(candidate.content).length,
                 charLimit,
                 overLimit: Array.from(candidate.content).length > charLimit,
+                citationsVerified: true,
+                unverifiedFactCount: 0,
             },
             promptVersion: PROMPT_VERSION,
         })));

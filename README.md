@@ -122,6 +122,13 @@
 - 운영 Supabase에는 `supabase/migrations/20260919010000_m4_writing_studio.sql`을 아직 적용하지 않았습니다. PDF 출력과 말투 프로필은 다음 단계입니다.
 - 운영 적용 전에는 `supabase/verify/rls-m4-writing-studio.sql`로 작성 세션·후보·revision 테이블의 RLS와 owner policy를 읽기 전용으로 확인해야 합니다.
 
+### 문항 다중 작성·문단 병합·사실 근거 검증(M4-b)
+
+- `/writing/new`에서 한 지원 대상의 자기소개서 문항을 여러 개 등록하면 작성 작업대에서 문항 탭으로 전환할 수 있습니다. 근거·개요·초안·revision은 활성 문항별로 분리됩니다.
+- 초안 비교 화면에서 문단마다 후보를 선택해 하나의 편집 초안을 만들 수 있으며, 병합 결과는 사용자 revision으로 남습니다.
+- AI 초안은 숫자·날짜·회사·프로젝트 등 사실 문장마다 `evidenceRecordId`를 인용해야 합니다. 편집 화면에서 문장별 활동을 다시 연결할 수 있고, 근거 없는 사실 문장은 최종 확정 전에 차단됩니다.
+- `supabase/migrations/20260919020000_m4b_fact_citation_multi_question.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 M4-a migration 이후 순서와 `supabase/verify/rls-m4-writing-studio.sql`의 `draft_fact_citations` RLS를 확인해야 합니다.
+
 <br>
 
 ## 5. 성능 최적화

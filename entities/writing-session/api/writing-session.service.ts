@@ -26,6 +26,8 @@ import {
 } from '@/entities/writing-session/model';
 import {
     DraftCandidateSchema,
+    DraftFactCitationSchema,
+    type DraftFactCitation,
     DraftRevisionSchema,
     type DraftCandidate,
     type DraftRevision,
@@ -33,10 +35,18 @@ import {
 import { DomainIdSchema } from '@/shared/types';
 import { z } from 'zod';
 
-const sessionCreateSchema = z.object({
-    jobTargetId: DomainIdSchema,
+const sessionQuestionInputSchema = z.object({
     question: z.string().trim().min(1).max(5_000),
     charLimit: z.coerce.number().int().min(100).max(100_000).default(700),
+});
+
+const sessionCreateSchema = z.object({
+    jobTargetId: DomainIdSchema,
+    question: z.string().trim().min(1).max(5_000).optional(),
+    charLimit: z.coerce.number().int().min(100).max(100_000).default(700),
+    questions: z.array(sessionQuestionInputSchema).min(1).max(20).optional(),
+}).refine(value => Boolean(value.questions?.length || value.question), {
+    message: '자기소개서 문항을 하나 이상 입력해 주세요.',
 });
 
 const sessionListSchema = z.object({
@@ -57,6 +67,12 @@ const outlineSelectionSchema = z.object({
 const draftUpdateSchema = z.object({
     content: z.string().max(100_000).refine(value => value.trim().length > 0, '초안 내용을 입력해 주세요.'),
     draftId: DomainIdSchema.optional(),
+    citations: z.array(z.object({
+        sentenceIndex: z.number().int().min(0),
+        sentenceText: z.string().max(10_000).optional(),
+        factType: z.enum(['metric', 'date', 'named_entity', 'claim']).default('claim'),
+        evidenceRecordIds: z.array(DomainIdSchema).max(50),
+    })).max(100).optional(),
 });
 
 const draftSelectionSchema = z.object({
@@ -66,6 +82,13 @@ const draftSelectionSchema = z.object({
 export type WritingSessionCreateInput = z.input<typeof sessionCreateSchema>;
 export type EvidenceSelectionInput = z.input<typeof evidenceSelectionSchema>;
 export type DraftUpdateInput = z.input<typeof draftUpdateSchema>;
+export type DraftCitationInput = NonNullable<z.infer<typeof draftUpdateSchema>['citations']>[number];
+
+export type DraftMergeParagraphInput = {
+    position: number;
+    sourceDraftId: string;
+    text: string;
+};
 
 export type WritingSessionQuestion = {
     id: string;
@@ -86,6 +109,7 @@ export type EvidenceMatchDetails = {
 export type WritingSessionDetails = {
     session: WritingSession;
     target: JobTarget;
+    questions: WritingSessionQuestion[];
     question: WritingSessionQuestion;
     requirements: JobRequirement[];
     evidence: EvidenceRecordDetails[];
@@ -93,6 +117,7 @@ export type WritingSessionDetails = {
     outlines: OutlineCandidate[];
     drafts: DraftCandidate[];
     revisions: DraftRevision[];
+    factCitations: DraftFactCitation[];
 };
 
 export type WritingGenerationContext = WritingSessionDetails & {
@@ -183,6 +208,7 @@ function mapSession(record: Record<string, unknown>): WritingSession {
         id: record.id,
         userId: record.user_id,
         jobTargetId: record.job_target_id,
+        coverLetterId: nullableString(record.cover_letter_id),
         coverLetterQuestionId: record.cover_letter_question_id,
         state: record.state,
         styleProfileId: record.style_profile_id,
@@ -198,6 +224,7 @@ function mapMatch(record: Record<string, unknown>): EvidenceMatch {
         id: record.id,
         writingSessionId: record.writing_session_id,
         userId: record.user_id,
+        questionId: nullableString(record.question_id),
         jobRequirementId: nullableString(record.job_requirement_id),
         evidenceRecordId: record.evidence_record_id,
         retrievalScore: numberOrUndefined(record.retrieval_score),
@@ -213,6 +240,7 @@ function mapOutline(record: Record<string, unknown>): OutlineCandidate {
         id: record.id,
         writingSessionId: record.writing_session_id,
         userId: record.user_id,
+        questionId: nullableString(record.question_id),
         strategy: record.strategy,
         thesis: record.thesis,
         structure: stringArray(record.structure),
@@ -229,6 +257,7 @@ function mapDraft(record: Record<string, unknown>): DraftCandidate {
         id: record.id,
         writingSessionId: record.writing_session_id,
         userId: record.user_id,
+        questionId: nullableString(record.question_id),
         outlineCandidateId: nullableString(record.outline_candidate_id),
         content,
         charCount: charLength(content),
@@ -247,12 +276,30 @@ function mapRevision(record: Record<string, unknown>): DraftRevision {
         id: record.id,
         writingSessionId: record.writing_session_id,
         userId: record.user_id,
+        questionId: nullableString(record.question_id),
         parentRevisionId: nullableString(record.parent_revision_id),
         content: record.content,
         editor: record.editor,
         changeReason: nullableString(record.change_reason),
         diffSummary: nullableString(record.diff_summary),
         createdAt: record.created_at,
+    });
+}
+
+function mapFactCitation(record: Record<string, unknown>): DraftFactCitation {
+    return DraftFactCitationSchema.parse({
+        id: record.id,
+        writingSessionId: record.writing_session_id,
+        questionId: record.question_id,
+        draftCandidateId: record.draft_candidate_id,
+        userId: record.user_id,
+        sentenceIndex: record.sentence_index,
+        sentenceText: record.sentence_text,
+        factType: record.fact_type,
+        evidenceRecordIds: idArray(record.evidence_record_ids),
+        status: record.status,
+        createdAt: record.created_at,
+        updatedAt: record.updated_at,
     });
 }
 
@@ -286,6 +333,21 @@ async function fetchQuestion(
     if (error) throw error;
     if (!data) throw new WritingSessionServiceError('not_found', '작성 문항을 찾을 수 없습니다.', 404);
     return mapQuestion(data as Record<string, unknown>);
+}
+
+async function fetchQuestions(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    coverLetterId: string,
+    userId: string,
+): Promise<WritingSessionQuestion[]> {
+    const { data, error } = await supabase
+        .from('cover_letter_questions')
+        .select('*')
+        .eq('cover_letter_id', coverLetterId)
+        .eq('user_id', userId)
+        .order('position', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(row => mapQuestion(row as Record<string, unknown>));
 }
 
 function tokenize(value: string): Set<string> {
@@ -343,6 +405,7 @@ async function insertMatches(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
     requirements: JobRequirement[],
     evidence: EvidenceRecordDetails[],
 ): Promise<void> {
@@ -351,6 +414,7 @@ async function insertMatches(
     if (requirements.length === 0) {
         evidence.slice(0, 10).forEach(item => rows.push({
             writing_session_id: sessionId,
+            question_id: questionId,
             user_id: userId,
             evidence_record_id: item.record.id,
             retrieval_score: 0.05,
@@ -368,6 +432,7 @@ async function insertMatches(
                 const score = scoreEvidence(requirement, item);
                 rows.push({
                     writing_session_id: sessionId,
+                    question_id: questionId,
                     user_id: userId,
                     job_requirement_id: requirement.id,
                     evidence_record_id: item.record.id,
@@ -389,6 +454,7 @@ async function fetchMatches(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
     requirements: JobRequirement[],
 ): Promise<EvidenceMatchDetails[]> {
     const { data, error } = await supabase
@@ -396,6 +462,7 @@ async function fetchMatches(
         .select('*')
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .order('rerank_score', { ascending: false });
     if (error) throw error;
     const matches = (data ?? []).map(row => mapMatch(row as Record<string, unknown>));
@@ -417,12 +484,14 @@ async function fetchOutlines(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
 ): Promise<OutlineCandidate[]> {
     const { data, error } = await supabase
         .from('outline_candidates')
         .select('*')
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .order('created_at', { ascending: true });
     if (error) throw error;
     return (data ?? []).map(row => mapOutline(row as Record<string, unknown>));
@@ -432,12 +501,14 @@ async function fetchDrafts(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
 ): Promise<DraftCandidate[]> {
     const { data, error } = await supabase
         .from('draft_candidates')
         .select('*')
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .order('created_at', { ascending: true });
     if (error) throw error;
     return (data ?? []).map(row => mapDraft(row as Record<string, unknown>));
@@ -447,15 +518,34 @@ async function fetchRevisions(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
 ): Promise<DraftRevision[]> {
     const { data, error } = await supabase
         .from('draft_revisions')
         .select('*')
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .order('created_at', { ascending: true });
     if (error) throw error;
     return (data ?? []).map(row => mapRevision(row as Record<string, unknown>));
+}
+
+async function fetchFactCitations(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    userId: string,
+    sessionId: string,
+    questionId: string,
+): Promise<DraftFactCitation[]> {
+    const { data, error } = await supabase
+        .from('draft_fact_citations')
+        .select('*')
+        .eq('writing_session_id', sessionId)
+        .eq('question_id', questionId)
+        .eq('user_id', userId)
+        .order('sentence_index', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(row => mapFactCitation(row as Record<string, unknown>));
 }
 
 async function fetchDetails(
@@ -467,19 +557,83 @@ async function fetchDetails(
         throw new WritingSessionServiceError('storage', '작성 세션 연결 정보가 부족합니다.', 500);
     }
     const { target, requirements } = await fetchTargetAndRequirements(session.jobTargetId);
-    const [question, evidence, matches, outlines, drafts, revisions] = await Promise.all([
-        fetchQuestion(supabase, session.coverLetterQuestionId, userId),
+    const questions = session.coverLetterId
+        ? await fetchQuestions(supabase, session.coverLetterId, userId)
+        : [await fetchQuestion(supabase, session.coverLetterQuestionId, userId)];
+    const question = questions.find(item => item.id === session.coverLetterQuestionId) ?? questions[0];
+    if (!question) throw new WritingSessionServiceError('storage', '작성 문항이 없습니다.', 500);
+    const [evidence, matches, outlines, drafts, revisions, factCitations] = await Promise.all([
         evidenceRecordService.listApproved({ limit: 100 }),
-        fetchMatches(supabase, userId, session.id, requirements),
-        fetchOutlines(supabase, userId, session.id),
-        fetchDrafts(supabase, userId, session.id),
-        fetchRevisions(supabase, userId, session.id),
+        fetchMatches(supabase, userId, session.id, question.id, requirements),
+        fetchOutlines(supabase, userId, session.id, question.id),
+        fetchDrafts(supabase, userId, session.id, question.id),
+        fetchRevisions(supabase, userId, session.id, question.id),
+        fetchFactCitations(supabase, userId, session.id, question.id),
     ]);
-    return { session, target, question, requirements, evidence, matches, outlines, drafts, revisions };
+    return { session, target, questions, question, requirements, evidence, matches, outlines, drafts, revisions, factCitations };
 }
 
 function charLength(value: string): number {
     return Array.from(value).length;
+}
+
+function splitSentences(value: string): string[] {
+    return (value.match(/[^.!?。！？\n]+[.!?。！？]?/g) ?? [])
+        .map(sentence => sentence.trim())
+        .filter(Boolean);
+}
+
+function splitParagraphs(value: string): string[] {
+    return value.split(/\n\s*\n+/).map(paragraph => paragraph.trim()).filter(Boolean);
+}
+
+function isFactLikeSentence(sentence: string): boolean {
+    return /(?:\d|%|퍼센트|명|건|회|개월|주|일|원|년|월|회사|프로젝트|서비스|개발|개선|운영|구축|담당|달성|감소|증가|[A-Z]{2,})/u.test(sentence);
+}
+
+export type NormalizedDraftCitation = {
+    sentenceIndex: number;
+    sentenceText: string;
+    factType: 'metric' | 'date' | 'named_entity' | 'claim';
+    evidenceRecordIds: string[];
+    status: 'verified' | 'unverified';
+};
+
+function normalizeDraftCitations(
+    content: string,
+    citations: DraftCitationInput[] | undefined,
+    allowedEvidenceIds: Set<string>,
+): { citations: NormalizedDraftCitation[]; unverifiedFactIndexes: number[]; sentences: string[] } {
+    const sentences = splitSentences(content);
+    const byIndex = new Map<number, DraftCitationInput>();
+    for (const citation of citations ?? []) {
+        if (citation.sentenceIndex >= sentences.length) {
+            throw new WritingSessionServiceError('invalid_input', '근거를 연결할 문장을 찾을 수 없습니다.', 400);
+        }
+        if (byIndex.has(citation.sentenceIndex)) {
+            throw new WritingSessionServiceError('invalid_input', '한 문장에 근거 연결을 중복할 수 없습니다.', 400);
+        }
+        const evidenceRecordIds = [...new Set(citation.evidenceRecordIds)];
+        if (evidenceRecordIds.some(id => !allowedEvidenceIds.has(id))) {
+            throw new WritingSessionServiceError('invalid_input', '선택하지 않은 활동을 사실 근거로 연결할 수 없습니다.', 400);
+        }
+        const sentenceText = sentences[citation.sentenceIndex];
+        if (citation.sentenceText?.trim() && citation.sentenceText.trim() !== sentenceText) {
+            throw new WritingSessionServiceError('invalid_input', '근거를 연결한 문장 내용이 최신 초안과 다릅니다.', 400);
+        }
+        byIndex.set(citation.sentenceIndex, citation);
+    }
+    const unverifiedFactIndexes = sentences
+        .map((sentence, index) => isFactLikeSentence(sentence) && !(byIndex.get(index)?.evidenceRecordIds.length) ? index : -1)
+        .filter(index => index >= 0);
+    const normalized = [...byIndex.entries()].map(([sentenceIndex, citation]) => ({
+        sentenceIndex,
+        sentenceText: sentences[sentenceIndex],
+        factType: citation.factType,
+        evidenceRecordIds: [...new Set(citation.evidenceRecordIds)],
+        status: citation.evidenceRecordIds.length > 0 ? 'verified' as const : 'unverified' as const,
+    }));
+    return { citations: normalized, unverifiedFactIndexes, sentences };
 }
 
 function getCharLimit(question: WritingSessionQuestion): number {
@@ -496,6 +650,7 @@ async function markCandidatesStale(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
 ): Promise<void> {
     const [outlineResult, draftResult] = await Promise.all([
         supabase
@@ -503,12 +658,14 @@ async function markCandidatesStale(
             .update({ status: 'stale' })
             .eq('writing_session_id', sessionId)
             .eq('user_id', userId)
+            .eq('question_id', questionId)
             .in('status', ['generated', 'selected']),
         supabase
             .from('draft_candidates')
             .update({ status: 'stale' })
             .eq('writing_session_id', sessionId)
             .eq('user_id', userId)
+            .eq('question_id', questionId)
             .in('status', ['generated', 'selected', 'partially_used']),
     ]);
     if (outlineResult.error) throw outlineResult.error;
@@ -519,12 +676,14 @@ async function markDraftCandidatesStale(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
 ): Promise<void> {
     const { error } = await supabase
         .from('draft_candidates')
         .update({ status: 'stale' })
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .in('status', ['generated', 'selected', 'partially_used']);
     if (error) throw error;
 }
@@ -556,6 +715,7 @@ export const writingSessionService = {
         if (!parsed.success) throw new WritingSessionServiceError('invalid_input', '지원 대상과 문항을 확인해 주세요.', 400);
         const { supabase, userId } = await getAuthenticatedClient();
         const { target, requirements } = await fetchTargetAndRequirements(parsed.data.jobTargetId);
+        const questions = parsed.data.questions ?? [{ question: parsed.data.question!, charLimit: parsed.data.charLimit }];
 
         const { data: coverLetterData, error: coverLetterError } = await supabase
             .from('cover_letters')
@@ -576,30 +736,34 @@ export const writingSessionService = {
 
         const { data: questionData, error: questionError } = await supabase
             .from('cover_letter_questions')
-            .insert({
+            .insert(questions.map((item, index) => ({
                 cover_letter_id: coverLetterId,
                 user_id: userId,
-                question: parsed.data.question,
-                char_limit: parsed.data.charLimit,
-                position: 0,
+                question: item.question,
+                char_limit: item.charLimit,
+                position: index,
                 status: 'writing',
-            })
-            .select('*')
-            .single();
+            })))
+            .select('*');
         if (questionError) {
             await supabase.from('cover_letters').delete().eq('id', coverLetterId).eq('user_id', userId);
             throw questionError;
         }
-        const questionId = (questionData as Record<string, unknown>).id as string;
+        const questionId = (questionData?.[0] as Record<string, unknown> | undefined)?.id as string | undefined;
+        if (!questionId) {
+            await supabase.from('cover_letters').delete().eq('id', coverLetterId).eq('user_id', userId);
+            throw new WritingSessionServiceError('storage', '작성 문항을 만들지 못했습니다.', 500);
+        }
 
         const { data: sessionData, error: sessionError } = await supabase
             .from('writing_sessions')
             .insert({
                 user_id: userId,
                 job_target_id: target.id,
+                cover_letter_id: coverLetterId,
                 cover_letter_question_id: questionId,
                 state: 'evidence_selecting',
-                generation_settings: { charLimit: parsed.data.charLimit },
+                generation_settings: { charLimit: questions[0].charLimit, questionCount: questions.length },
             })
             .select('*')
             .single();
@@ -610,13 +774,46 @@ export const writingSessionService = {
         const session = mapSession(sessionData as Record<string, unknown>);
         try {
             const evidence = await evidenceRecordService.listApproved({ limit: 100 });
-            await insertMatches(supabase, userId, session.id, requirements, evidence);
+            await insertMatches(supabase, userId, session.id, questionId, requirements, evidence);
             return fetchDetails(supabase, userId, session);
         } catch (error) {
             await supabase.from('writing_sessions').delete().eq('id', session.id).eq('user_id', userId);
             await supabase.from('cover_letters').delete().eq('id', coverLetterId).eq('user_id', userId);
             throw error;
         }
+    },
+
+    async switchQuestion(idInput: unknown, questionIdInput: unknown): Promise<WritingSessionDetails> {
+        const id = parseId(idInput, '작성 세션 ID');
+        const questionId = parseId(questionIdInput, '문항 ID');
+        const { supabase, userId } = await getAuthenticatedClient();
+        const session = await fetchSession(supabase, id, userId);
+        ensureSessionEditable(session);
+        if (!session.coverLetterId) throw new WritingSessionServiceError('storage', '문항 묶음 연결 정보가 없습니다.', 500);
+        const question = await fetchQuestion(supabase, questionId, userId);
+        if (question.coverLetterId !== session.coverLetterId) {
+            throw new WritingSessionServiceError('invalid_input', '이 작성 세션에 속한 문항이 아닙니다.', 400);
+        }
+        const { requirements } = await fetchTargetAndRequirements(session.jobTargetId!);
+        const { data: existingMatches, error: matchError } = await supabase
+            .from('evidence_matches')
+            .select('id')
+            .eq('writing_session_id', id)
+            .eq('question_id', questionId)
+            .eq('user_id', userId)
+            .limit(1);
+        if (matchError) throw matchError;
+        if (!existingMatches?.length) {
+            const evidence = await evidenceRecordService.listApproved({ limit: 100 });
+            await insertMatches(supabase, userId, id, questionId, requirements, evidence);
+        }
+        const { error } = await supabase
+            .from('writing_sessions')
+            .update({ cover_letter_question_id: questionId, state: 'evidence_selecting', updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('user_id', userId);
+        if (error) throw error;
+        return fetchDetails(supabase, userId, await fetchSession(supabase, id, userId));
     },
 
     async refreshMatches(idInput: unknown): Promise<WritingSessionDetails> {
@@ -626,10 +823,11 @@ export const writingSessionService = {
         ensureSessionEditable(session);
         if (!session.jobTargetId) throw new WritingSessionServiceError('storage', '지원 대상 연결 정보가 없습니다.', 500);
         const { requirements } = await fetchTargetAndRequirements(session.jobTargetId);
-        const current = await fetchMatches(supabase, userId, id, requirements);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
+        const current = await fetchMatches(supabase, userId, id, session.coverLetterQuestionId, requirements);
         const existingIds = new Set(current.map(item => item.match.evidenceRecordId));
         const evidence = (await evidenceRecordService.listApproved({ limit: 100 })).filter(item => !existingIds.has(item.record.id));
-        await insertMatches(supabase, userId, id, requirements, evidence);
+        await insertMatches(supabase, userId, id, session.coverLetterQuestionId, requirements, evidence);
         return fetchDetails(supabase, userId, session);
     },
 
@@ -640,12 +838,14 @@ export const writingSessionService = {
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
         ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
         if (parsed.data.selections.length > 0) {
             const { data: existing, error: existingError } = await supabase
                 .from('evidence_matches')
                 .select('id')
                 .eq('writing_session_id', id)
                 .eq('user_id', userId)
+                .eq('question_id', session.coverLetterQuestionId)
                 .in('id', parsed.data.selections.map(item => item.matchId));
             if (existingError) throw existingError;
             const existingIds = new Set((existing ?? []).map(row => row.id as string));
@@ -658,10 +858,11 @@ export const writingSessionService = {
                     .update({ selection_state: selection.selectionState, updated_at: new Date().toISOString() })
                     .eq('id', selection.matchId)
                     .eq('writing_session_id', id)
-                    .eq('user_id', userId);
+                    .eq('user_id', userId)
+                    .eq('question_id', session.coverLetterQuestionId);
                 if (error) throw error;
             }
-            await markCandidatesStale(supabase, userId, id);
+            await markCandidatesStale(supabase, userId, id, session.coverLetterQuestionId);
             const { error } = await supabase
                 .from('writing_sessions')
                 .update({ state: 'evidence_selecting', updated_at: new Date().toISOString() })
@@ -726,6 +927,7 @@ export const writingSessionService = {
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
         ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
         const details = await fetchDetails(supabase, userId, session);
         const allowedEvidence = new Set(details.matches.filter(item => ['selected', 'locked'].includes(item.match.selectionState)).map(item => item.match.evidenceRecordId));
         const allowedRequirements = new Set(details.requirements.map(requirement => requirement.id));
@@ -736,10 +938,11 @@ export const writingSessionService = {
             throw new WritingSessionServiceError('analysis', '개요 후보의 근거 연결을 확인할 수 없습니다.', 422);
         }
 
-        await markCandidatesStale(supabase, userId, id);
+        await markCandidatesStale(supabase, userId, id, session.coverLetterQuestionId);
         const { error } = await supabase.from('outline_candidates').insert(candidates.map(candidate => ({
             writing_session_id: id,
             user_id: userId,
+            question_id: session.coverLetterQuestionId,
             strategy: candidate.strategy,
             thesis: candidate.thesis,
             structure: candidate.structure,
@@ -766,12 +969,15 @@ export const writingSessionService = {
         if (!parsed.success) throw new WritingSessionServiceError('invalid_input', '개요 선택을 확인해 주세요.', 400);
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
+        ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
         const { data: outline, error: outlineError } = await supabase
             .from('outline_candidates')
             .select('*')
             .eq('id', outlineId)
             .eq('writing_session_id', id)
             .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId)
             .maybeSingle();
         if (outlineError) throw outlineError;
         if (!outline) throw new WritingSessionServiceError('not_found', '개요 후보를 찾을 수 없습니다.', 404);
@@ -782,6 +988,7 @@ export const writingSessionService = {
             .update({ status: 'rejected' })
             .eq('writing_session_id', id)
             .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId)
             .in('status', ['selected', 'generated']);
         if (resetError) throw resetError;
         const { error: selectError } = await supabase
@@ -789,13 +996,15 @@ export const writingSessionService = {
             .update({ status: 'selected' })
             .eq('id', outlineId)
             .eq('writing_session_id', id)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId);
         if (selectError) throw selectError;
         await supabase
             .from('draft_candidates')
             .update({ status: 'stale' })
             .eq('writing_session_id', id)
             .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId)
             .in('status', ['generated', 'selected', 'partially_used']);
         const { error: updateError } = await supabase
             .from('writing_sessions')
@@ -811,6 +1020,7 @@ export const writingSessionService = {
         content: string;
         charCount: number;
         evidenceRecordIds: string[];
+        citations?: DraftCitationInput[];
         validationResult: Record<string, unknown>;
         model?: string;
         promptVersion?: string;
@@ -820,6 +1030,7 @@ export const writingSessionService = {
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
         ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
         const details = await fetchDetails(supabase, userId, session);
         const selectedOutline = details.outlines.find(outline => outline.status === 'selected');
         if (!selectedOutline) throw new WritingSessionServiceError('analysis', '초안을 만들 개요를 먼저 선택해 주세요.', 422);
@@ -830,20 +1041,28 @@ export const writingSessionService = {
             || candidate.charCount !== charLength(candidate.content))) {
             throw new WritingSessionServiceError('analysis', '초안 후보의 근거 연결을 확인할 수 없습니다.', 422);
         }
-        await markDraftCandidatesStale(supabase, userId, id);
-        const { error } = await supabase.from('draft_candidates').insert(candidates.map(candidate => ({
+        const normalizedCitations = candidates.map(candidate => normalizeDraftCitations(candidate.content, candidate.citations, selectedEvidenceIds));
+        if (normalizedCitations.some(result => result.unverifiedFactIndexes.length > 0)) {
+            throw new WritingSessionServiceError('analysis', '초안의 사실 문장에 활동 근거가 연결되지 않았습니다.', 422);
+        }
+        await markDraftCandidatesStale(supabase, userId, id, session.coverLetterQuestionId);
+        const { data: insertedDrafts, error } = await supabase.from('draft_candidates').insert(candidates.map((candidate, index) => ({
             writing_session_id: id,
             user_id: userId,
+            question_id: session.coverLetterQuestionId,
             outline_candidate_id: candidate.outlineCandidateId,
             content: candidate.content,
             char_count: candidate.charCount,
-            evidence_map: { evidenceRecordIds: candidate.evidenceRecordIds },
-            validation_result: candidate.validationResult,
+            evidence_map: { evidenceRecordIds: candidate.evidenceRecordIds, citations: normalizedCitations[index].citations },
+            validation_result: { ...candidate.validationResult, unverifiedFactCount: 0, citationsVerified: true },
             model: candidate.model ?? null,
             prompt_version: candidate.promptVersion ?? null,
             status: 'generated',
-        })));
+        }))).select('id');
         if (error) throw error;
+        for (const [index, row] of (insertedDrafts ?? []).entries()) {
+            await replaceFactCitations(supabase, userId, id, session.coverLetterQuestionId, row.id as string, normalizedCitations[index].citations);
+        }
         const { error: updateError } = await supabase
             .from('writing_sessions')
             .update({ state: 'comparing', updated_at: new Date().toISOString() })
@@ -861,6 +1080,7 @@ export const writingSessionService = {
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
         ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
         const details = await fetchDetails(supabase, userId, session);
         const draft = details.drafts.find(item => item.id === draftId);
         if (!draft) throw new WritingSessionServiceError('not_found', '초안 후보를 찾을 수 없습니다.', 404);
@@ -872,6 +1092,7 @@ export const writingSessionService = {
             .update({ status: 'rejected' })
             .eq('writing_session_id', id)
             .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId)
             .in('status', ['selected', 'generated']);
         if (resetError) throw resetError;
         const { error: selectError } = await supabase
@@ -879,15 +1100,87 @@ export const writingSessionService = {
             .update({ status: 'selected' })
             .eq('id', draftId)
             .eq('writing_session_id', id)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('question_id', session.coverLetterQuestionId);
         if (selectError) throw selectError;
-        await insertRevision(supabase, userId, id, draft.content, 'ai', 'AI 후보 선택');
+        await insertRevision(supabase, userId, id, session.coverLetterQuestionId, draft.content, 'ai', 'AI 후보 선택');
         const { error: updateError } = await supabase
             .from('writing_sessions')
             .update({ state: 'editing', updated_at: new Date().toISOString() })
             .eq('id', id)
             .eq('user_id', userId);
         if (updateError) throw updateError;
+        return fetchDetails(supabase, userId, await fetchSession(supabase, id, userId));
+    },
+
+    async mergeDrafts(idInput: unknown, paragraphsInput: DraftMergeParagraphInput[]): Promise<WritingSessionDetails> {
+        const id = parseId(idInput, '작성 세션 ID');
+        if (!Array.isArray(paragraphsInput) || paragraphsInput.length === 0 || paragraphsInput.length > 100) {
+            throw new WritingSessionServiceError('invalid_input', '병합할 문단을 하나 이상 선택해 주세요.', 400);
+        }
+        const { supabase, userId } = await getAuthenticatedClient();
+        const session = await fetchSession(supabase, id, userId);
+        ensureSessionEditable(session);
+        if (!session.coverLetterQuestionId) throw new WritingSessionServiceError('storage', '활성 문항이 없습니다.', 500);
+        const details = await fetchDetails(supabase, userId, session);
+        const draftsById = new Map(details.drafts.filter(draft => draft.status !== 'stale').map(draft => [draft.id, draft]));
+        const positions = new Set<number>();
+        const ordered = [...paragraphsInput].sort((left, right) => left.position - right.position);
+        for (const paragraph of ordered) {
+            if (!Number.isInteger(paragraph.position) || paragraph.position < 0 || positions.has(paragraph.position)) {
+                throw new WritingSessionServiceError('invalid_input', '문단 순서를 확인해 주세요.', 400);
+            }
+            positions.add(paragraph.position);
+            const sourceDraft = draftsById.get(parseId(paragraph.sourceDraftId, '원본 초안 ID'));
+            if (!sourceDraft) throw new WritingSessionServiceError('not_found', '병합할 초안 후보를 찾을 수 없습니다.', 404);
+            const sourceParagraph = splitParagraphs(sourceDraft.content)[paragraph.position];
+            if (!sourceParagraph || sourceParagraph !== paragraph.text.trim()) {
+                throw new WritingSessionServiceError('conflict', '원본 초안의 문단이 변경되어 다시 선택해 주세요.', 409);
+            }
+        }
+        const content = ordered.map(item => item.text.trim()).join('\n\n');
+        const evidenceRecordIds = [...new Set(ordered.flatMap(item => draftsById.get(item.sourceDraftId)?.evidenceMap.evidenceRecordIds ?? []))]
+            .filter((value): value is string => typeof value === 'string');
+        const normalized = normalizeDraftCitations(content, [], new Set(evidenceRecordIds));
+        const selectedOutline = details.outlines.find(outline => outline.status === 'selected');
+        const { data: draftData, error: draftError } = await supabase
+            .from('draft_candidates')
+            .insert({
+                writing_session_id: id,
+                question_id: session.coverLetterQuestionId,
+                user_id: userId,
+                outline_candidate_id: selectedOutline?.id ?? null,
+                content,
+                char_count: charLength(content),
+                evidence_map: { evidenceRecordIds, citations: normalized.citations, mergedFromDraftIds: ordered.map(item => item.sourceDraftId) },
+                validation_result: {
+                    charCount: charLength(content),
+                    charLimit: getCharLimit(details.question),
+                    overLimit: charLength(content) > getCharLimit(details.question),
+                    unverifiedFactCount: normalized.unverifiedFactIndexes.length,
+                    citationsVerified: normalized.unverifiedFactIndexes.length === 0,
+                },
+                status: 'selected',
+            })
+            .select('*')
+            .single();
+        if (draftError) throw draftError;
+        await supabase
+            .from('draft_candidates')
+            .update({ status: 'partially_used' })
+            .eq('writing_session_id', id)
+            .eq('question_id', session.coverLetterQuestionId)
+            .eq('user_id', userId)
+            .in('id', ordered.map(item => item.sourceDraftId))
+            .neq('id', (draftData as Record<string, unknown>).id as string);
+        await replaceFactCitations(supabase, userId, id, session.coverLetterQuestionId, (draftData as Record<string, unknown>).id as string, normalized.citations);
+        await insertRevision(supabase, userId, id, session.coverLetterQuestionId, content, 'user', '문단 단위 초안 병합');
+        const { error: sessionError } = await supabase
+            .from('writing_sessions')
+            .update({ state: 'editing', updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('user_id', userId);
+        if (sessionError) throw sessionError;
         return fetchDetails(supabase, userId, await fetchSession(supabase, id, userId));
     },
 
@@ -904,19 +1197,45 @@ export const writingSessionService = {
         if (parsed.data.draftId && parsed.data.draftId !== selected.id) {
             throw new WritingSessionServiceError('conflict', '선택한 초안과 저장 대상이 다릅니다.', 409);
         }
+        const allowedEvidenceIds = new Set(details.matches
+            .filter(item => ['selected', 'locked'].includes(item.match.selectionState))
+            .map(item => item.match.evidenceRecordId));
+        const existingCitations = Array.isArray(selected.evidenceMap.citations)
+            ? selected.evidenceMap.citations.filter((item): item is DraftCitationInput => Boolean(item && typeof item === 'object'))
+                .map(item => ({
+                    sentenceIndex: typeof item.sentenceIndex === 'number' ? item.sentenceIndex : 0,
+                    sentenceText: typeof item.sentenceText === 'string' ? item.sentenceText : undefined,
+                    factType: item.factType === 'metric' || item.factType === 'date' || item.factType === 'named_entity' ? item.factType : 'claim' as const,
+                    evidenceRecordIds: Array.isArray(item.evidenceRecordIds) ? item.evidenceRecordIds.filter((value): value is string => typeof value === 'string') : [],
+                }))
+            : undefined;
+        const normalizedCitations = normalizeDraftCitations(
+            parsed.data.content,
+            parsed.data.citations ?? (parsed.data.content === selected.content ? existingCitations : undefined),
+            allowedEvidenceIds,
+        );
         const nextCharCount = charLength(parsed.data.content);
         const { error } = await supabase
             .from('draft_candidates')
             .update({
                 content: parsed.data.content,
                 char_count: nextCharCount,
-                validation_result: { charCount: nextCharCount, charLimit: getCharLimit(details.question), overLimit: nextCharCount > getCharLimit(details.question) },
+                evidence_map: { ...selected.evidenceMap, citations: normalizedCitations.citations },
+                validation_result: {
+                    charCount: nextCharCount,
+                    charLimit: getCharLimit(details.question),
+                    overLimit: nextCharCount > getCharLimit(details.question),
+                    unverifiedFactCount: normalizedCitations.unverifiedFactIndexes.length,
+                    citationsVerified: normalizedCitations.unverifiedFactIndexes.length === 0,
+                },
             })
             .eq('id', selected.id)
             .eq('writing_session_id', id)
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('question_id', details.question.id);
         if (error) throw error;
-        await insertRevision(supabase, userId, id, parsed.data.content, 'user', '사용자 직접 수정');
+        await replaceFactCitations(supabase, userId, id, details.question.id, selected.id, normalizedCitations.citations);
+        await insertRevision(supabase, userId, id, details.question.id, parsed.data.content, 'user', '사용자 직접 수정');
         return fetchDetails(supabase, userId, await fetchSession(supabase, id, userId));
     },
 
@@ -924,14 +1243,33 @@ export const writingSessionService = {
         const id = parseId(idInput, '작성 세션 ID');
         const { supabase, userId } = await getAuthenticatedClient();
         const session = await fetchSession(supabase, id, userId);
+        ensureSessionEditable(session);
         const details = await fetchDetails(supabase, userId, session);
         const selected = details.drafts.find(draft => draft.status === 'selected');
         if (!selected) throw new WritingSessionServiceError('conflict', '최종 확정할 초안을 먼저 선택해 주세요.', 409);
         if (selected.charCount > getCharLimit(details.question)) throw new WritingSessionServiceError('conflict', '글자 수 제한을 넘은 초안은 최종 확정할 수 없습니다.', 409);
+        const allowedEvidenceIds = new Set(details.matches
+            .filter(item => ['selected', 'locked'].includes(item.match.selectionState))
+            .map(item => item.match.evidenceRecordId));
+        const savedCitations = Array.isArray(selected.evidenceMap.citations)
+            ? selected.evidenceMap.citations.filter((item): item is DraftCitationInput => Boolean(item && typeof item === 'object'))
+                .map(item => ({
+                    sentenceIndex: typeof item.sentenceIndex === 'number' ? item.sentenceIndex : 0,
+                    sentenceText: typeof item.sentenceText === 'string' ? item.sentenceText : undefined,
+                    factType: item.factType === 'metric' || item.factType === 'date' || item.factType === 'named_entity' ? item.factType : 'claim' as const,
+                    evidenceRecordIds: Array.isArray(item.evidenceRecordIds) ? item.evidenceRecordIds.filter((value): value is string => typeof value === 'string') : [],
+                }))
+            : undefined;
+        const citationValidation = normalizeDraftCitations(selected.content, savedCitations, allowedEvidenceIds);
+        const unverifiedFactCount = citationValidation.unverifiedFactIndexes.length;
+        if (unverifiedFactCount > 0) {
+            throw new WritingSessionServiceError('conflict', '사실 문장에 활동 근거를 연결한 뒤 최종 확정해 주세요.', 409);
+        }
         const now = new Date().toISOString();
+        const hasUnfinishedQuestion = details.questions.some(question => question.id !== details.question.id && question.status !== 'finalized');
         const { error: sessionError } = await supabase
             .from('writing_sessions')
-            .update({ state: 'finalized', finalized_at: now, updated_at: now })
+            .update({ state: hasUnfinishedQuestion ? 'editing' : 'finalized', finalized_at: hasUnfinishedQuestion ? null : now, updated_at: now })
             .eq('id', id)
             .eq('user_id', userId);
         if (sessionError) throw sessionError;
@@ -941,7 +1279,12 @@ export const writingSessionService = {
             .eq('id', details.question.id)
             .eq('user_id', userId);
         if (questionError) throw questionError;
-        return fetchDetails(supabase, userId, { ...session, state: 'finalized', finalizedAt: now, updatedAt: now });
+        return fetchDetails(supabase, userId, {
+            ...session,
+            state: hasUnfinishedQuestion ? 'editing' : 'finalized',
+            finalizedAt: hasUnfinishedQuestion ? undefined : now,
+            updatedAt: now,
+        });
     },
 };
 
@@ -949,6 +1292,7 @@ async function insertRevision(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     userId: string,
     sessionId: string,
+    questionId: string,
     content: string,
     editor: 'user' | 'ai',
     changeReason: string,
@@ -958,12 +1302,14 @@ async function insertRevision(
         .select('id')
         .eq('writing_session_id', sessionId)
         .eq('user_id', userId)
+        .eq('question_id', questionId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
     if (previousError) throw previousError;
     const { error } = await supabase.from('draft_revisions').insert({
         writing_session_id: sessionId,
+        question_id: questionId,
         user_id: userId,
         parent_revision_id: previous?.id ?? null,
         content,
@@ -973,4 +1319,35 @@ async function insertRevision(
     if (error) throw error;
 }
 
-export { charLength, getCharLimit };
+async function replaceFactCitations(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    userId: string,
+    sessionId: string,
+    questionId: string,
+    draftId: string,
+    citations: NormalizedDraftCitation[],
+): Promise<void> {
+    const { error: deleteError } = await supabase
+        .from('draft_fact_citations')
+        .delete()
+        .eq('draft_candidate_id', draftId)
+        .eq('writing_session_id', sessionId)
+        .eq('question_id', questionId)
+        .eq('user_id', userId);
+    if (deleteError) throw deleteError;
+    if (citations.length === 0) return;
+    const { error } = await supabase.from('draft_fact_citations').insert(citations.map(citation => ({
+        writing_session_id: sessionId,
+        question_id: questionId,
+        draft_candidate_id: draftId,
+        user_id: userId,
+        sentence_index: citation.sentenceIndex,
+        sentence_text: citation.sentenceText,
+        fact_type: citation.factType,
+        evidence_record_ids: citation.evidenceRecordIds,
+        status: citation.status,
+    })));
+    if (error) throw error;
+}
+
+export { charLength, getCharLimit, splitSentences, splitParagraphs, isFactLikeSentence };

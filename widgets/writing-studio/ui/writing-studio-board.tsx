@@ -26,13 +26,15 @@ import type { DraftCandidate } from '@/entities/draft-candidate';
 import type { EvidenceRecord } from '@/entities/evidence-record';
 import type { CareerItem } from '@/entities/career-item';
 import { Badge } from '@/shared/ui';
+import { DraftParagraphMixer } from './draft-paragraph-mixer';
 
 type EvidenceDetails = { record: EvidenceRecord; careerItem: CareerItem };
 type MatchDetails = { match: EvidenceMatch; evidence: EvidenceDetails; requirement?: JobRequirement };
-type QuestionDetails = { id: string; question: string; charLimit?: number; status: string };
+type QuestionDetails = { id: string; question: string; charLimit?: number; status: string; position?: number; finalAnswer?: string };
 type SessionResponse = {
     session: WritingSession;
     target: JobTarget;
+    questions: QuestionDetails[];
     question: QuestionDetails;
     requirements: JobRequirement[];
     evidence: EvidenceDetails[];
@@ -40,6 +42,7 @@ type SessionResponse = {
     outlines: OutlineCandidate[];
     drafts: DraftCandidate[];
     revisions: Array<{ id: string; editor: 'user' | 'ai'; createdAt: string; content: string }>;
+    factCitations: Array<{ id: string; draftCandidateId: string; sentenceIndex: number; sentenceText: string; evidenceRecordIds: string[]; status: 'verified' | 'unverified' }>;
 };
 
 type Step = 'evidence' | 'outline' | 'draft' | 'edit';
@@ -77,6 +80,14 @@ function charCount(value: string): number {
     return Array.from(value).length;
 }
 
+function splitSentences(value: string): string[] {
+    return (value.match(/[^.!?。！？\n]+[.!?。！？]?/g) ?? []).map(sentence => sentence.trim()).filter(Boolean);
+}
+
+function isFactLikeSentence(value: string): boolean {
+    return /(?:\d|%|퍼센트|명|건|회|개월|주|일|원|년|월|회사|프로젝트|서비스|개발|개선|운영|구축|담당|달성|감소|증가|[A-Z]{2,})/u.test(value);
+}
+
 function stepForState(state: WritingSession['state']): Step {
     if (state === 'evidence_selecting') return 'evidence';
     if (state === 'outline_selecting' || state === 'drafting') return 'outline';
@@ -93,6 +104,23 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
     const [manualEvidence, setManualEvidence] = useState<ManualEvidence>({ title: '', action: '', result: '', learning: '' });
     const [showEvidenceForm, setShowEvidenceForm] = useState(false);
     const [editedContent, setEditedContent] = useState('');
+    const [citationEvidenceBySentence, setCitationEvidenceBySentence] = useState<Record<number, string[]>>({});
+
+    const setCitationSelections = (draft: DraftCandidate | undefined) => {
+        const citations = draft?.evidenceMap.citations;
+        if (!Array.isArray(citations)) {
+            setCitationEvidenceBySentence({});
+            return;
+        }
+        setCitationEvidenceBySentence(citations.reduce<Record<number, string[]>>((next, citation) => {
+            if (!citation || typeof citation !== 'object') return next;
+            const item = citation as { sentenceIndex?: unknown; evidenceRecordIds?: unknown };
+            if (typeof item.sentenceIndex === 'number' && Array.isArray(item.evidenceRecordIds)) {
+                next[item.sentenceIndex] = item.evidenceRecordIds.filter((value): value is string => typeof value === 'string');
+            }
+            return next;
+        }, {}));
+    };
 
     const loadSession = async (showSpinner = false) => {
         if (showSpinner) setIsLoading(true);
@@ -105,7 +133,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             setDetails(next);
             setStep(current => current === 'evidence' && next.session.state !== 'evidence_selecting' ? stepForState(next.session.state) : current);
             const selectedDraft = next.drafts.find(draft => draft.status === 'selected');
-            if (selectedDraft) setEditedContent(selectedDraft.content);
+            if (selectedDraft) {
+                setEditedContent(selectedDraft.content);
+                setCitationSelections(selectedDraft);
+            }
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : '작성 세션을 불러오지 못했습니다.');
         } finally {
@@ -128,6 +159,23 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         const next = result as unknown as SessionResponse;
         setDetails(next);
         return next;
+    };
+
+    const switchQuestion = async (questionId: string) => {
+        if (questionId === details?.question.id) return;
+        setBusy(`question-${questionId}`);
+        try {
+            const next = await updateDetails(await fetch(`/api/writing-sessions/${sessionId}/questions/${questionId}`, { method: 'PATCH' }), '문항을 전환하지 못했습니다.');
+            setStep(stepForState(next.session.state));
+            const selected = next.drafts.find(draft => draft.status === 'selected');
+            setEditedContent(selected?.content ?? '');
+            setCitationSelections(selected);
+            toast.success('작업 문항을 전환했습니다.');
+        } catch (switchError) {
+            setError(switchError instanceof Error ? switchError.message : '문항을 전환하지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
     };
 
     const changeMatch = async (match: MatchDetails, selectionState: 'selected' | 'rejected' | 'locked') => {
@@ -252,10 +300,31 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             setStep('edit');
             const selected = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(selected?.content ?? '');
+            setCitationSelections(selected);
             toast.success('초안을 선택했습니다. 직접 수정한 뒤 확정할 수 있습니다.');
             return next;
         } catch (selectError) {
             setError(selectError instanceof Error ? selectError.message : '초안 선택을 저장하지 못했습니다.');
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    const mergeDrafts = async (paragraphs: Array<{ position: number; sourceDraftId: string; text: string }>) => {
+        setBusy('merge-drafts');
+        try {
+            const next = await updateDetails(await fetch(`/api/writing-sessions/${sessionId}/drafts/merge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paragraphs }),
+            }), '문단을 병합하지 못했습니다.');
+            setStep('edit');
+            const selected = next.drafts.find(draft => draft.status === 'selected');
+            setEditedContent(selected?.content ?? '');
+            setCitationSelections(selected);
+            toast.success('문단을 조합한 편집 초안을 만들었습니다.');
+        } catch (mergeError) {
+            setError(mergeError instanceof Error ? mergeError.message : '문단을 병합하지 못했습니다.');
         } finally {
             setBusy(null);
         }
@@ -267,7 +336,13 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             await updateDetails(await fetch(`/api/writing-sessions/${sessionId}/drafts/${selectedDraft?.id ?? ''}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: editedContent }),
+                body: JSON.stringify({
+                    content: editedContent,
+                    citations: splitSentences(editedContent).flatMap((sentence, sentenceIndex) => {
+                        const evidenceRecordIds = citationEvidenceBySentence[sentenceIndex] ?? [];
+                        return evidenceRecordIds.length > 0 ? [{ sentenceIndex, sentenceText: sentence, factType: /\d|%/.test(sentence) ? 'metric' : 'claim', evidenceRecordIds }] : [];
+                    }),
+                }),
             }), '수정한 초안을 저장하지 못했습니다.');
             toast.success('수정한 초안을 저장했습니다.');
         } catch (saveError) {
@@ -284,6 +359,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             setStep('edit');
             const finalized = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(finalized?.content ?? editedContent);
+            setCitationSelections(finalized);
             toast.success('자기소개서를 최종 확정했습니다.');
         } catch (finalizeError) {
             setError(finalizeError instanceof Error ? finalizeError.message : '자기소개서를 확정하지 못했습니다.');
@@ -297,7 +373,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
 
     const activeCandidates = details.outlines.filter(outline => outline.status !== 'stale');
     const activeDrafts = details.drafts.filter(draft => draft.status !== 'stale');
-    const finalized = details.session.state === 'finalized' || details.session.state === 'exported';
+    const finalized = details.session.state === 'finalized' || details.session.state === 'exported' || details.question.status === 'finalized';
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-20">
@@ -307,11 +383,16 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                     <div className="mt-5 flex flex-wrap items-center gap-2"><Badge variant={finalized ? 'success' : 'pending'}>{SESSION_STATE_LABELS[details.session.state]}</Badge><span className="text-xs text-zinc-500">{details.target.company} · {details.target.role}</span></div>
                     <h1 className="mt-2 text-2xl font-bold text-white md:text-3xl">작성 작업대</h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{details.question.question}</p>
+                    {details.questions.length > 1 && <div className="mt-4 flex max-w-3xl gap-2 overflow-x-auto pb-1" role="tablist" aria-label="자기소개서 문항">
+                        {details.questions.map((question, index) => <button key={question.id} type="button" role="tab" aria-selected={question.id === details.question.id} onClick={() => void switchQuestion(question.id)} disabled={busy !== null} className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${question.id === details.question.id ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 text-zinc-400 hover:bg-white/5'}`}><span className="mr-1.5 text-[10px] text-zinc-600">{index + 1}</span>{question.question.slice(0, 42)}{question.question.length > 42 ? '…' : ''}</button>)}
+                    </div>}
                 </div>
                 <button type="button" onClick={() => void loadSession(true)} disabled={isLoading} className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} aria-hidden="true" /> 새로고침</button>
             </div>
 
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{error}</span></div>}
+
+            {step === 'edit' && selectedDraft && <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4" aria-labelledby="fact-citation-title"><div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300/80">Fact check</p><h2 id="fact-citation-title" className="mt-1 text-base font-semibold text-white">사실 문장에 활동 근거 연결</h2><p className="mt-1 text-xs leading-5 text-zinc-400">숫자·회사·프로젝트처럼 확인 가능한 문장을 선택한 활동과 연결하면 최종 확정할 수 있습니다.</p></div><span className="text-xs text-amber-200">검증 필요 {typeof selectedDraft.validationResult.unverifiedFactCount === 'number' ? selectedDraft.validationResult.unverifiedFactCount : 0}개</span></div><div className="mt-3 space-y-2">{splitSentences(editedContent).map((sentence, sentenceIndex) => isFactLikeSentence(sentence) ? <label key={`${sentenceIndex}-${sentence.slice(0, 12)}`} className="grid gap-2 rounded-xl border border-white/10 bg-background/40 p-3 md:grid-cols-[1fr_220px] md:items-center"><span className="text-xs leading-5 text-zinc-300"><span className="mr-1.5 text-[10px] text-zinc-600">{sentenceIndex + 1}</span>{sentence}</span><select value={citationEvidenceBySentence[sentenceIndex]?.[0] ?? ''} onChange={event => setCitationEvidenceBySentence(current => ({ ...current, [sentenceIndex]: event.target.value ? [event.target.value] : [] }))} disabled={finalized} className="w-full rounded-lg border border-white/10 bg-background px-2.5 py-2 text-xs text-zinc-300 outline-none focus:border-primary/60"><option value="">근거를 선택하세요</option>{selectedMatches.map(item => <option key={item.evidence.record.id} value={item.evidence.record.id}>{item.evidence.careerItem.title}</option>)}</select></label> : null)}</div></section>}
 
             <nav aria-label="작성 단계" className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-surface/45 p-2 md:grid-cols-4">
                 {STEP_LABELS.map((item, index) => {
@@ -332,7 +413,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
 
             {step === 'outline' && <section className="space-y-5" aria-labelledby="outline-step-title"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">02 · Outline</p><h2 id="outline-step-title" className="mt-1 text-2xl font-bold text-white">서사가 다른 개요를 비교하세요</h2><p className="mt-1 text-sm text-zinc-400">중심 주장과 전개 방식이 다른 후보 중 하나를 선택해야 초안을 만들 수 있습니다.</p></div><button type="button" onClick={() => void generateOutlines()} disabled={busy !== null || selectedMatches.length === 0} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><Sparkles size={15} aria-hidden="true" /> 다시 생성</button></div>{activeCandidates.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">아직 개요 후보가 없습니다. 근거 선택 단계에서 생성해 주세요.</div> : <div className="grid gap-4 lg:grid-cols-3">{activeCandidates.map(outline => { const selected = outline.status === 'selected'; const outlineBusy = busy === outline.id; return <article key={outline.id} className={`flex flex-col rounded-2xl border p-5 ${selected ? 'border-primary/50 bg-primary/5' : 'border-white/10 bg-surface/50'}`}><div className="flex items-center justify-between gap-2"><Badge variant={selected ? 'success' : outline.status === 'rejected' ? 'secondary' : 'pending'}>{selected ? '선택됨' : STRATEGY_LABELS[outline.strategy]}</Badge>{selected && <CheckCircle2 size={18} className="text-emerald-300" aria-hidden="true" />}</div><h3 className="mt-4 text-lg font-semibold leading-7 text-white">{outline.thesis}</h3><ol className="mt-4 flex-1 space-y-2 text-sm leading-6 text-zinc-400">{outline.structure.map((part, index) => <li key={`${outline.id}-${part}`} className="flex gap-2"><span className="text-primary/70">{index + 1}</span><span>{part}</span></li>)}</ol><p className="mt-4 text-xs text-zinc-500">근거 {outline.evidenceRecordIds.length}개 · 요구사항 {outline.requirementIds.length}개</p><button type="button" onClick={() => void selectOutline(outline.id)} disabled={selected || outline.status === 'stale' || busy !== null} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-primary/15 px-3 py-2.5 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50">{outlineBusy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{selected ? '선택한 개요' : '이 개요 선택'}</button></article>; })}</div>}<div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-surface/40 p-4 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-medium text-white">{selectedOutline ? '개요가 선택되었습니다.' : '개요를 하나 선택해 주세요.'}</p><p className="mt-1 text-xs text-zinc-500">선택한 개요와 근거만 초안 생성에 사용됩니다.</p></div><button type="button" onClick={() => void generateDrafts()} disabled={!selectedOutline || busy !== null} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">{busy === 'drafts' ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />} 초안 후보 3개 만들기</button></div></section>}
 
-            {step === 'draft' && <section className="space-y-5" aria-labelledby="draft-step-title"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">03 · Draft</p><h2 id="draft-step-title" className="mt-1 text-2xl font-bold text-white">초안을 나란히 비교하세요</h2><p className="mt-1 text-sm text-zinc-400">글자 수 제한을 넘은 후보는 선택할 수 없습니다. 선택 후 직접 문장을 고칠 수 있습니다.</p></div><button type="button" onClick={() => void generateDrafts()} disabled={busy !== null || !selectedOutline} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><Sparkles size={15} aria-hidden="true" /> 다시 생성</button></div>{activeDrafts.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">아직 초안 후보가 없습니다. 개요를 선택한 뒤 생성해 주세요.</div> : <div className="grid gap-4 lg:grid-cols-3">{activeDrafts.map(draft => { const overLimit = draft.charCount > charLimit; const selected = draft.status === 'selected'; const draftBusy = busy === draft.id; return <article key={draft.id} className={`flex flex-col rounded-2xl border p-5 ${selected ? 'border-primary/50 bg-primary/5' : 'border-white/10 bg-surface/50'}`}><div className="flex items-center justify-between gap-2"><Badge variant={selected ? 'success' : overLimit ? 'fail' : 'pending'}>{selected ? '선택됨' : overLimit ? '글자 수 초과' : '후보'}</Badge><span className={`text-xs ${overLimit ? 'text-red-300' : 'text-zinc-500'}`}>{draft.charCount.toLocaleString()} / {charLimit.toLocaleString()}자</span></div><p className="mt-4 flex-1 whitespace-pre-wrap text-sm leading-7 text-zinc-300">{draft.content}</p><p className="mt-4 text-xs text-zinc-500">근거 {Array.isArray(draft.evidenceMap.evidenceRecordIds) ? draft.evidenceMap.evidenceRecordIds.length : 0}개</p><button type="button" onClick={() => void selectDraft(draft.id)} disabled={selected || overLimit || draft.status === 'stale' || busy !== null} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-primary/15 px-3 py-2.5 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50">{draftBusy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{selected ? '선택한 초안' : overLimit ? '초과로 선택 불가' : '이 초안 선택'}</button></article>; })}</div>}</section>}
+            {step === 'draft' && <section className="space-y-5" aria-labelledby="draft-step-title"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">03 · Draft</p><h2 id="draft-step-title" className="mt-1 text-2xl font-bold text-white">초안을 나란히 비교하세요</h2><p className="mt-1 text-sm text-zinc-400">글자 수 제한을 넘은 후보는 선택할 수 없습니다. 선택 후 직접 문장을 고칠 수 있습니다.</p></div><button type="button" onClick={() => void generateDrafts()} disabled={busy !== null || !selectedOutline} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><Sparkles size={15} aria-hidden="true" /> 다시 생성</button></div><DraftParagraphMixer drafts={activeDrafts} charLimit={charLimit} busy={busy} onSelectDraft={draftId => void selectDraft(draftId)} onMerge={paragraphs => void mergeDrafts(paragraphs)} /></section>}
 
             {step === 'edit' && <section className="space-y-5" aria-labelledby="edit-step-title"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">04 · Final edit</p><h2 id="edit-step-title" className="mt-1 text-2xl font-bold text-white">직접 다듬고 확정하세요</h2><p className="mt-1 text-sm text-zinc-400">수정본은 revision으로 남습니다. 글자 수 제한을 넘으면 확정할 수 없습니다.</p></div>{selectedDraft ? <div className="rounded-2xl border border-white/10 bg-surface/55 p-4 md:p-6"><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={finalized ? 'success' : 'pending'}>{finalized ? '최종 확정됨' : '편집 중'}</Badge><span className={`text-xs ${editedCount > charLimit ? 'text-red-300' : 'text-zinc-500'}`}>{editedCount.toLocaleString()} / {charLimit.toLocaleString()}자</span></div><span className="text-xs text-zinc-600">revision {details.revisions.length}개</span></div><textarea value={editedContent} onChange={event => setEditedContent(event.target.value)} maxLength={100_000} disabled={finalized} className="min-h-[420px] w-full resize-y rounded-xl border border-white/10 bg-background px-4 py-4 text-sm leading-7 text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80" /><div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs leading-5 text-zinc-500">{editedCount > charLimit ? '글자 수를 줄인 뒤 저장·확정해 주세요.' : '선택한 활동 근거와 개요를 바탕으로 직접 문장을 완성하세요.'}</p><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditedContent(selectedDraft.content)} disabled={busy !== null || finalized} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><X size={14} aria-hidden="true" /> 되돌리기</button><button type="button" onClick={() => void saveDraft()} disabled={busy !== null || finalized || editedCount === 0} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-50"><Save size={14} aria-hidden="true" /> 저장</button><button type="button" onClick={() => void finalizeDraft()} disabled={busy !== null || finalized || editedCount === 0 || editedCount > charLimit} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50"><CheckCircle2 size={14} aria-hidden="true" /> 최종 확정</button></div></div></div> : <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center text-sm text-zinc-500">먼저 초안 후보를 선택해 주세요.</div>}</section>}
         </div>

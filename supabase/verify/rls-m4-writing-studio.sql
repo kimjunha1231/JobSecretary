@@ -20,7 +20,8 @@ where n.nspname = 'public'
       'evidence_matches',
       'outline_candidates',
       'draft_candidates',
-      'draft_revisions'
+      'draft_revisions',
+      'draft_fact_citations'
   )
 order by c.relname;
 
@@ -39,6 +40,7 @@ where schemaname = 'public'
       'evidence_matches',
       'outline_candidates',
       'draft_candidates',
-      'draft_revisions'
+      'draft_revisions',
+      'draft_fact_citations'
   )
 order by tablename, policyname;

@@ -8,6 +8,7 @@ export const DraftCandidateSchema = z.object({
     id: DomainIdSchema,
     writingSessionId: DomainIdSchema,
     userId: DomainUserIdSchema,
+    questionId: DomainIdSchema.optional(),
     outlineCandidateId: DomainIdSchema.optional(),
     content: z.string().min(1).max(100_000),
     charCount: z.number().int().min(0).max(100_000),
@@ -28,6 +29,7 @@ export const DraftRevisionSchema = z.object({
     id: DomainIdSchema,
     writingSessionId: DomainIdSchema,
     userId: DomainUserIdSchema,
+    questionId: DomainIdSchema.optional(),
     parentRevisionId: DomainIdSchema.optional(),
     content: z.string().max(100_000),
     editor: DraftRevisionEditorSchema,
@@ -36,3 +38,25 @@ export const DraftRevisionSchema = z.object({
     createdAt: DomainTimestampSchema,
 });
 export type DraftRevision = z.infer<typeof DraftRevisionSchema>;
+
+export const DraftFactCitationStatusSchema = z.enum(['verified', 'unverified']);
+export type DraftFactCitationStatus = z.infer<typeof DraftFactCitationStatusSchema>;
+
+export const DraftFactCitationTypeSchema = z.enum(['metric', 'date', 'named_entity', 'claim']);
+export type DraftFactCitationType = z.infer<typeof DraftFactCitationTypeSchema>;
+
+export const DraftFactCitationSchema = z.object({
+    id: DomainIdSchema,
+    writingSessionId: DomainIdSchema,
+    questionId: DomainIdSchema,
+    draftCandidateId: DomainIdSchema,
+    userId: DomainUserIdSchema,
+    sentenceIndex: z.number().int().min(0),
+    sentenceText: z.string().min(1).max(10_000),
+    factType: DraftFactCitationTypeSchema,
+    evidenceRecordIds: z.array(DomainIdSchema).max(50),
+    status: DraftFactCitationStatusSchema,
+    createdAt: DomainTimestampSchema,
+    updatedAt: DomainTimestampSchema,
+});
+export type DraftFactCitation = z.infer<typeof DraftFactCitationSchema>;

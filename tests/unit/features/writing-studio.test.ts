@@ -15,6 +15,8 @@ jest.mock('@/shared/lib/ai-access', () => ({ requireAiAccess: jest.fn() }));
 jest.mock('@/shared/lib', () => ({ logger: { warn: jest.fn(), error: jest.fn() } }));
 jest.mock('@/entities/writing-session/api', () => ({
     WritingSessionServiceError: class WritingSessionServiceError extends Error {},
+    splitSentences: (value: string) => (value.match(/[^.!?。！？\n]+[.!?。！？]?/g) ?? []).map(sentence => sentence.trim()).filter(Boolean),
+    isFactLikeSentence: (value: string) => /(?:\d|%|퍼센트|명|건|회|개월|주|일|원|년|월|회사|프로젝트|서비스|개발|개선|운영|구축|담당|달성|감소|증가|[A-Z]{2,})/u.test(value),
     writingSessionService: {
         getOutlineContext: jest.fn(),
         getGenerationContext: jest.fn(),
@@ -65,6 +67,14 @@ function createDetails(): WritingSessionDetails {
             position: 0,
             status: 'writing',
         },
+        questions: [{
+            id: session.coverLetterQuestionId!,
+            coverLetterId: '66666666-6666-4666-8666-666666666666',
+            question: '문제를 해결한 경험을 작성해 주세요.',
+            charLimit: 20,
+            position: 0,
+            status: 'writing',
+        }],
         requirements: [{
             id: requirementId,
             jobTargetId: target.id,
@@ -134,6 +144,7 @@ function createDetails(): WritingSessionDetails {
         }],
         drafts: [],
         revisions: [],
+        factCitations: [],
     };
 }
 
@@ -200,15 +211,33 @@ describe('writing studio AI candidates', () => {
             selectedOutline: details.outlines[0],
         });
         mockGenerateContent.mockResolvedValue({ text: JSON.stringify({ candidates: [
-            { content: '첫 번째 초안은 글자 수를 넘을 수 있습니다.', evidenceRecordIds: [evidenceId] },
-            { content: '두 번째 초안입니다.', evidenceRecordIds: [evidenceId] },
-            { content: '세 번째 초안입니다.', evidenceRecordIds: [evidenceId] },
+            { content: '첫 번째 초안은 글자 수를 넘을 수 있습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '두 번째 초안입니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '세 번째 초안입니다.', evidenceRecordIds: [evidenceId], citations: [] },
         ] }) });
 
         await generateDraftCandidates(session.id);
         expect(mockWritingSessionService.replaceDrafts).toHaveBeenCalledWith(session.id, expect.arrayContaining([
             expect.objectContaining({ validationResult: expect.objectContaining({ overLimit: true }) }),
         ]));
+    });
+
+    it('rejects a factual draft sentence without a citation', async () => {
+        const details = createDetails();
+        mockWritingSessionService.getGenerationContext.mockResolvedValue({
+            ...details,
+            selectedEvidence: [],
+            selectedMatches: details.matches,
+            selectedOutline: details.outlines[0],
+        });
+        mockGenerateContent.mockResolvedValue({ text: JSON.stringify({ candidates: [
+            { content: '응답 시간을 20% 줄였습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '협업 과정에서 배웠습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { content: '다음 개선을 준비했습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+        ] }) });
+
+        await expect(generateDraftCandidates(session.id)).rejects.toBeInstanceOf(WritingGenerationError);
+        expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
     });
 
     it('does not call Gemini when AI access is denied', async () => {
