@@ -4,7 +4,7 @@ import WritingSessionNewPage from '@/app/(pages)/writing/new/page';
 jest.mock('next/navigation', () => ({ redirect: jest.fn() }));
 jest.mock('@/widgets/writing-studio', () => ({ WritingSessionStart: () => null }));
 
-const mockedRedirect = redirect as jest.Mock;
+const mockedRedirect = redirect as unknown as jest.Mock;
 
 describe('writing session entry page', () => {
     const originalValue = process.env.NEXT_PUBLIC_WRITING_STUDIO_ENABLED;
