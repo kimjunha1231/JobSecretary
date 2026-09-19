@@ -5,7 +5,7 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-g 구현 커밋까지 포함
+- 로컬 기능 기준: M0~M6-g, M5-j 구현 커밋까지 포함
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
@@ -26,7 +26,7 @@ git diff --check
 ## 2. Supabase 적용 순서
 
 1. 각 migration의 `supabase/verify/*.sql`을 읽기 전용으로 실행해 기존 테이블·정책·Storage bucket을 확인한다.
-2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호, M2 Storage, M6 OCR 의존성을 확인한다.
+2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`), M2 Storage, M6 OCR 의존성을 확인한다.
 3. 적용 직후 사용자 소유 RLS와 `style_evaluation_preferences`의 hash-only 저장을 다시 확인한다.
 4. migration이 실패하면 다음 migration으로 건너뛰지 않고, 기존 사용자 데이터에 쓰기를 시작하지 않는다.
 
@@ -42,6 +42,7 @@ git diff --check
    - 작성 세션의 근거·개요·초안 비교와 최종 확정
    - 자기소개서·이력서·포트폴리오 PDF 다운로드
    - blind 비교 선택과 `/style` 선호 요약
+   - `/style`에서 검수 완료한 기존 자기소개서를 말투 예문으로 한 번 가져온 뒤 생성 context에 포함되는지 확인
 4. 이미지 PDF는 OCR 버튼을 명시적으로 누르기 전에는 Gemini 요청이 발생하지 않는지 확인한다.
 
 ## 4. 운영 완료율 기준선(제안)
@@ -65,4 +66,3 @@ git diff --check
 - 오류율이나 PDF 실패율이 기준을 벗어나면 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED=false`로 새 작업대 직접 접근까지 차단하고 기존 `/write`를 유지한다.
 - 원격 DB migration 오류는 롤백 SQL을 임의로 실행하지 말고, additive migration과 기존 문서 adapter를 유지한 채 원인을 확인한다.
 - Production 배포 후 최소 60초 동안 Vercel error 로그를 확인하고, Gemini capacity 오류가 반복되면 모델 fallback·키 fallback 상태와 Sentry 이벤트를 확인한다.
-

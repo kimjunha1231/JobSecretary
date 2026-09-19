@@ -145,6 +145,7 @@
 - `/style`에서 사용자의 문장 끝맺음, 선호 연결어, 피하고 싶은 표현과 직접 작성한 예문을 말투 프로필로 저장할 수 있습니다. 예문은 승인된 항목만 다음 생성에 사용됩니다.
 - `/writing/new`에서 말투 프로필을 선택하면 승인 예문은 사실 근거와 분리된 `style` context로만 전달됩니다. system instruction은 예문에 포함된 회사·수치·사건을 새로운 사실로 복사하지 않도록 고정되어 있습니다.
 - `/writing/[sessionId]`는 선택 근거 수, 후보 수, 사용자 수정 횟수, 사실 문장 근거 커버리지를 현재 세션 데이터에서 계산해 보여줍니다.
+- 승인된 기존 자기소개서는 `/style`에서 말투 예문으로 명시적으로 가져올 수 있습니다. 서버가 사용자 소유·`cover_letter`·`approved` 상태와 20,000자 제한을 다시 확인하고, 가져온 원문은 사실 근거가 아닌 `source_document` 말투 자료로만 사용합니다.
 - `supabase/migrations/20260919030000_m5_style_profile_quality.sql`은 운영 DB에 아직 적용하지 않았습니다. 적용 전 `supabase/verify/rls-m5-style-profile.sql`로 프로필·예문·세션 FK를 읽기 전용 확인해야 합니다. 최종 확정 문장 승격 UX와 문항별 예문 범위는 M5-b에서 구현했고, golden set 평가·검색 품질 측정 후 pgvector/RAG 도입은 다음 단계입니다.
 
 ### 최종 답변 예문 승격·문항별 말투 자료(M5-b)
@@ -196,6 +197,13 @@
 - `/style`에는 blind 비교에서 사용자가 선택한 스튜디오 답변·기준 초안의 횟수와 마지막 응답 시각을 보여주는 요약 카드가 있습니다. 답변 원문과 hash는 이 화면이나 요약 API에 포함하지 않습니다.
 - `GET /api/style-evaluation-preferences/summary`는 사용자별 집계만 반환하며, preference migration이 아직 운영 DB에 적용되지 않은 배포에서는 `available: false`로 호환 응답합니다.
 - 이 요약은 자동 학습이나 말투 프로필 덮어쓰기가 아니라 다음 비교를 설계하고 사용자가 직접 프로필을 조정하기 위한 기준선입니다. 실제 사용자 데이터가 충분히 쌓이기 전에는 pgvector/RAG 도입이나 생성 모델 변경을 결정하지 않습니다.
+
+### 기존 자기소개서 말투 자료 가져오기(M5-j)
+
+- `/style`의 각 프로필에서 검수 완료한 기존 `cover_letter` 자료를 골라 승인 예문으로 추가할 수 있습니다. 직접 붙여넣지 않아도 과거 자기소개서의 문장 길이·끝맺음·연결어를 현재 프로필 분석과 다음 생성 context에 재사용합니다.
+- `POST /api/style-profiles/[id]/examples/from-source`는 자료 ID만 받고, 서버에서 현재 사용자 소유·`approved`·`cover_letter` 상태와 원문/fragment를 다시 확인합니다. 20,000자를 넘거나 본문이 비어 있으면 저장하지 않습니다.
+- `style_examples.source_document_id`와 `source = 'source_document'`로 원본 연결을 보존하고, 예문을 삭제하거나 사용 중지하면 다음 생성에서 제외할 수 있습니다. 사실 근거 검색과 말투 예문 검색은 계속 분리됩니다.
+- `supabase/migrations/20260920010000_m5j_source_style_examples.sql`과 `supabase/verify/rls-m5j-source-style-examples.sql`은 운영 DB에 아직 적용하지 않았습니다. M2 자료·M5 스타일 migration 이후 순서로 읽기 전용 검증을 먼저 실행해야 합니다.
 
 ### 서버 PDF 출력·기존 문서 전환(M6-a)
 

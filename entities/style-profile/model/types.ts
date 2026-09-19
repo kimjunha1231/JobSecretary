@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { DomainIdSchema, DomainTimestampSchema, DomainUserIdSchema, JsonObjectSchema } from '@/shared/types';
 
-export const StyleExampleSourceSchema = z.enum(['user_authored', 'approved_final']);
+export const StyleExampleSourceSchema = z.enum(['user_authored', 'approved_final', 'source_document']);
 export type StyleExampleSource = z.infer<typeof StyleExampleSourceSchema>;
 
 export const StyleProfileSchema = z.object({
@@ -28,6 +28,7 @@ export const StyleExampleSchema = z.object({
     styleProfileId: DomainIdSchema,
     userId: DomainUserIdSchema,
     questionId: DomainIdSchema.optional(),
+    sourceDocumentId: DomainIdSchema.optional(),
     source: StyleExampleSourceSchema,
     content: z.string().min(1).max(20_000),
     approved: z.boolean().default(false),

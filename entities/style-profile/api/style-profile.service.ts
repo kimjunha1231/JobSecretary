@@ -93,6 +93,15 @@ function objectValue(value: unknown): Record<string, unknown> {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function isSourceExampleMigrationUnavailable(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const record = error as Record<string, unknown>;
+    const code = typeof record.code === 'string' ? record.code : '';
+    const message = typeof record.message === 'string' ? record.message : '';
+    return (code === '42703' || code === 'PGRST204' || code === 'PGRST205')
+        && /source_document_id|style_examples/i.test(message);
+}
+
 function mapProfile(record: Record<string, unknown>): StyleProfile {
     const sentenceLength = objectValue(record.sentence_length);
     return StyleProfileSchema.parse({
@@ -120,6 +129,7 @@ function mapExample(record: Record<string, unknown>): StyleExample {
         styleProfileId: record.style_profile_id,
         userId: record.user_id,
         questionId: typeof record.question_id === 'string' ? record.question_id : undefined,
+        sourceDocumentId: typeof record.source_document_id === 'string' ? record.source_document_id : undefined,
         source: record.source,
         content: record.content,
         approved: Boolean(record.approved),
@@ -215,6 +225,54 @@ async function fetchFinalizedQuestion(
         throw new StyleProfileServiceError('conflict', '최종 확정된 문항만 말투 예문으로 저장할 수 있습니다.', 409);
     }
     return data.final_answer;
+}
+
+async function fetchApprovedSourceDocument(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    sourceDocumentId: string,
+    userId: string,
+): Promise<{ id: string; rawText?: string; kind: string; title: string }> {
+    const { data, error } = await supabase
+        .from('source_documents')
+        .select('id, kind, title, status, raw_text')
+        .eq('id', sourceDocumentId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new StyleProfileServiceError('not_found', '기존 자기소개서 자료를 찾을 수 없습니다.', 404);
+    if (data.kind !== 'cover_letter' || data.status !== 'approved') {
+        throw new StyleProfileServiceError('conflict', '검수 완료한 기존 자기소개서만 말투 예문으로 가져올 수 있습니다.', 409);
+    }
+
+    return {
+        id: data.id as string,
+        kind: data.kind as string,
+        title: data.title as string,
+        rawText: typeof data.raw_text === 'string' ? data.raw_text : undefined,
+    };
+}
+
+async function fetchSourceDocumentContent(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    sourceDocumentId: string,
+    userId: string,
+    rawText?: string,
+): Promise<string> {
+    const normalizedRawText = rawText?.trim();
+    if (normalizedRawText) return normalizedRawText;
+
+    const { data, error } = await supabase
+        .from('source_fragments')
+        .select('content')
+        .eq('source_document_id', sourceDocumentId)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? [])
+        .map(row => typeof row.content === 'string' ? row.content.trim() : '')
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
 }
 
 export const styleProfileService = {
@@ -320,6 +378,60 @@ export const styleProfileService = {
             approved: parsed.data.approved,
         });
         if (error) throw error;
+        const profile = await fetchProfile(supabase, profileId, userId);
+        return { profile, examples: await fetchExamples(supabase, profileId, userId) };
+    },
+
+    /**
+     * Imports one user-owned, already approved cover-letter source as a style
+     * example. This is an explicit user action: the source remains separate
+     * from factual evidence, and generation only sees it after approval.
+     */
+    async importSourceDocument(profileIdInput: unknown, sourceDocumentIdInput: unknown): Promise<StyleProfileDetails> {
+        const profileId = parseId(profileIdInput, '말투 프로필 ID');
+        const sourceDocumentId = parseId(sourceDocumentIdInput, '기존 자기소개서 자료 ID');
+        const { supabase, userId } = await getAuthenticatedClient();
+        await fetchProfile(supabase, profileId, userId);
+        const sourceDocument = await fetchApprovedSourceDocument(supabase, sourceDocumentId, userId);
+        const content = await fetchSourceDocumentContent(supabase, sourceDocument.id, userId, sourceDocument.rawText);
+        if (!content) {
+            throw new StyleProfileServiceError('conflict', '기존 자기소개서 본문이 비어 있어 말투 예문으로 가져올 수 없습니다.', 409);
+        }
+        if (Array.from(content).length > 20_000) {
+            throw new StyleProfileServiceError('invalid_input', '기존 자기소개서가 20,000자를 넘어 예문으로 가져올 수 없습니다. 필요한 문단만 직접 추가해 주세요.', 400);
+        }
+
+        const { data: existing, error: existingError } = await supabase
+            .from('style_examples')
+            .select('*')
+            .eq('style_profile_id', profileId)
+            .eq('user_id', userId)
+            .eq('source_document_id', sourceDocument.id)
+            .eq('source', 'source_document')
+            .limit(1);
+        if (existingError) {
+            if (isSourceExampleMigrationUnavailable(existingError)) {
+                throw new StyleProfileServiceError('conflict', '기존 자기소개서 말투 자료 기능을 사용하려면 관련 migration을 먼저 적용해 주세요.', 409);
+            }
+            throw existingError;
+        }
+        if (!existing?.[0]) {
+            const { error } = await supabase.from('style_examples').insert({
+                style_profile_id: profileId,
+                user_id: userId,
+                source_document_id: sourceDocument.id,
+                source: 'source_document',
+                content,
+                approved: true,
+            });
+            if (error) {
+                if (isSourceExampleMigrationUnavailable(error)) {
+                    throw new StyleProfileServiceError('conflict', '기존 자기소개서 말투 자료 기능을 사용하려면 관련 migration을 먼저 적용해 주세요.', 409);
+                }
+                throw error;
+            }
+        }
+
         const profile = await fetchProfile(supabase, profileId, userId);
         return { profile, examples: await fetchExamples(supabase, profileId, userId) };
     },

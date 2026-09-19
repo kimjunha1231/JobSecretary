@@ -10,6 +10,7 @@ const profileId = '11111111-1111-4111-8111-111111111111';
 const questionId = '22222222-2222-4222-8222-222222222222';
 const exampleId = '33333333-3333-4333-8333-333333333333';
 const userId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const sourceDocumentId = '44444444-4444-4444-8444-444444444444';
 
 const profileRecord = {
     id: profileId,
@@ -188,5 +189,117 @@ describe('style profile service boundary', () => {
         });
         expect(from).toHaveBeenCalledWith('cover_letter_questions');
         expect(insertQuery.select).toHaveBeenCalledWith('*');
+    });
+
+    it('imports only an approved owned cover letter as a style example', async () => {
+        const sourceRow = {
+            id: sourceDocumentId,
+            user_id: userId,
+            kind: 'cover_letter',
+            title: '2025 상반기 자기소개서',
+            status: 'approved',
+            raw_text: '먼저 문제를 작게 나누고 하나씩 확인했습니다.',
+        };
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const sourceQuery = queryWithResult({ data: sourceRow, error: null });
+        const existingQuery = queryWithResult({ data: [], error: null });
+        const insertQuery = {
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: {
+                id: exampleId,
+                style_profile_id: profileId,
+                user_id: userId,
+                source_document_id: sourceDocumentId,
+                source: 'source_document',
+                content: sourceRow.raw_text,
+                approved: true,
+                created_at: '2026-01-01T00:00:00.000Z',
+            }, error: null }),
+        };
+        const finalProfileQuery = queryWithResult({ data: profileRecord, error: null });
+        const examplesQuery = {
+            select: jest.fn(),
+            eq: jest.fn(),
+            order: jest.fn(),
+        };
+        examplesQuery.select.mockReturnValue(examplesQuery);
+        examplesQuery.eq.mockReturnValue(examplesQuery);
+        examplesQuery.order.mockResolvedValue({ data: [{
+            id: exampleId,
+            style_profile_id: profileId,
+            user_id: userId,
+            source_document_id: sourceDocumentId,
+            source: 'source_document',
+            content: sourceRow.raw_text,
+            approved: true,
+            created_at: '2026-01-01T00:00:00.000Z',
+        }], error: null });
+
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn()
+                .mockReturnValueOnce(profileQuery)
+                .mockReturnValueOnce(sourceQuery)
+                .mockReturnValueOnce(existingQuery)
+                .mockReturnValueOnce({ insert: jest.fn().mockReturnValue(insertQuery) })
+                .mockReturnValueOnce(finalProfileQuery)
+                .mockReturnValueOnce(examplesQuery),
+        });
+
+        await expect(styleProfileService.importSourceDocument(profileId, sourceDocumentId)).resolves.toMatchObject({
+            profile: { id: profileId },
+            examples: [expect.objectContaining({ source: 'source_document', sourceDocumentId })],
+        });
+        expect(sourceQuery.eq).toHaveBeenCalledWith('user_id', userId);
+    });
+
+    it('rejects a non-cover-letter or unapproved source before reading its fragments', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const sourceQuery = queryWithResult({ data: {
+            id: sourceDocumentId,
+            user_id: userId,
+            kind: 'portfolio',
+            title: '포트폴리오',
+            status: 'approved',
+            raw_text: '프로젝트',
+        }, error: null });
+        const from = jest.fn()
+            .mockReturnValueOnce(profileQuery)
+            .mockReturnValueOnce(sourceQuery);
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from,
+        });
+
+        await expect(styleProfileService.importSourceDocument(profileId, sourceDocumentId))
+            .rejects.toMatchObject({ code: 'conflict', status: 409 });
+        expect(from).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns a controlled conflict when the source-link migration is not applied yet', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const sourceQuery = queryWithResult({ data: {
+            id: sourceDocumentId,
+            user_id: userId,
+            kind: 'cover_letter',
+            title: '기존 자기소개서',
+            status: 'approved',
+            raw_text: '본문',
+        }, error: null });
+        const existingQuery = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST204', message: 'column source_document_id does not exist' } }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn()
+                .mockReturnValueOnce(profileQuery)
+                .mockReturnValueOnce(sourceQuery)
+                .mockReturnValueOnce(existingQuery),
+        });
+
+        await expect(styleProfileService.importSourceDocument(profileId, sourceDocumentId))
+            .rejects.toMatchObject({ code: 'conflict', status: 409 });
     });
 });

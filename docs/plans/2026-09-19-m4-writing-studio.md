@@ -465,3 +465,24 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 - 질문별 세션 조회는 전역 승인 예문과 현재 문항의 승인 예문만 prompt context에 포함한다. 다른 문항의 예문이나 다른 사용자의 자료는 포함하지 않는다.
 - 생성 context가 길이 제한을 넘을 때는 현재 문항 예문을 전역 예문보다 먼저 잘라 사용해, 질문에 맞는 사용자의 실제 문체가 우선 유지된다. 문항별 예문·전역 예문·생성 context의 소유권 경계는 그대로 유지한다.
 - 검증: `npm run harness:verify`(21개 스위트/169개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check` 통과.
+
+## M5-j 기존 자기소개서 말투 자료 가져오기
+
+### 범위와 완료 조건
+
+1. 사용자가 검수 완료한 기존 자기소개서를 말투 프로필의 승인 예문으로 명시적으로 가져올 수 있다.
+2. 서버가 자료·프로필의 사용자 소유권과 `cover_letter`·`approved` 상태를 다시 확인하며, 임의의 다른 자료나 미검수 원문을 말투 context에 넣지 않는다.
+3. 가져온 예문은 `source_document_id`로 원본 연결을 보존하고, 사용자가 승인 해제·삭제할 수 있다.
+4. 원문이 비어 있거나 20,000자를 넘으면 조용히 자르지 않고 수동 문단 추가를 안내한다.
+
+### 실행 결과
+
+- `StyleExampleSourceSchema`에 `source_document`를 추가하고 `StyleExampleSchema`에 선택적 `sourceDocumentId`를 연결했다.
+- `styleProfileService.importSourceDocument`와 `POST /api/style-profiles/[id]/examples/from-source`를 추가했다. 서비스는 사용자 소유 프로필·검수 완료 `cover_letter` 자료·원문/fragment를 확인하고 동일 자료의 중복 가져오기를 멱등적으로 처리한다.
+- `/style`에서 승인된 기존 자기소개서 목록을 선택해 프로필에 추가할 수 있게 했고, 예문 카드에 `기존 자기소개서` 출처를 표시했다. 생성에는 승인 상태인 예문만 전달된다.
+- `20260920010000_m5j_source_style_examples.sql`에서 source FK·check constraint·사용자 소유와 승인 cover-letter 조건을 포함한 RLS를 추가했다. 운영 Supabase에는 적용하지 않았다.
+- `supabase/verify/rls-m5j-source-style-examples.sql`을 추가해 column·FK·policy를 읽기 전용으로 확인할 수 있게 했다.
+
+### M5-j 검증 결과
+
+`npm run harness:verify`(36개 스위트/236개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 운영 DB migration과 실제 사용자 문체 자료 import는 아직 실행하지 않았다.

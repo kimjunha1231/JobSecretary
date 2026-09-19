@@ -6,9 +6,10 @@ import { ArrowLeft, Check, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner';
 import type { StylePreferenceSummary } from '@/entities/style-evaluation';
 import type { StyleProfileAnalysis } from '@/entities/style-profile';
+import type { SourceDocument } from '@/entities/source-document';
 import { Badge } from '@/shared/ui';
 
-type Example = { id: string; content: string; source: 'user_authored' | 'approved_final'; questionId?: string; approved: boolean };
+type Example = { id: string; content: string; source: 'user_authored' | 'approved_final' | 'source_document'; questionId?: string; sourceDocumentId?: string; approved: boolean };
 type Profile = {
     id: string;
     name: string;
@@ -18,6 +19,8 @@ type Profile = {
     bannedExpressions: string[];
 };
 type ProfileResponse = { profile: Profile; examples: Example[] };
+
+type SourceDocumentSummary = Pick<SourceDocument, 'id' | 'title' | 'kind' | 'status' | 'createdAt'>;
 
 function splitInput(value: string): string[] {
     return [...new Set(value.split(/[,\n]/).map(item => item.trim()).filter(Boolean))].slice(0, 100);
@@ -38,13 +41,17 @@ export function StyleProfileBoard() {
     const [analyses, setAnalyses] = useState<Record<string, StyleProfileAnalysis>>({});
     const [analysisBusy, setAnalysisBusy] = useState<string | null>(null);
     const [preferenceSummary, setPreferenceSummary] = useState<StylePreferenceSummary | null>(null);
+    const [sourceDocuments, setSourceDocuments] = useState<SourceDocumentSummary[]>([]);
+    const [sourceImportDrafts, setSourceImportDrafts] = useState<Record<string, string>>({});
+    const [sourceImportBusy, setSourceImportBusy] = useState<string | null>(null);
 
     const loadProfiles = async () => {
         setError(null);
         try {
-            const [profilesResponse, preferenceResponse] = await Promise.all([
+            const [profilesResponse, preferenceResponse, sourceResponse] = await Promise.all([
                 fetch('/api/style-profiles', { cache: 'no-store' }),
                 fetch('/api/style-evaluation-preferences/summary', { cache: 'no-store' }),
+                fetch('/api/source-documents?status=approved&limit=50', { cache: 'no-store' }),
             ]);
             const result = await readJson(profilesResponse);
             if (!profilesResponse.ok) throw new Error(typeof result.error === 'string' ? result.error : '말투 프로필을 불러오지 못했습니다.');
@@ -54,6 +61,16 @@ export function StyleProfileBoard() {
                 setPreferenceSummary(preferenceResult as unknown as StylePreferenceSummary);
             } else {
                 setPreferenceSummary(null);
+            }
+            if (sourceResponse.ok) {
+                const sourceResult = await readJson(sourceResponse);
+                setSourceDocuments((Array.isArray(sourceResult) ? sourceResult : []).filter((item): item is SourceDocumentSummary => {
+                    const source = item as Record<string, unknown>;
+                    return source.kind === 'cover_letter' && source.status === 'approved'
+                        && typeof source.id === 'string' && typeof source.title === 'string';
+                }));
+            } else {
+                setSourceDocuments([]);
             }
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : '말투 프로필을 불러오지 못했습니다.');
@@ -196,6 +213,30 @@ export function StyleProfileBoard() {
         await loadProfiles();
     };
 
+    const importSourceDocument = async (profileId: string) => {
+        const sourceDocumentId = sourceImportDrafts[profileId];
+        if (!sourceDocumentId) {
+            toast.error('가져올 기존 자기소개서를 선택해 주세요.');
+            return;
+        }
+        setSourceImportBusy(profileId);
+        try {
+            const response = await fetch(`/api/style-profiles/${profileId}/examples/from-source`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sourceDocumentId }),
+            });
+            const result = await readJson(response);
+            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '기존 자기소개서를 가져오지 못했습니다.');
+            await loadProfiles();
+            toast.success('기존 자기소개서를 말투 예문으로 추가했습니다.');
+        } catch (importError) {
+            toast.error(importError instanceof Error ? importError.message : '기존 자기소개서를 가져오지 못했습니다.');
+        } finally {
+            setSourceImportBusy(null);
+        }
+    };
+
     return <div className="mx-auto max-w-5xl space-y-6 pb-20">
         <Link href="/writing/new" className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/40"><ArrowLeft size={16} aria-hidden="true" /> 작성 시작으로 돌아가기</Link>
         <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/80">Voice profile</p><h1 className="mt-2 text-3xl font-bold text-white md:text-4xl">내 말투 프로필</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">직접 쓴 문장과 선호 표현을 승인해 두면 AI는 사실 근거와 분리된 말투 자료로만 참고합니다. 예문을 복사하는 대신 문장 길이와 어조를 맞추는 데 사용합니다.</p></div>
@@ -232,7 +273,8 @@ export function StyleProfileBoard() {
                 return <article key={item.profile.id} className="rounded-2xl border border-white/10 bg-surface/50 p-5">
                     <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-white">{item.profile.name}</h3><div className="mt-2 flex flex-wrap gap-1.5">{item.profile.endingStyle.map(value => <Badge key={`ending-${value}`} variant="secondary">끝: {value}</Badge>)}{item.profile.preferredConnectors.map(value => <Badge key={`connector-${value}`} variant="secondary">연결: {value}</Badge>)}{item.profile.bannedExpressions.map(value => <Badge key={`banned-${value}`} variant="fail">금지: {value}</Badge>)}</div></div><span className="text-xs text-zinc-500">승인 예문 {approvedExampleCount}개</span></div>
                     <div className="mt-4 rounded-xl border border-primary/15 bg-primary/5 p-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-medium text-primary">예문에서 말투 분석</p><p className="mt-1 text-[11px] leading-5 text-zinc-500">승인 예문만 사용하며 원문은 분석 결과에 저장하지 않습니다.</p></div><button type="button" onClick={() => void analyzeProfile(item.profile.id)} disabled={analysisBusy !== null || approvedExampleCount === 0} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/30 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50">{analysisBusy === `analyze:${item.profile.id}` ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Sparkles size={13} aria-hidden="true" />} 분석하기</button></div>{profileAnalysis && <div className="mt-3 space-y-2 border-t border-primary/10 pt-3"><p className="text-xs text-zinc-300">{profileAnalysis.sentenceCount}문장 분석 · 신뢰도 {Math.round(profileAnalysis.confidence * 100)}%{profileAnalysis.sentenceLength.average ? ` · 평균 ${profileAnalysis.sentenceLength.average.toFixed(1)}자` : ''}</p><div className="flex flex-wrap gap-1.5">{profileAnalysis.endingStyle.map(value => <Badge key={`analysis-ending-${value}`} variant="secondary">끝: {value}</Badge>)}{profileAnalysis.preferredConnectors.map(value => <Badge key={`analysis-connector-${value}`} variant="secondary">연결: {value}</Badge>)}</div><button type="button" onClick={() => void applyAnalysis(item.profile.id)} disabled={analysisBusy !== null} className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary/15 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:opacity-50">{analysisBusy === `apply:${item.profile.id}` && <Loader2 size={13} className="animate-spin" aria-hidden="true" />} 분석 결과를 프로필에 반영</button></div>}</div>
-                    <div className="mt-4 space-y-2">{item.examples.length === 0 ? <p className="text-xs text-zinc-600">아직 승인 예문이 없습니다.</p> : item.examples.map(example => <div key={example.id} className="rounded-xl border border-white/10 bg-background/40 p-3"><div className="mb-2 flex flex-wrap gap-1.5"><Badge variant={example.approved ? 'success' : 'secondary'}>{example.approved ? '승인됨' : '보류'}</Badge><Badge variant="secondary">{example.questionId ? '문항별 예문' : '전역 예문'} · {example.source === 'approved_final' ? '최종 확정문' : '직접 작성'}</Badge></div><p className="whitespace-pre-wrap text-xs leading-5 text-zinc-300">{example.content}</p><div className="mt-3 flex items-center justify-between gap-2"><button type="button" onClick={() => void toggleExample(example)} className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${example.approved ? 'bg-emerald-500/15 text-emerald-300' : 'border border-white/10 text-zinc-400 hover:bg-white/5'}`}>{example.approved && <Check size={13} aria-hidden="true" />}{example.approved ? '생성에 사용 중' : '생성에 사용'}</button><button type="button" onClick={() => void removeExample(example.id)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 size={13} aria-hidden="true" /> 삭제</button></div></div>)}</div>
+                    {sourceDocuments.length > 0 && <div className="mt-4 rounded-xl border border-sky-400/20 bg-sky-400/5 p-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-medium text-sky-200">기존 자기소개서에서 말투 가져오기</p><p className="mt-1 text-[11px] leading-5 text-zinc-500">검수 완료한 내 자기소개서 원문을 이 프로필의 승인 예문으로 연결합니다. 사실 근거와는 분리해 말투만 참고합니다.</p></div><span className="text-[11px] text-zinc-600">{sourceDocuments.length}개 사용 가능</span></div><div className="mt-3 flex flex-col gap-2 sm:flex-row"><select aria-label={`${item.profile.name}에 가져올 기존 자기소개서`} value={sourceImportDrafts[item.profile.id] ?? ''} onChange={event => setSourceImportDrafts(current => ({ ...current, [item.profile.id]: event.target.value }))} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-background px-2.5 py-2 text-xs text-white outline-none focus:border-sky-300/60"><option value="">자기소개서 선택</option>{sourceDocuments.map(source => <option key={source.id} value={source.id}>{source.title}</option>)}</select><button type="button" onClick={() => void importSourceDocument(item.profile.id)} disabled={sourceImportBusy !== null || !sourceImportDrafts[item.profile.id]} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-sky-300/30 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/10 disabled:cursor-not-allowed disabled:opacity-50">{sourceImportBusy === item.profile.id && <Loader2 size={13} className="animate-spin" aria-hidden="true" />} 예문으로 추가</button></div></div>}
+                    <div className="mt-4 space-y-2">{item.examples.length === 0 ? <p className="text-xs text-zinc-600">아직 승인 예문이 없습니다.</p> : item.examples.map(example => <div key={example.id} className="rounded-xl border border-white/10 bg-background/40 p-3"><div className="mb-2 flex flex-wrap gap-1.5"><Badge variant={example.approved ? 'success' : 'secondary'}>{example.approved ? '승인됨' : '보류'}</Badge><Badge variant="secondary">{example.questionId ? '문항별 예문' : '전역 예문'} · {example.source === 'approved_final' ? '최종 확정문' : example.source === 'source_document' ? '기존 자기소개서' : '직접 작성'}</Badge></div><p className="whitespace-pre-wrap text-xs leading-5 text-zinc-300">{example.content}</p><div className="mt-3 flex items-center justify-between gap-2"><button type="button" onClick={() => void toggleExample(example)} className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${example.approved ? 'bg-emerald-500/15 text-emerald-300' : 'border border-white/10 text-zinc-400 hover:bg-white/5'}`}>{example.approved && <Check size={13} aria-hidden="true" />}{example.approved ? '생성에 사용 중' : '생성에 사용'}</button><button type="button" onClick={() => void removeExample(example.id)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 size={13} aria-hidden="true" /> 삭제</button></div></div>)}</div>
                     <div className="mt-4 border-t border-white/10 pt-4"><label className="block space-y-1.5 text-xs text-zinc-400"><span>이 프로필에 예문 추가</span><textarea value={exampleDrafts[item.profile.id] ?? ''} onChange={event => setExampleDrafts(current => ({ ...current, [item.profile.id]: event.target.value }))} maxLength={20_000} placeholder="내가 직접 쓴 문장을 추가해 주세요." className="min-h-20 w-full resize-y rounded-lg border border-white/10 bg-background px-3 py-2.5 text-xs leading-5 text-white outline-none focus:border-primary/60" /></label><div className="mt-2 flex justify-end"><button type="button" onClick={() => void addExample(item.profile.id)} disabled={!exampleDrafts[item.profile.id]?.trim()} className="rounded-lg bg-primary/15 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50">승인 예문 추가</button></div></div>
                 </article>;
             })}</div>}
