@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, Download, FolderKanban, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ChevronDown, ChevronUp, Download, FolderKanban, RefreshCw, Search, X } from 'lucide-react';
 import type { EvidenceRecordDetails } from '@/entities/evidence-record';
+import type { CareerItemKind } from '@/entities/career-item';
+import { filterCareerActivities } from '@/features/career-search';
 import { Badge } from '@/shared/ui';
 import { trackProductEvent } from '@/shared/lib/product-analytics';
 
@@ -23,6 +25,8 @@ function getRecordId(activity: EvidenceRecordDetails): string {
 export function CareerActivityBoard() {
     const [activities, setActivities] = useState<EvidenceRecordDetails[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [kindFilter, setKindFilter] = useState<CareerItemKind | 'all'>('all');
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -76,8 +80,16 @@ export function CareerActivityBoard() {
         return `/api/career/export?${params.toString()}`;
     };
 
+    const filteredActivities = useMemo(
+        () => filterCareerActivities(activities, { query: searchQuery, kind: kindFilter }),
+        [activities, kindFilter, searchQuery],
+    );
     const hasSelection = selectedIds.length > 0;
     const selectedPosition = new Map(selectedIds.map((id, index) => [id, index] as const));
+    const selectVisible = () => {
+        const visibleIds = filteredActivities.map(getRecordId);
+        setSelectedIds(current => [...current, ...visibleIds.filter(id => !current.includes(id))]);
+    };
 
     return (
         <section className="mt-8 space-y-4" aria-labelledby="career-activity-title">
@@ -95,6 +107,48 @@ export function CareerActivityBoard() {
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{error}</span></div>}
 
             {isLoading ? <div className="rounded-2xl border border-white/10 bg-surface/50 px-5 py-12 text-center text-sm text-zinc-500">승인된 활동을 불러오는 중입니다…</div> : activities.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-12 text-center"><FolderKanban size={26} className="mx-auto mb-3 text-zinc-600" aria-hidden="true" /><p className="text-sm font-medium text-zinc-300">아직 승인된 활동이 없습니다.</p><p className="mt-1 text-xs leading-5 text-zinc-500">작성 작업대에서 활동을 직접 추가하거나 자료를 검수 완료해 주세요.</p></div> : <>
+                <div role="region" aria-label="활동 검색 및 필터" className="rounded-2xl border border-white/10 bg-surface/45 p-4">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
+                        <label className="space-y-1.5 text-xs text-zinc-400">
+                            <span>활동 검색</span>
+                            <span className="relative block">
+                                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
+                                <input
+                                    type="search"
+                                    value={searchQuery}
+                                    onChange={event => setSearchQuery(event.target.value)}
+                                    placeholder="프로젝트, 조직, 기술, 성과 검색"
+                                    aria-label="승인된 활동 검색"
+                                    className="w-full rounded-lg border border-white/10 bg-background px-9 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                                />
+                            </span>
+                        </label>
+                        <label className="space-y-1.5 text-xs text-zinc-400">
+                            <span>활동 종류</span>
+                            <select
+                                value={kindFilter}
+                                onChange={event => setKindFilter(event.target.value as CareerItemKind | 'all')}
+                                aria-label="활동 종류 필터"
+                                className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                            >
+                                <option value="all">전체 종류</option>
+                                {Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            </select>
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => { setSearchQuery(''); setKindFilter('all'); }}
+                            disabled={!searchQuery && kindFilter === 'all'}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-2.5 text-xs text-zinc-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <X size={14} aria-hidden="true" /> 필터 초기화
+                        </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500" aria-live="polite">
+                        <span>{filteredActivities.length}개 표시 · 전체 {activities.length}개</span>
+                        <button type="button" onClick={selectVisible} disabled={filteredActivities.length === 0} className="rounded-md border border-primary/20 px-2.5 py-1.5 text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40">검색 결과 선택</button>
+                    </div>
+                </div>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 md:p-5" aria-labelledby="career-export-title">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
@@ -116,7 +170,7 @@ export function CareerActivityBoard() {
                 </div>
 
                 <div className="grid gap-3 lg:grid-cols-2">
-                    {activities.map(activity => {
+                    {filteredActivities.map(activity => {
                         const { careerItem, record } = activity;
                         const id = getRecordId(activity);
                         const position = selectedPosition.get(id);
@@ -136,6 +190,7 @@ export function CareerActivityBoard() {
                         </article>;
                     })}
                 </div>
+                {filteredActivities.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-10 text-center"><Search size={24} className="mx-auto mb-2 text-zinc-600" aria-hidden="true" /><p className="text-sm font-medium text-zinc-300">조건에 맞는 활동이 없습니다.</p><p className="mt-1 text-xs text-zinc-500">검색어 또는 활동 종류 필터를 바꿔 보세요.</p></div>}
             </>}
         </section>
     );
