@@ -213,6 +213,13 @@ describe('style profile service boundary', () => {
         expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({ exaggeration_level: null }));
     });
 
+    it('rejects an impossible sentence length range before opening Supabase', async () => {
+        await expect(styleProfileService.update(profileId, {
+            sentenceLength: { min: 120, max: 40 },
+        })).rejects.toMatchObject({ code: 'invalid_input', status: 400 });
+        expect(mockedCreateServerSupabaseClient).not.toHaveBeenCalled();
+    });
+
     it('does not allow the general example endpoint to self-label arbitrary text as a final answer', async () => {
         await expect(styleProfileService.addExample(profileId, {
             source: 'approved_final',

@@ -13,7 +13,9 @@ const sentenceLengthSchema = z.object({
     min: z.coerce.number().int().min(1).max(10_000).optional(),
     max: z.coerce.number().int().min(1).max(10_000).optional(),
     average: z.coerce.number().min(0).max(10_000).optional(),
-}).default({});
+}).default({}).refine(value => value.min === undefined || value.max === undefined || value.min <= value.max, {
+    message: '문장 길이의 최소값은 최대값보다 클 수 없습니다.',
+});
 
 const exaggerationLevelSchema = z.preprocess(
     value => value === '' ? undefined : value,
