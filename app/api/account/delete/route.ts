@@ -35,12 +35,12 @@ export async function DELETE() {
         }
 
         // 2. Create an Admin client with SERVICE_ROLE_KEY to delete the user
-        // Note: This key must be in your .env.local file
+        // This server-only key must be configured before deletion is enabled.
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!serviceRoleKey) {
             logger.error('Account deletion is unavailable: missing service role configuration.');
-            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+            return NextResponse.json({ error: '회원 탈퇴 기능이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.' }, { status: 503 });
         }
 
         const supabaseAdmin = createClient(
