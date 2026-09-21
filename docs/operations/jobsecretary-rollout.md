@@ -9,7 +9,7 @@
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
-- 2026-09-21 최신 로컬 커밋 Preview(`coverlettervault-m0s99yypw-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회한 `vercel curl`로 `/` 200, 비로그인 `/career` 307, 승인 활동 API 401을 확인했다. 활동·자료 검색 필터와 명시적 문단 선택, 공개 PDF URL 수집, 레거시 계정 정리 변경을 포함한 Preview에서 `vercel logs --level error --level warning`은 조회 시점 로그가 없었고 Production alias는 변경하지 않았다.
+- 2026-09-21 최신 로컬 커밋 Preview(`coverlettervault-8pu2lhy4l-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회한 `vercel curl`로 `/` 200, 비로그인 `/career` 307, 승인 활동 API 401을 확인했다. 활동·자료 검색 필터와 명시적 문단·활동 선택, 공개 PDF URL 수집, 레거시 계정 정리 변경을 포함한 Preview에서 `vercel logs --level error --level warning`은 조회 시점 로그가 없었고 Production alias는 변경하지 않았다.
 - 같은 날 `vercel env ls production`을 읽기 전용으로 확인한 결과 `SUPABASE_SERVICE_ROLE_KEY`와 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 목록에 없고, `GEMINI_API_KEY` 및 Supabase 공개 키는 있었다. service-role 키가 없는 동안 회원 탈퇴 API는 503으로 명확히 차단되며, 키가 설정된 뒤에는 기존 `documents`·`user_profiles`를 먼저 정리한 뒤 Auth 계정을 삭제한다. 실제 키를 채팅이나 저장소에 기록하지 않고 Vercel Production/Preview에 안전하게 추가해야 한다.
 
 ## 1. 배포 전 검증
