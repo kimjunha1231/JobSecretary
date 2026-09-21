@@ -26,7 +26,7 @@ git diff --check
 
 `rollout:verify`는 migration timestamp 순서와 destructive SQL, read-only verify SQL 누락, 환경변수 템플릿, client service-role 참조, Sentry 개인정보 마스킹을 로컬 파일만으로 확인한다. 이 명령은 Supabase·Vercel 원격 상태를 읽거나 변경하지 않는다.
 
-운영 환경변수에는 비밀값을 저장소나 로그에 출력하지 않는다. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 `true`이며, 장애 시 정확히 `false`로 설정하면 `/writing/new`가 기존 `/write`로 돌아간다.
+운영 환경변수에는 비밀값을 저장소나 로그에 출력하지 않는다. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 `true`이며, 장애 시 정확히 `false`로 설정하면 `/writing/new`가 기존 `/write`로 돌아간다. 다중 인스턴스 AI 호출 제한을 사용하려면 `UPSTASH_REDIS_REST_URL`과 `UPSTASH_REDIS_REST_TOKEN`을 Vercel 서버 환경변수에 함께 추가한다. 둘 중 하나가 없거나 공유 제한기가 일시 실패하면 로컬 제한기로 폴백한다.
 
 ## 2. Supabase 적용 순서
 

@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/shared/api/server';
-import { consumeRateLimit } from './ai-rate-limit';
+import { consumeRateLimit, consumeSharedRateLimit, hasSharedRateLimiterConfig } from './ai-rate-limit';
+import { logger } from './logger';
 
 export type AiOperation =
     | 'insight'
@@ -50,10 +51,20 @@ export async function requireAiAccess(operation: AiOperation) {
         throw new AiAccessError('UNAUTHORIZED', 'Unauthorized');
     }
 
-    const decision = consumeRateLimit(
-        `ai:${data.user.id}:${operation}`,
-        OPERATION_LIMITS[operation],
-    );
+    const rateLimitKey = `${data.user.id}:${operation}`;
+    let decision;
+    if (hasSharedRateLimiterConfig()) {
+        try {
+            decision = await consumeSharedRateLimit(rateLimitKey, OPERATION_LIMITS[operation]);
+        } catch {
+            logger.error(
+                'Shared AI rate limiter unavailable; using local fallback.',
+                'shared_rate_limiter_unavailable',
+            );
+            decision = null;
+        }
+    }
+    decision ??= consumeRateLimit(`ai:${rateLimitKey}`, OPERATION_LIMITS[operation]);
 
     if (!decision.allowed) {
         throw new AiAccessError(
