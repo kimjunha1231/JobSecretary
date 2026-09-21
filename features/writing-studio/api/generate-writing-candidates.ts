@@ -254,8 +254,10 @@ const draftSystemInstruction = `당신은 사용자가 선택한 개요와 승�
 6. 사실·수치·회사·프로젝트처럼 검증이 필요한 문장에는 citations 배열로 해당 문장 번호(0부터), 문장 원문, 근거 ID를 반드시 연결합니다.
 7. style 객체와 approvedExamples는 사실 근거가 아니라 말투 참고 자료입니다. 예문 속 회사·수치·사건을 복사하거나 새 사실로 사용하지 않습니다.
 8. bannedExpressions는 사용하지 않고, preferredConnectors와 endingStyle은 자연스러울 때만 반영합니다.
-9. 각 후보에 angle을 붙여 문제 해결, 협업, 성장처럼 중심 관점을 명시합니다.
-10. 세 초안은 문장과 강조점이 실제로 달라야 하며 같은 angle을 반복하지 않습니다.`;
+9. sentenceLength의 평균·범위가 있으면 해당 길이에 가깝게 쓰되, 글자 수 제한을 맞추려고 문장을 부자연스럽게 자르지 않습니다.
+10. exaggerationLevel이 낮으면 과장·수식어를 줄이고, 높으면 승인 근거에 드러난 성과를 명확하게 강조하되 새 사실을 만들지 않습니다.
+11. 각 후보에 angle을 붙여 문제 해결, 협업, 성장처럼 중심 관점을 명시합니다.
+12. 세 초안은 문장과 강조점이 실제로 달라야 하며 같은 angle을 반복하지 않습니다.`;
 
 export type WritingGenerationResult = WritingSessionDetails & { warnings: string[] };
 

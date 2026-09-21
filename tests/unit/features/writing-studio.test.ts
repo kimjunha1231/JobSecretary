@@ -215,6 +215,7 @@ describe('writing studio AI candidates', () => {
         expect(request.contents).toContain('<writing_context_json>');
         expect(request.contents).toContain('담백한 회고체');
         expect(request.contents).toContain('먼저 문제를 작게 나누고');
+        expect(request.contents).toContain('"exaggerationLevel":0.1');
     });
 
     it('rejects an outline that references an unselected evidence record', async () => {

@@ -145,6 +145,44 @@ describe('style profile service boundary', () => {
         expect(examplesQuery.or).toHaveBeenCalledWith(`question_id.is.null,question_id.eq.${questionId}`);
     });
 
+    it('persists user-controlled style settings without changing examples', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const updatedProfile = { ...profileRecord, name: '절제된 회고체', exaggeration_level: 0.25, ending_style: ['했습니다'], preferred_connectors: ['먼저'], banned_expressions: ['혁신적인'] };
+        const updateQuery = {
+            update: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: updatedProfile, error: null }),
+        };
+        const examplesQuery = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            order: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn()
+                .mockReturnValueOnce(profileQuery)
+                .mockReturnValueOnce(updateQuery)
+                .mockReturnValueOnce(examplesQuery),
+        });
+
+        await expect(styleProfileService.update(profileId, {
+            name: '절제된 회고체',
+            endingStyle: ['했습니다'],
+            preferredConnectors: ['먼저'],
+            bannedExpressions: ['혁신적인'],
+            exaggerationLevel: 0.25,
+        })).resolves.toMatchObject({ profile: { name: '절제된 회고체', exaggerationLevel: 0.25 } });
+        expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({
+            name: '절제된 회고체',
+            ending_style: ['했습니다'],
+            preferred_connectors: ['먼저'],
+            banned_expressions: ['혁신적인'],
+            exaggeration_level: 0.25,
+        }));
+    });
+
     it('does not allow the general example endpoint to self-label arbitrary text as a final answer', async () => {
         await expect(styleProfileService.addExample(profileId, {
             source: 'approved_final',

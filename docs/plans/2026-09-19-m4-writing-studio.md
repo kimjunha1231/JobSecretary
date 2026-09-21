@@ -139,6 +139,7 @@ M4 단계에서는 PDF 내보내기, 벡터 검색, 말투 프로필 자동 학�
 
 - `supabase/migrations/20260919030000_m5_style_profile_quality.sql`에 `style_profiles`, `style_examples`와 사용자 소유 RLS를 추가했다. 예문 정책은 프로필 소유권까지 확인하며, 운영 Supabase에는 적용하지 않았다.
 - `/style`에서 프로필의 끝맺음·선호 연결어·금칙어·직접 작성 예문을 입력하고 승인 상태를 관리한다. `/writing/new`에서 사용할 프로필을 선택할 수 있고, `/writing/[sessionId]` 헤더에 적용 프로필과 작업 품질 요약을 표시한다.
+- 저장된 프로필의 설정을 직접 수정하는 UI를 연결했다. 과장 정도(`exaggerationLevel`)와 끝맺음·연결어·금칙어는 사용자가 저장한 값만 다음 생성 context에 들어가며, draft system instruction이 문장 길이와 과장 정도를 말투 제약으로 해석한다.
 - `styleProfileService.getForGeneration`은 승인된 예문만 반환한다. AI context의 `style`은 말투 참고 자료로만 취급하고, 사실·수치·고유명사를 생성 근거로 재사용하지 않도록 개요·초안 system instruction을 고정했다.
 - `buildWritingQualitySummary`는 DB 이벤트를 새로 만들지 않고 현재 세션의 선택 근거, 활성 후보, revision, 사실 citation에서 재현 가능한 지표를 계산한다. 운영용 golden set, A/B 평가, pgvector 검색은 M5 전체 범위에서 후속으로 남겼다.
 
