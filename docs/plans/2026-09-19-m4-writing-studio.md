@@ -395,7 +395,7 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 ### M6-e 검증 결과
 
-`npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. Playwright Chromium E2E 15개 시나리오도 통과하도록 `playwright.config.ts`를 `tests/e2e` 전용으로 정리했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
+`npm run harness:verify`(31개 스위트/220개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. Playwright Chromium E2E 19개 시나리오(랜딩·반응형·주요 보호 경로)를 통과하도록 `playwright.config.ts`를 `tests/e2e` 전용으로 정리했다. CUA 브라우저에서 랜딩 페이지와 비로그인 `/dashboard`, `/archive`, `/write`, `/exports` 리디렉션을 확인했으며, 인증된 출력 다운로드는 운영 자격 증명 없이 원격 검증하지 않았다.
 
 ## M6-f 작성 작업대 롤백 스위치
 

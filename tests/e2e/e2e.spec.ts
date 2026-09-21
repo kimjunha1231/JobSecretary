@@ -48,6 +48,10 @@ test.describe('Protected Routes Access Control', () => {
         '/archive',
         '/write',
         '/exports',
+        '/career',
+        '/jobs',
+        '/style',
+        '/writing/new',
     ];
 
     for (const route of protectedRoutes) {
