@@ -116,6 +116,11 @@
 - `/career`의 승인된 활동 영역에서 제목·조직·역할·요약·기술·성과·지표를 검색하고 프로젝트·경력·교육·수상·리더십 등 종류별로 좁힐 수 있습니다.
 - 검색 결과만 한 번에 PDF 출력 대상으로 선택할 수 있으며, 필터를 바꿔도 이미 선택한 숨은 활동과 출력 순서는 유지됩니다. 검색은 현재 사용자에게 서버가 반환한 승인 활동 목록 안에서만 동작하고 별도 원문·임베딩을 저장하지 않습니다.
 
+### 등록 자료 검색·검수 필터
+
+- `/career` 자료 목록에서 제목·공개 URL·MIME·추출 경고를 검색하고 자료 종류와 검수 상태(`needs_review`, `approved`, `archived`)로 좁힐 수 있습니다.
+- 필터는 서버가 현재 사용자 소유로 반환한 자료 목록 안에서만 동작하며 원문·임베딩을 추가 저장하지 않습니다. 검색 조건을 바꿔도 서버의 소유권·검수 게이트는 그대로 적용됩니다.
+
 ### 공개 URL 자료 수집(M3-a)
 
 - `/career`에서 채용공고·인재상·포트폴리오 자료의 HTTPS 공개 URL을 등록할 수 있습니다. 서버는 URL과 리다이렉트마다 DNS를 확인하고 사설·루프백·link-local·IPv4 매핑 주소, 비표준 포트, 과대 응답을 차단합니다.
@@ -253,7 +258,7 @@
 
 - Supabase migration 순서, Preview 검증, 개인정보 없는 Analytics 지표, 작성 작업대 롤백 기준은 [`docs/operations/jobsecretary-rollout.md`](docs/operations/jobsecretary-rollout.md)에 정리했습니다.
 - `npm run rollout:verify`로 migration 순서·verify SQL·환경변수 템플릿·클라이언트 service-role 경계·Sentry 개인정보 설정을 원격 변경 없이 점검할 수 있습니다.
-- 2026-09-21에는 활동 검색을 포함한 최신 로컬 커밋을 Vercel Preview(`coverlettervault-16lwekclx-junhas-projects-a748ef77.vercel.app`)로 배포해 `READY` 상태를 확인했습니다. 보호를 우회하지 않은 `vercel curl` 기준 `/` 200, 비로그인 `/career`·`/style` 307, 승인 활동 API·검색 품질 집계 API·회원 탈퇴 `DELETE` 401을 확인했으며 Preview 로그에는 오류가 없었습니다. Production alias와 환경변수는 변경하지 않았습니다.
+- 2026-09-21에는 활동·자료 검색 필터를 포함한 최신 로컬 커밋을 Vercel Preview(`coverlettervault-13rwwchrt-junhas-projects-a748ef77.vercel.app`)로 배포해 `READY` 상태를 확인했습니다. 보호를 우회하지 않은 `vercel curl` 기준 `/` 200, 비로그인 `/career`·`/style` 307, 승인 활동 API·검색 품질 집계 API·회원 탈퇴 `DELETE` 401을 확인했으며 `vercel logs --level error --level warning`에서 조회 시점 로그가 없었습니다. Production alias와 환경변수는 변경하지 않았습니다.
 - 읽기 전용 Vercel 환경변수 점검에서 `SUPABASE_SERVICE_ROLE_KEY`가 없는 것을 확인했습니다. 해당 키가 설정되기 전 회원 탈퇴 API는 데이터를 지우지 않고 503으로 중단하며, 키가 설정된 뒤에도 기존 `documents`·`user_profiles`를 먼저 명시적으로 정리한 다음 Auth 계정을 삭제합니다. 키는 저장소·채팅이 아닌 Vercel 서버 환경변수에만 넣어야 합니다.
 - 마지막으로 확인한 Production은 원격 `main`의 2026-09-14 커밋이며, 로컬 개선 커밋은 Preview와 운영 승인 후 별도로 승격해야 합니다.
 
