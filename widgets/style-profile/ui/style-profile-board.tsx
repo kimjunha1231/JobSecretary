@@ -20,6 +20,17 @@ type Profile = {
     exaggerationLevel?: number;
 };
 type ProfileResponse = { profile: Profile; examples: Example[] };
+type RetrievalEvaluationAggregate = {
+    k: number;
+    sessionCount: number;
+    evaluatedSessionCount: number;
+    caseCount: number;
+    evaluatedCaseCount: number;
+    emptyRelevantLabelCount: number;
+    recallAtK: number;
+    ndcgAtK: number;
+    mrrAtK: number;
+};
 type ProfileDraft = {
     name: string;
     endingStyle: string;
@@ -74,6 +85,7 @@ export function StyleProfileBoard() {
     const [profileDrafts, setProfileDrafts] = useState<Record<string, ProfileDraft>>({});
     const [profileBusy, setProfileBusy] = useState<string | null>(null);
     const [preferenceSummary, setPreferenceSummary] = useState<StylePreferenceSummary | null>(null);
+    const [retrievalSummary, setRetrievalSummary] = useState<RetrievalEvaluationAggregate | null>(null);
     const [sourceDocuments, setSourceDocuments] = useState<SourceDocumentSummary[]>([]);
     const [sourceImportDrafts, setSourceImportDrafts] = useState<Record<string, string>>({});
     const [sourceImportBusy, setSourceImportBusy] = useState<string | null>(null);
@@ -81,10 +93,11 @@ export function StyleProfileBoard() {
     const loadProfiles = async () => {
         setError(null);
         try {
-            const [profilesResponse, preferenceResponse, sourceResponse] = await Promise.all([
+            const [profilesResponse, preferenceResponse, sourceResponse, retrievalResponse] = await Promise.all([
                 fetch('/api/style-profiles', { cache: 'no-store' }),
                 fetch('/api/style-evaluation-preferences/summary', { cache: 'no-store' }),
                 fetch('/api/source-documents?status=approved&limit=50', { cache: 'no-store' }),
+                fetch('/api/writing-sessions/retrieval-evaluation?limit=5&k=3', { cache: 'no-store' }),
             ]);
             const result = await readJson(profilesResponse);
             if (!profilesResponse.ok) throw new Error(typeof result.error === 'string' ? result.error : '말투 프로필을 불러오지 못했습니다.');
@@ -109,6 +122,12 @@ export function StyleProfileBoard() {
                 }));
             } else {
                 setSourceDocuments([]);
+            }
+            if (retrievalResponse.ok) {
+                const retrievalResult = await readJson(retrievalResponse);
+                setRetrievalSummary(retrievalResult as unknown as RetrievalEvaluationAggregate);
+            } else {
+                setRetrievalSummary(null);
             }
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : '말투 프로필을 불러오지 못했습니다.');
@@ -359,6 +378,22 @@ export function StyleProfileBoard() {
                 <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">기준 초안 선택</p><p className="mt-1 text-2xl font-semibold text-zinc-200">{preferenceSummary.baselineWins}</p></div>
             </div>
             {preferenceSummary.lastRespondedAt && <p className="mt-4 text-xs text-zinc-500">마지막 선택 {new Date(preferenceSummary.lastRespondedAt).toLocaleString('ko-KR')}</p>}
+        </section>}
+        {retrievalSummary && retrievalSummary.sessionCount > 0 && <section className="rounded-2xl border border-sky-300/20 bg-sky-300/5 p-5 md:p-6" aria-labelledby="retrieval-summary-title">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200/80">Retrieval baseline</p>
+                    <h2 id="retrieval-summary-title" className="mt-2 text-xl font-semibold text-white">최근 작성 세션 검색 품질</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">최근 {retrievalSummary.sessionCount}개 세션에서 사용자가 선택하거나 고정한 근거를 기준으로 계산한 기준선입니다. 자동 정답이나 모델 학습 데이터로 사용하지 않습니다.</p>
+                </div>
+                <span className="shrink-0 rounded-lg border border-sky-200/20 bg-sky-200/10 px-2.5 py-1.5 text-xs text-sky-100">평가 문항 {retrievalSummary.evaluatedCaseCount}/{retrievalSummary.caseCount}</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">Recall@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.recallAtK * 100)}%</p></div>
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">nDCG@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.ndcgAtK * 100)}%</p></div>
+                <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">MRR@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.mrrAtK * 100)}%</p></div>
+            </div>
+            <p className="mt-4 text-xs text-zinc-500">라벨이 있는 세션 {retrievalSummary.evaluatedSessionCount}개 · 선택 라벨이 비어 있는 문항 {retrievalSummary.emptyRelevantLabelCount}개</p>
         </section>}
         <section className="space-y-3" aria-labelledby="profile-list-title">
             <div><h2 id="profile-list-title" className="text-xl font-semibold text-white">저장된 프로필</h2><p className="mt-1 text-xs text-zinc-500">승인된 예문만 생성 context에 들어갑니다. 분석 결과는 확인한 뒤 반영할 수 있습니다.</p></div>

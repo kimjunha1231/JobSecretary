@@ -19,6 +19,12 @@ export const RetrievalEvaluationSummarySchema = z.object({
 });
 export type RetrievalEvaluationSummary = z.infer<typeof RetrievalEvaluationSummarySchema>;
 
+export const RetrievalEvaluationAggregateSummarySchema = RetrievalEvaluationSummarySchema.extend({
+    sessionCount: z.number().int().min(0),
+    evaluatedSessionCount: z.number().int().min(0),
+});
+export type RetrievalEvaluationAggregateSummary = z.infer<typeof RetrievalEvaluationAggregateSummarySchema>;
+
 export type RetrievalEvaluationCase = {
     requirement: JobRequirement;
     evidence: EvidenceRecordDetails[];

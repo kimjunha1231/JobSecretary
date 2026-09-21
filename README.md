@@ -187,6 +187,7 @@
 - `/writing/[sessionId]`의 근거 선택 단계에서 `현재 선택으로 측정`을 누르면 `POST /api/writing-sessions/[id]/retrieval-evaluation`이 실행됩니다. 기본 `k=3`이며 1~100 범위의 `k`를 받을 수 있습니다.
 - 서버는 해당 사용자의 승인 근거·승인 요구사항만 읽고, 현재 질문에서 선택하거나 고정한 match를 relevance label로 변환합니다. 선택하지 않은 추천과 stale ID는 label에서 제외합니다.
 - 화면에는 Recall@k·nDCG@k·MRR@k, label이 있는 요구사항 수, 빈 label 수를 표시합니다. 이는 사용자의 선택 기반 기준선이지 정답 자동 판정이나 모델 학습 데이터 저장이 아닙니다.
+- `/api/writing-sessions/retrieval-evaluation?limit=5&k=3`은 최근 세션을 같은 방식으로 집계해 `/style`의 검색 품질 카드에 보여줍니다. 응답에는 세션·문항 수와 품질 지표만 포함하며 원문·활동 내용·세션 ID는 반환하지 않습니다.
 
 ### 답변 blind 선호 비교(M5-h)
 

@@ -253,6 +253,7 @@ runner는 순수 함수로 단위 검증했으며, 실제 사용자 골든셋 �
 
 - `POST /api/writing-sessions/[id]/retrieval-evaluation`이 `k`(1~100, 기본 3)를 검증하고 세션 snapshot에서 평가 case를 만든다. 선택·고정된 근거만 label로 사용하고, 승인 목록에 없는 stale ID는 제외한다.
 - `/writing/[sessionId]`의 근거 선택 단계에 `검색 품질 기준선` 카드를 추가해 Recall@k·nDCG@k·MRR@k, label이 있는 요구사항 수, 빈 label 수를 즉시 보여준다.
+- `GET /api/writing-sessions/retrieval-evaluation`은 최근 사용자 소유 세션을 최대 20개까지 다시 읽어 같은 ranking으로 집계하고, `/style`에 최근 5개 세션의 Recall@3·nDCG@3·MRR@3 요약을 표시한다. 응답에는 원문·활동 내용·세션 ID를 넣지 않는다.
 - 이 지표는 사용자의 현재 선택을 이용한 기준선이지 자동 정답 판정이 아니다. 실제 blind A/B와 충분한 골든셋을 수집한 뒤에만 검색 모델 교체나 pgvector/RAG를 결정한다.
 
 ### M5-g 검증 결과
