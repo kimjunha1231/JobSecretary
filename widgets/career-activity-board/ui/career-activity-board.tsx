@@ -43,9 +43,9 @@ export function CareerActivityBoard() {
             setActivities(nextActivities);
             const nextIds = nextActivities.map(getRecordId);
             setSelectedIds(current => {
-                if (!selectionInitialized.current && nextIds.length > 0) {
+                if (!selectionInitialized.current) {
                     selectionInitialized.current = true;
-                    return nextIds;
+                    return [];
                 }
                 const availableIds = new Set(nextIds);
                 return current.filter(id => availableIds.has(id));
