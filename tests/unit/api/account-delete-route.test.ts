@@ -73,4 +73,31 @@ describe('account deletion configuration boundary', () => {
         expect(legacyDeleteQueries.get('user_profiles')?.eq).toHaveBeenCalledWith('user_id', 'user-id');
         expect(adminDeleteUser).toHaveBeenCalledWith('user-id');
     });
+
+    it('does not delete auth when legacy cleanup fails', async () => {
+        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+        const adminDeleteUser = jest.fn().mockResolvedValue({ error: null });
+        mockCreateClient.mockReturnValue({
+            from: jest.fn().mockReturnValue({
+                delete: jest.fn().mockReturnValue({
+                    eq: jest.fn().mockResolvedValue({ error: { message: 'legacy table unavailable' } }),
+                }),
+            }),
+            storage: {
+                from: jest.fn().mockReturnValue({
+                    list: jest.fn().mockResolvedValue({ data: [], error: null }),
+                    remove: jest.fn().mockResolvedValue({ data: [], error: null }),
+                }),
+            },
+            auth: { admin: { deleteUser: adminDeleteUser } },
+        });
+
+        const response = await DELETE();
+
+        expect(response.status).toBe(500);
+        await expect(response.json()).resolves.toEqual({
+            error: '기존 계정 데이터를 정리하지 못해 회원 탈퇴를 완료할 수 없습니다.',
+        });
+        expect(adminDeleteUser).not.toHaveBeenCalled();
+    });
 });
