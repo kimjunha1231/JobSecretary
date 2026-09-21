@@ -41,7 +41,6 @@ export function DraftParagraphMixer({
             const existing = current[row.position];
             const stillAvailable = existing && row.options.some(option => option.draft.id === existing.sourceDraftId && option.text === existing.text);
             if (stillAvailable) next[row.position] = existing;
-            else if (row.options[0]) next[row.position] = { position: row.position, sourceDraftId: row.options[0].draft.id, text: row.options[0].text };
             return next;
         }, {}));
     }, [paragraphRows]);
