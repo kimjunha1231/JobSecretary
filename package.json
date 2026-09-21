@@ -13,6 +13,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "rollout:verify": "ts-node --esm --experimentalSpecifierResolution=node scripts/verify-rollout.ts",
     "lint": "next lint",
     "backfill:legacy": "ts-node --esm --experimentalSpecifierResolution=node scripts/backfill-legacy-documents.ts",
     "test": "jest",

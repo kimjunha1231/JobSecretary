@@ -13,6 +13,7 @@
 ## 1. 배포 전 검증
 
 ```bash
+npm run rollout:verify
 npm run harness:verify
 NEXT_PUBLIC_SUPABASE_URL=... \
 NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
@@ -20,6 +21,8 @@ GEMINI_API_KEY=... \
 npm run build
 git diff --check
 ```
+
+`rollout:verify`는 migration timestamp 순서와 destructive SQL, read-only verify SQL 누락, 환경변수 템플릿, client service-role 참조, Sentry 개인정보 마스킹을 로컬 파일만으로 확인한다. 이 명령은 Supabase·Vercel 원격 상태를 읽거나 변경하지 않는다.
 
 운영 환경변수에는 비밀값을 저장소나 로그에 출력하지 않는다. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 `true`이며, 장애 시 정확히 `false`로 설정하면 `/writing/new`가 기존 `/write`로 돌아간다.
 
