@@ -13,10 +13,11 @@ export const useGlobalSidebarLogic = (onClose: () => void) => {
                 method: 'DELETE',
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => null) as { error?: unknown } | null;
 
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to delete account');
+                const serverMessage = typeof data?.error === 'string' ? data.error.trim() : '';
+                throw new Error(serverMessage || '회원 탈퇴 중 오류가 발생했습니다.');
             }
 
             showAlert('회원 탈퇴가 완료되었습니다. 모든 데이터가 삭제되었습니다.', 'success');
@@ -27,9 +28,10 @@ export const useGlobalSidebarLogic = (onClose: () => void) => {
                 router.push('/');
             }, 1500);
         } catch (error) {
-
-            showAlert('회원 탈퇴 중 오류가 발생했습니다.', 'error');
-            setIsDeleteModalOpen(false);
+            const message = error instanceof Error && error.message.trim()
+                ? error.message
+                : '회원 탈퇴 중 오류가 발생했습니다.';
+            showAlert(message, 'error');
         }
     };
 
