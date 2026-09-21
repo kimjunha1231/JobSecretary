@@ -147,7 +147,7 @@ describe('style profile service boundary', () => {
 
     it('persists user-controlled style settings without changing examples', async () => {
         const profileQuery = queryWithResult({ data: profileRecord, error: null });
-        const updatedProfile = { ...profileRecord, name: '절제된 회고체', exaggeration_level: 0.25, ending_style: ['했습니다'], preferred_connectors: ['먼저'], banned_expressions: ['혁신적인'] };
+        const updatedProfile = { ...profileRecord, name: '절제된 회고체', exaggeration_level: 0.25, sentence_length: { min: 30, max: 90, average: 60 }, ending_style: ['했습니다'], preferred_connectors: ['먼저'], banned_expressions: ['혁신적인'] };
         const updateQuery = {
             update: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
@@ -173,9 +173,11 @@ describe('style profile service boundary', () => {
             preferredConnectors: ['먼저'],
             bannedExpressions: ['혁신적인'],
             exaggerationLevel: 0.25,
+            sentenceLength: { min: 30, max: 90, average: 60 },
         })).resolves.toMatchObject({ profile: { name: '절제된 회고체', exaggerationLevel: 0.25 } });
         expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({
             name: '절제된 회고체',
+            sentence_length: { min: 30, max: 90, average: 60 },
             ending_style: ['했습니다'],
             preferred_connectors: ['먼저'],
             banned_expressions: ['혁신적인'],
