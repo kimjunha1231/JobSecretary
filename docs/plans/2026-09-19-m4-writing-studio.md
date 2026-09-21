@@ -489,3 +489,7 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 ### M5-j 검증 결과
 
 `npm run harness:verify`(36개 스위트/238개 테스트), 더미 환경변수 `npm run build`(exit 0), `git diff --check`를 통과했다. 운영 DB migration과 실제 사용자 문체 자료 import는 아직 실행하지 않았다.
+
+## M5-a 말투 설정 초기화 보완
+
+`/style`에서 저장된 과장 정도를 다시 `기본`으로 선택하면 클라이언트가 명시적인 `null`을 보내고, 서비스가 `exaggeration_level`을 null로 갱신하도록 보완했다. 이전 값이 남아 다음 생성에 계속 영향을 주는 회귀를 막기 위해 서비스 경계 테스트를 추가했다. 해당 수정 후 `npm run harness:verify`(37개 스위트/245개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
