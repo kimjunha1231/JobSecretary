@@ -91,9 +91,22 @@ export async function DELETE() {
             }
         }
 
-        // 3. Delete the user from auth.users
-        // Because we set up ON DELETE CASCADE in the database, this will automatically
-        // delete all related rows in 'documents' and 'user_profiles'.
+        // 3. Explicitly remove legacy rows before deleting auth.users.
+        // The existing documents/user_profiles schema predates the additive migrations,
+        // so their foreign-key cascade cannot be assumed from this application code.
+        for (const table of ['documents', 'user_profiles'] as const) {
+            const { error: cleanupError } = await supabaseAdmin
+                .from(table)
+                .delete()
+                .eq('user_id', user.id);
+            if (cleanupError) {
+                logger.error(`Failed to remove legacy ${table} rows before account deletion:`, cleanupError);
+                return NextResponse.json({ error: '기존 계정 데이터를 정리하지 못해 회원 탈퇴를 완료할 수 없습니다.' }, { status: 500 });
+            }
+        }
+
+        // 4. Delete the user from auth.users.
+        // Additive domain tables reference auth.users with ON DELETE CASCADE.
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
         if (deleteError) {
@@ -101,7 +114,7 @@ export async function DELETE() {
             return NextResponse.json({ error: 'Failed to delete user account' }, { status: 500 });
         }
 
-        // 4. Sign out the user from the current session
+        // 5. Sign out the user from the current session
         await supabase.auth.signOut();
 
         return NextResponse.json({
