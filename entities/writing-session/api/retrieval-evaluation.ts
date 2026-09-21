@@ -20,10 +20,18 @@ export const RetrievalEvaluationSummarySchema = z.object({
 export type RetrievalEvaluationSummary = z.infer<typeof RetrievalEvaluationSummarySchema>;
 
 export const RetrievalEvaluationAggregateSummarySchema = RetrievalEvaluationSummarySchema.extend({
+    available: z.literal(true),
     sessionCount: z.number().int().min(0),
     evaluatedSessionCount: z.number().int().min(0),
 });
 export type RetrievalEvaluationAggregateSummary = z.infer<typeof RetrievalEvaluationAggregateSummarySchema>;
+
+export const RetrievalEvaluationAggregateUnavailableSchema = z.object({ available: z.literal(false) });
+export const RetrievalEvaluationAggregateResponseSchema = z.union([
+    RetrievalEvaluationAggregateSummarySchema,
+    RetrievalEvaluationAggregateUnavailableSchema,
+]);
+export type RetrievalEvaluationAggregateResponse = z.infer<typeof RetrievalEvaluationAggregateResponseSchema>;
 
 export type RetrievalEvaluationCase = {
     requirement: JobRequirement;

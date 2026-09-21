@@ -48,6 +48,7 @@ describe('aggregate writing-session retrieval evaluation route', () => {
 
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toEqual({
+            available: true,
             k: 3,
             caseCount: 2,
             evaluatedCaseCount: 1,

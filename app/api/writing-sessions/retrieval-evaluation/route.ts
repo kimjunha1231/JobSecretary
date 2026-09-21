@@ -19,11 +19,23 @@ const querySchema = z.object({
 });
 
 function errorResponse(error: unknown): NextResponse {
+    if (isRetrievalMigrationUnavailable(error)) {
+        return NextResponse.json({ available: false });
+    }
     if (error instanceof WritingSessionServiceError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
     }
     logger.error('Aggregate retrieval evaluation failed.', error);
     return NextResponse.json({ error: '최근 검색 품질을 집계하지 못했습니다.' }, { status: 500 });
+}
+
+function isRetrievalMigrationUnavailable(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const record = error as Record<string, unknown>;
+    const code = typeof record.code === 'string' ? record.code : '';
+    const message = typeof record.message === 'string' ? record.message : '';
+    return ['42P01', 'PGRST204', 'PGRST205'].includes(code)
+        && /writing_sessions|evidence_matches|cover_letter_questions|draft_fact_citations/i.test(message);
 }
 
 export async function GET(request: NextRequest) {
@@ -46,6 +58,7 @@ export async function GET(request: NextRequest) {
         const summary = evaluateEvidenceRetrieval(cases, { k: parsed.data.k });
         return NextResponse.json(RetrievalEvaluationAggregateSummarySchema.parse({
             ...summary,
+            available: true,
             sessionCount: sessions.length,
             evaluatedSessionCount: caseGroups.filter(group => group.some(item => item.relevantEvidenceIds.length > 0)).length,
         }));

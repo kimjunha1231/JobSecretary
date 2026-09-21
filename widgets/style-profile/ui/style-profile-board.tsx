@@ -21,6 +21,7 @@ type Profile = {
 };
 type ProfileResponse = { profile: Profile; examples: Example[] };
 type RetrievalEvaluationAggregate = {
+    available: boolean;
     k: number;
     sessionCount: number;
     evaluatedSessionCount: number;
@@ -125,7 +126,8 @@ export function StyleProfileBoard() {
             }
             if (retrievalResponse.ok) {
                 const retrievalResult = await readJson(retrievalResponse);
-                setRetrievalSummary(retrievalResult as unknown as RetrievalEvaluationAggregate);
+                const aggregate = retrievalResult as unknown as RetrievalEvaluationAggregate;
+                setRetrievalSummary(aggregate.available ? aggregate : null);
             } else {
                 setRetrievalSummary(null);
             }
