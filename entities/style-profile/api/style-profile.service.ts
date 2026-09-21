@@ -158,6 +158,7 @@ async function fetchExamples(
     userId: string,
     includeUnapproved = true,
     questionId?: string,
+    selectedExampleIds: string[] = [],
 ): Promise<StyleExample[]> {
     let query = supabase
         .from('style_examples')
@@ -166,20 +167,29 @@ async function fetchExamples(
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
     if (!includeUnapproved) query = query.eq('approved', true);
-    if (questionId) query = query.or(`question_id.is.null,question_id.eq.${questionId}`);
+    if (questionId || selectedExampleIds.length > 0) {
+        const filters = ['question_id.is.null'];
+        if (questionId) filters.push(`question_id.eq.${questionId}`);
+        if (selectedExampleIds.length > 0) filters.push(`id.in.(${selectedExampleIds.join(',')})`);
+        query = query.or(filters.join(','));
+    }
     const { data, error } = await query;
     if (error) throw error;
     const examples = (data ?? []).map(row => mapExample(row as Record<string, unknown>));
-    if (!questionId) return examples;
+    if (!questionId && selectedExampleIds.length === 0) return examples;
 
-    // Keep examples written for the current question ahead of global style
-    // examples. The generation context is intentionally capped, so this
-    // deterministic ordering prevents unrelated older questions from taking
-    // all available example slots.
+    const selectedIds = new Set(selectedExampleIds);
+    // Keep examples written for the current question ahead of explicitly
+    // selected prior-question examples, then global style examples. The
+    // generation context is intentionally capped, so this deterministic
+    // ordering makes explicit choices survive the cap.
     return examples.sort((left, right) => {
         const leftIsQuestionSpecific = left.questionId === questionId ? 1 : 0;
         const rightIsQuestionSpecific = right.questionId === questionId ? 1 : 0;
+        const leftIsExplicit = selectedIds.has(left.id) ? 1 : 0;
+        const rightIsExplicit = selectedIds.has(right.id) ? 1 : 0;
         return rightIsQuestionSpecific - leftIsQuestionSpecific
+            || rightIsExplicit - leftIsExplicit
             || right.createdAt.localeCompare(left.createdAt)
             || left.id.localeCompare(right.id);
     });
@@ -312,14 +322,21 @@ export const styleProfileService = {
         return { profile, examples: await fetchExamples(supabase, id, userId, !options.approvedOnly) };
     },
 
-    async getForGeneration(idInput: unknown, options: { questionId?: unknown } = {}): Promise<StyleProfileDetails | null> {
+    async getForGeneration(idInput: unknown, options: { questionId?: unknown; exampleIds?: unknown } = {}): Promise<StyleProfileDetails | null> {
         if (!idInput) return null;
         const id = parseId(idInput, '말투 프로필 ID');
         const { supabase, userId } = await getAuthenticatedClient();
         const profile = await fetchProfile(supabase, id, userId);
         const questionId = options.questionId ? parseId(options.questionId, '문항 ID') : undefined;
         if (questionId) await fetchQuestionOwner(supabase, questionId, userId);
-        return { profile, examples: await fetchExamples(supabase, id, userId, false, questionId) };
+        const parsedExampleIds = options.exampleIds === undefined
+            ? { success: true as const, data: [] as string[] }
+            : z.array(DomainIdSchema).max(5).safeParse(options.exampleIds);
+        if (!parsedExampleIds.success) {
+            throw new StyleProfileServiceError('invalid_input', '말투 예문 선택을 확인해 주세요.', 400);
+        }
+        const selectedExampleIds = [...new Set(parsedExampleIds.data)];
+        return { profile, examples: await fetchExamples(supabase, id, userId, false, questionId, selectedExampleIds) };
     },
 
     async analyze(idInput: unknown) {

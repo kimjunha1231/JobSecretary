@@ -669,8 +669,9 @@ async function fetchDetails(
         : [await fetchQuestion(supabase, session.coverLetterQuestionId, userId)];
     const question = questions.find(item => item.id === session.coverLetterQuestionId) ?? questions[0];
     if (!question) throw new WritingSessionServiceError('storage', '작성 문항이 없습니다.', 500);
+    const selectedStyleExampleIds = idArray(session.generationSettings.styleExampleIds);
     const styleDetails = session.styleProfileId
-        ? await styleProfileService.getForGeneration(session.styleProfileId, { questionId: question.id })
+        ? await styleProfileService.getForGeneration(session.styleProfileId, { questionId: question.id, exampleIds: selectedStyleExampleIds })
         : null;
     const [evidence, matches, outlines, drafts, revisions, factCitations] = await Promise.all([
         evidenceRecordService.listApproved({ limit: 100 }),
