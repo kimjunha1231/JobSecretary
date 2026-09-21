@@ -53,4 +53,6 @@ export const pdf = jest.fn().mockReturnValue({
     toString: jest.fn().mockResolvedValue(''),
 });
 
-export const renderToBuffer = jest.fn().mockResolvedValue(Buffer.from('PDF'));
+// Keep the mocked renderer's return value shaped like a PDF so export boundary
+// tests can verify the application contract without parsing the ESM renderer.
+export const renderToBuffer = jest.fn().mockResolvedValue(Buffer.from('%PDF-1.7\n%%EOF\n'));
