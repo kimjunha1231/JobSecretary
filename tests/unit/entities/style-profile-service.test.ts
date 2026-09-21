@@ -183,6 +183,34 @@ describe('style profile service boundary', () => {
         }));
     });
 
+    it('clears a saved exaggeration level when the user returns to the default', async () => {
+        const profileQuery = queryWithResult({ data: profileRecord, error: null });
+        const updatedProfile = { ...profileRecord, exaggeration_level: null };
+        const updateQuery = {
+            update: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: updatedProfile, error: null }),
+        };
+        const examplesQuery = {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            order: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from: jest.fn()
+                .mockReturnValueOnce(profileQuery)
+                .mockReturnValueOnce(updateQuery)
+                .mockReturnValueOnce(examplesQuery),
+        });
+
+        await expect(styleProfileService.update(profileId, {
+            exaggerationLevel: null,
+        })).resolves.toMatchObject({ profile: { exaggerationLevel: undefined } });
+        expect(updateQuery.update).toHaveBeenCalledWith(expect.objectContaining({ exaggeration_level: null }));
+    });
+
     it('does not allow the general example endpoint to self-label arbitrary text as a final answer', async () => {
         await expect(styleProfileService.addExample(profileId, {
             source: 'approved_final',

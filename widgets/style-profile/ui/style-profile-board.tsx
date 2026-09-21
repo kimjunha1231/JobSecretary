@@ -194,7 +194,8 @@ export function StyleProfileBoard() {
                     endingStyle: splitInput(draft.endingStyle),
                     preferredConnectors: splitInput(draft.preferredConnectors),
                     bannedExpressions: splitInput(draft.bannedExpressions),
-                    exaggerationLevel: draft.exaggerationLevel === '' ? undefined : Number(draft.exaggerationLevel),
+                    // null is intentional: it clears a previously saved level.
+                    exaggerationLevel: draft.exaggerationLevel === '' ? null : Number(draft.exaggerationLevel),
                 }),
             });
             const result = await readJson(response);

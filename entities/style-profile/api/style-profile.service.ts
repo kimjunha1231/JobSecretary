@@ -15,6 +15,19 @@ const sentenceLengthSchema = z.object({
     average: z.coerce.number().min(0).max(10_000).optional(),
 }).default({});
 
+const exaggerationLevelSchema = z.preprocess(
+    value => value === '' ? undefined : value,
+    z.union([
+        z.number().min(0).max(1),
+        z.string()
+            .trim()
+            .min(1)
+            .transform(value => Number(value))
+            .refine(value => Number.isFinite(value) && value >= 0 && value <= 1, '과장 정도는 0과 1 사이여야 합니다.'),
+        z.null(),
+    ]).optional(),
+);
+
 const rulesSchema = z.record(z.unknown()).default({}).refine(value => {
     try {
         return JSON.stringify(value).length <= 10_000;
@@ -29,7 +42,7 @@ const profileInputSchema = z.object({
     endingStyle: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
     preferredConnectors: z.array(z.string().trim().min(1).max(100)).max(100).default([]),
     bannedExpressions: z.array(z.string().trim().min(1).max(100)).max(100).default([]),
-    exaggerationLevel: z.coerce.number().min(0).max(1).optional(),
+    exaggerationLevel: exaggerationLevelSchema,
     rules: rulesSchema,
 });
 
