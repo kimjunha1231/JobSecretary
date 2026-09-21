@@ -97,11 +97,14 @@ test.describe('Responsive Design', () => {
 test.describe('Performance', () => {
     test('should load home page within acceptable time', async ({ page }) => {
         const startTime = Date.now();
-        await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        // The landing page includes analytics and animated assets that can keep
+        // the network busy after the usable UI is ready. Measure the first
+        // usable document instead of waiting for every background request.
+        await page.goto('/', { waitUntil: 'domcontentloaded' });
+        await expect(page.getByRole('button', { name: /Google 계정으로 시작하기/i })).toBeVisible();
         const loadTime = Date.now() - startTime;
 
-        // Page should load within 5 seconds
+        // Page should become usable within 5 seconds
         expect(loadTime).toBeLessThan(5000);
     });
 });
