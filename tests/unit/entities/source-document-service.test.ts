@@ -4,12 +4,23 @@ import {
     SourceDocumentServiceError,
 } from '@/entities/source-document/api';
 import { jobTargetService } from '@/entities/job-target/api';
+import { extractSourceFile, fetchSourceUrl } from '@/features/source-ingestion/api';
 
 jest.mock('@/shared/api/server', () => ({
     createServerSupabaseClient: jest.fn(),
 }));
+jest.mock('@/features/source-ingestion/api', () => {
+    const actual = jest.requireActual('@/features/source-ingestion/api');
+    return {
+        ...actual,
+        extractSourceFile: jest.fn(),
+        fetchSourceUrl: jest.fn(),
+    };
+});
 
 const mockedCreateServerSupabaseClient = createServerSupabaseClient as jest.Mock;
+const mockedExtractSourceFile = extractSourceFile as jest.Mock;
+const mockedFetchSourceUrl = fetchSourceUrl as jest.Mock;
 const sourceId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const fragmentId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const userId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -18,6 +29,8 @@ const timestamp = '2026-09-19T00:00:00.000Z';
 describe('source document service boundary', () => {
     beforeEach(() => {
         mockedCreateServerSupabaseClient.mockReset();
+        mockedExtractSourceFile.mockReset();
+        mockedFetchSourceUrl.mockReset();
     });
 
     it('checks authentication before extracting an uploaded source', async () => {
@@ -162,6 +175,104 @@ describe('source document service boundary', () => {
         });
 
         expect(storageFile.upload).toHaveBeenCalledWith(storedPath, expect.any(Buffer), expect.objectContaining({ contentType: 'text/plain', upsert: false }));
+        expect(result.document.storagePath).toBe(storedPath);
+        expect(result.fragments).toHaveLength(1);
+    });
+
+    it('routes a public PDF URL through the PDF extractor and stores the binary original', async () => {
+        const sourceRow = {
+            id: sourceId,
+            user_id: userId,
+            kind: 'resume',
+            title: '온라인 이력서',
+            origin_type: 'url',
+            source_url: 'https://portfolio.example/resume.pdf',
+            storage_path: null,
+            raw_text: '문제에 집중하는 개발자',
+            content_hash: 'b'.repeat(64),
+            mime_type: 'application/pdf',
+            page_count: 1,
+            status: 'needs_review',
+            extraction_method: 'direct_text',
+            extraction_version: 'm2-direct-text-v1',
+            extraction_warnings: [],
+            fetched_at: timestamp,
+            approved_at: null,
+            created_at: timestamp,
+            updated_at: timestamp,
+        };
+        const fragmentRow = {
+            id: fragmentId,
+            source_document_id: sourceId,
+            user_id: userId,
+            locator: { type: 'page', page: 1, position: 0 },
+            content: '문제에 집중하는 개발자',
+            created_at: timestamp,
+        };
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70]);
+        mockedFetchSourceUrl.mockResolvedValue({
+            finalUrl: 'https://portfolio.example/resume.pdf',
+            contentType: 'application/pdf',
+            bytes: pdfBytes,
+        });
+        mockedExtractSourceFile.mockResolvedValue({
+            rawText: '문제에 집중하는 개발자',
+            fragments: [{ content: '문제에 집중하는 개발자', locator: { type: 'page', page: 1, position: 0 } }],
+            contentHash: 'b'.repeat(64),
+            mimeType: 'application/pdf',
+            pageCount: 1,
+            status: 'needs_review',
+            extractionMethod: 'direct_text',
+            extractionVersion: 'm2-direct-text-v1',
+            warnings: [],
+            kind: 'resume',
+            originType: 'url',
+        });
+
+        const sourceInsertQuery = {
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: sourceRow, error: null }),
+        };
+        const fragmentInsertQuery = {
+            select: jest.fn().mockResolvedValue({ data: [fragmentRow], error: null }),
+        };
+        const storedPath = `${userId}/${sourceId}/original.pdf`;
+        const sourceUpdateQuery = {
+            eq: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { ...sourceRow, storage_path: storedPath }, error: null }),
+        };
+        const storageFile = {
+            upload: jest.fn().mockResolvedValue({ data: { path: storedPath }, error: null }),
+            remove: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+        const from = jest.fn()
+            .mockReturnValueOnce({ insert: jest.fn().mockReturnValue(sourceInsertQuery) })
+            .mockReturnValueOnce({ insert: jest.fn().mockReturnValue(fragmentInsertQuery) })
+            .mockReturnValueOnce({ update: jest.fn().mockReturnValue(sourceUpdateQuery) });
+        mockedCreateServerSupabaseClient.mockResolvedValue({
+            auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+            from,
+            storage: { from: jest.fn().mockReturnValue(storageFile) },
+        });
+
+        const result = await sourceDocumentService.register({
+            kind: 'resume',
+            title: '온라인 이력서',
+            originType: 'url',
+            sourceUrl: 'https://portfolio.example/resume.pdf',
+        });
+
+        expect(mockedFetchSourceUrl).toHaveBeenCalledWith('https://portfolio.example/resume.pdf');
+        expect(mockedExtractSourceFile).toHaveBeenCalledWith(expect.objectContaining({
+            buffer: pdfBytes,
+            filename: 'resume.pdf',
+            mimeType: 'application/pdf',
+            originType: 'url',
+        }));
+        expect(storageFile.upload).toHaveBeenCalledWith(storedPath, Buffer.from(pdfBytes), expect.objectContaining({
+            contentType: 'application/pdf',
+        }));
         expect(result.document.storagePath).toBe(storedPath);
         expect(result.fragments).toHaveLength(1);
     });
