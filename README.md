@@ -248,7 +248,7 @@
 
 - Supabase migration 순서, Preview 검증, 개인정보 없는 Analytics 지표, 작성 작업대 롤백 기준은 [`docs/operations/jobsecretary-rollout.md`](docs/operations/jobsecretary-rollout.md)에 정리했습니다.
 - `npm run rollout:verify`로 migration 순서·verify SQL·환경변수 템플릿·클라이언트 service-role 경계·Sentry 개인정보 설정을 원격 변경 없이 점검할 수 있습니다.
-- 2026-09-21에는 로컬 브랜치의 최신 커밋을 Vercel Preview(`coverlettervault-i0ctvkh0s-junhas-projects-a748ef77.vercel.app`)로 배포해 `/` 200, 비로그인 `/style` 307, 검색 품질 집계 API 401, 회원 탈퇴 API의 비로그인 `DELETE` 401을 `vercel curl`로 확인했습니다. Preview 로그에는 오류가 없었고 Production alias와 환경변수는 변경하지 않았습니다.
+- 2026-09-21에는 로컬 브랜치의 최신 커밋을 Vercel Preview(`coverlettervault-o53pifc58-junhas-projects-a748ef77.vercel.app`)로 배포해 `/` 200, 비로그인 `/style` 307, 검색 품질 집계 API 401을 `vercel curl`로 확인했습니다. 공개 PDF URL 수집 변경을 포함한 Preview 로그에는 오류가 없었고 Production alias와 환경변수는 변경하지 않았습니다.
 - 읽기 전용 Vercel 환경변수 점검에서 `SUPABASE_SERVICE_ROLE_KEY`가 없는 것을 확인했습니다. 해당 키가 설정되기 전 회원 탈퇴 API는 데이터를 지우지 않고 503으로 중단하며, 키는 저장소·채팅이 아닌 Vercel 서버 환경변수에만 넣어야 합니다.
 - 마지막으로 확인한 Production은 원격 `main`의 2026-09-14 커밋이며, 로컬 개선 커밋은 Preview와 운영 승인 후 별도로 승격해야 합니다.
 
