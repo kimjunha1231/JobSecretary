@@ -426,12 +426,13 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 - `shared/lib/product-analytics.ts`에 이벤트 이름·속성 allowlist를 만들고 클라이언트에서만 호출하도록 했다.
 - `/writing/new`, `/writing/[sessionId]`, `/career`에서 작성 funnel과 PDF 출력·blind 선택을 기록한다. 이벤트는 문서 내용이나 내부 ID를 전달하지 않는다.
+- 근거·개요·초안 선택, 문단 병합, 수정 저장을 `writing_studio_choice` 집계 이벤트로 기록하고, 모든 문항 최종 확정 때 브라우저 `sessionStorage`의 시작 시각에서 총 작성 시간을 계산한다. 시간은 최대 24시간으로 제한하며 원문·세션 ID는 Analytics payload에 넣지 않는다.
 - 이벤트 계층 자체를 단위 테스트해 임의의 text/identifier 제거와 Analytics 예외 무시를 고정했다.
 - Supabase/Vercel 운영 적용 순서와 제안 완료율 기준은 `docs/operations/jobsecretary-rollout.md`에 별도로 기록해 실제 트래픽 전환 전 검증 항목을 재현할 수 있게 했다.
 
 ### M6-g 검증 결과
 
-제품 Analytics 단위 테스트, 린트, 타입 검사를 통과했다. 실제 Vercel Analytics 대시보드의 이벤트 수치는 운영 배포와 사용자 트래픽이 필요하므로 아직 측정하지 않았다.
+제품 Analytics·작성 시간 모듈 단위 테스트, 린트, 타입 검사를 통과했다. 실제 Vercel Analytics 대시보드의 이벤트 수치는 운영 배포와 사용자 트래픽이 필요하므로 아직 측정하지 않았다.
 
 ## M5-b 최종 답변 예문 승격과 문항별 말투 자료
 

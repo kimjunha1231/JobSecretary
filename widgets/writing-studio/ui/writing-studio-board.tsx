@@ -30,6 +30,11 @@ import type { EvidenceRecord } from '@/entities/evidence-record';
 import type { CareerItem } from '@/entities/career-item';
 import { Badge } from '@/shared/ui';
 import { trackProductEvent } from '@/shared/lib/product-analytics';
+import {
+    clearWritingSessionStarted,
+    ensureWritingSessionStarted,
+    getWritingSessionDurationSeconds,
+} from '@/shared/lib/writing-session-timing';
 import { DraftParagraphMixer } from './draft-paragraph-mixer';
 
 type EvidenceDetails = { record: EvidenceRecord; careerItem: CareerItem };
@@ -227,7 +232,10 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         }
     };
 
-    useEffect(() => { void loadSession(true); }, [sessionId]);
+    useEffect(() => {
+        ensureWritingSessionStarted(sessionId);
+        void loadSession(true);
+    }, [sessionId]);
 
     const selectedMatches = useMemo(() => details?.matches.filter(item => ['selected', 'locked'].includes(item.match.selectionState)) ?? [], [details]);
     const selectedOutline = details?.outlines.find(outline => outline.status === 'selected');
@@ -275,6 +283,16 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                 body: JSON.stringify({ selections: [{ matchId: match.match.id, selectionState }] }),
             }), '근거 선택을 저장하지 못했습니다.');
             setStep('evidence');
+            trackProductEvent({
+                name: 'writing_studio_choice',
+                properties: {
+                    choice: selectionState === 'selected'
+                        ? 'evidence_selected'
+                        : selectionState === 'rejected'
+                            ? 'evidence_rejected'
+                            : 'evidence_locked',
+                },
+            });
             toast.success(selectionState === 'rejected' ? '이 근거를 제외했습니다.' : '선택한 근거를 저장했습니다.');
             return next;
         } catch (changeError) {
@@ -376,6 +394,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             }), '개요 선택을 저장하지 못했습니다.');
             setStep('outline');
             trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'outline' } });
+            trackProductEvent({ name: 'writing_studio_choice', properties: { choice: 'outline_selected' } });
             toast.success('개요를 선택했습니다. 이제 초안을 비교할 수 있습니다.');
             return next;
         } catch (selectError) {
@@ -409,6 +428,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             }), '초안 선택을 저장하지 못했습니다.');
             setStep('edit');
             trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'draft' } });
+            trackProductEvent({ name: 'writing_studio_choice', properties: { choice: 'draft_selected' } });
             const selected = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(selected?.content ?? '');
             setCitationSelections(selected);
@@ -433,6 +453,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const selected = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(selected?.content ?? '');
             setCitationSelections(selected);
+            trackProductEvent({ name: 'writing_studio_choice', properties: { choice: 'paragraph_mixed' } });
             toast.success('문단을 조합한 편집 초안을 만들었습니다.');
         } catch (mergeError) {
             setError(mergeError instanceof Error ? mergeError.message : '문단을 병합하지 못했습니다.');
@@ -455,6 +476,7 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                     }),
                 }),
             }), '수정한 초안을 저장하지 못했습니다.');
+            trackProductEvent({ name: 'writing_studio_choice', properties: { choice: 'draft_saved' } });
             toast.success('수정한 초안을 저장했습니다.');
         } catch (saveError) {
             setError(saveError instanceof Error ? saveError.message : '수정한 초안을 저장하지 못했습니다.');
@@ -471,8 +493,18 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
             const finalized = next.drafts.find(draft => draft.status === 'selected');
             setEditedContent(finalized?.content ?? editedContent);
             setCitationSelections(finalized);
-            trackProductEvent({ name: 'writing_studio_finalized', properties: { question_count: next.questions.length } });
+            const allQuestionsFinalized = next.questions.length > 0
+                && next.questions.every(question => question.status === 'finalized' && question.finalAnswer?.trim());
+            const durationSeconds = allQuestionsFinalized ? getWritingSessionDurationSeconds(sessionId) : undefined;
+            trackProductEvent({
+                name: 'writing_studio_finalized',
+                properties: {
+                    question_count: next.questions.length,
+                    ...(durationSeconds === undefined ? {} : { duration_seconds: durationSeconds }),
+                },
+            });
             trackProductEvent({ name: 'writing_studio_step_completed', properties: { step: 'edit' } });
+            if (allQuestionsFinalized) clearWritingSessionStarted(sessionId);
             toast.success('자기소개서를 최종 확정했습니다.');
         } catch (finalizeError) {
             trackProductEvent({ name: 'writing_studio_error', properties: { operation: 'finalize' } });

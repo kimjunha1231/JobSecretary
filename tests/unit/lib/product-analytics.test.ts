@@ -24,6 +24,14 @@ describe('product analytics', () => {
         expect(mockedTrack.mock.calls[0][1]).not.toHaveProperty('session_id');
     });
 
+    it('records only aggregate writing choices and duration', () => {
+        trackProductEvent({ name: 'writing_studio_choice', properties: { choice: 'draft_selected' } });
+        trackProductEvent({ name: 'writing_studio_finalized', properties: { question_count: 2, duration_seconds: 184 } });
+
+        expect(mockedTrack).toHaveBeenNthCalledWith(1, 'writing_studio_choice', { choice: 'draft_selected' });
+        expect(mockedTrack).toHaveBeenNthCalledWith(2, 'writing_studio_finalized', { question_count: 2, duration_seconds: 184 });
+    });
+
     it('swallows analytics failures so product actions remain usable', () => {
         mockedTrack.mockImplementationOnce(() => { throw new Error('analytics unavailable'); });
 

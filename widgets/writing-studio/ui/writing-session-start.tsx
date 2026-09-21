@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, PenLine, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { JobTarget } from '@/entities/job-target';
 import { trackProductEvent } from '@/shared/lib/product-analytics';
+import { markWritingSessionStarted } from '@/shared/lib/writing-session-timing';
 
 type StyleProfileOption = { profile: { id: string; name: string; bannedExpressions: string[]; endingStyle: string[] }; examples: Array<{ approved: boolean }> };
 
@@ -75,6 +76,7 @@ export function WritingSessionStart() {
             if (!response.ok || !result.session?.id) {
                 throw new Error(typeof result.error === 'string' ? result.error : '작성 세션을 만들지 못했습니다.');
             }
+            markWritingSessionStarted(result.session.id);
             trackProductEvent({ name: 'writing_studio_started', properties: { question_count: validQuestions.length } });
             router.push(`/writing/${result.session.id}`);
         } catch (submitError) {
