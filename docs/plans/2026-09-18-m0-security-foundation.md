@@ -42,7 +42,7 @@
 
 - [x] 의존성 보안 업데이트 — Next.js 15.5.25 패치 라인과 호환되는 Sentry 10.75.0, Sharp 0.35.4, PostCSS 8.5.28을 반영하고, Google 인증 라이브러리의 중첩 `minimatch`는 `overrides`로 안전한 패치 버전을 고정했다. `next.config.mjs`는 Sentry 10의 권장 `@sentry/nextjs/config` 경로를 사용한다. `npm audit --omit=dev`는 3건(Next 15가 고정한 중첩 PostCSS 1건과 peer/dev 경로의 저·중 위험 2건)으로 줄었으며, Next 16으로의 메이저 전환은 별도 호환성 작업으로 남겼다.
 - [x] 인증 라우트와 OAuth redirect 보호 — `/document` 보호 경로를 추가하고 same-origin 내부 상대 경로만 허용하는 `getSafeInternalPath`를 적용했다.
-- [x] AI 공통 보호 wrapper — 모든 Gemini server action에 인증, 입력 길이/배열 제한, 작업별 제한, 기존 timeout/fallback을 연결했다. `UPSTASH_REDIS_REST_URL`·`UPSTASH_REDIS_REST_TOKEN`이 설정된 환경에서는 EVAL 기반 공유 제한기를 사용하고, 미설정·장애 시 인메모리 제한기로 안전하게 폴백한다.
+- [x] AI 공통 보호 wrapper — 모든 Gemini server action에 인증, 입력 길이/배열 제한, 작업별 제한, 기존 timeout/fallback을 연결했다. 모델을 호출하지 않아도 외부 URL fetch·문서 파싱을 수행하는 `POST /api/source-documents`에도 사용자별 10회/분 제한을 추가했다. `UPSTASH_REDIS_REST_URL`·`UPSTASH_REDIS_REST_TOKEN`이 설정된 환경에서는 EVAL 기반 공유 제한기를 사용하고, 미설정·장애 시 인메모리 제한기로 안전하게 폴백한다.
 - [x] Supabase RLS migration — `documents`와 `user_profiles` 각각에 소유권 정책 migration과 읽기 전용 정책 점검 SQL을 추가했다. 예기치 않은 기존 정책이 있으면 migration이 중단되며, 운영 DB에는 적용하지 않았다.
 - [x] server data boundary 전환 — 문서 상세 조회와 생성·수정·삭제·보관 mutation을 `/api/documents` 계열 서버 repository 경계로 이전했다. 문서 API 입력 Zod 검증과 server-side 사용자 소유권 필터를 적용했다.
 - [x] 회귀 검증 — redirect/rate limit/AI 입력·인증 회귀 테스트를 추가했고 lint, TypeScript, Jest(현재 14 suites/138 tests), 더미 환경변수 기반 production build를 통과했다.
