@@ -5,7 +5,7 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-g, M5-k 구현 커밋까지 포함
+- 로컬 기능 기준: M0~M6-g, M5-l 구현 커밋까지 포함
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
