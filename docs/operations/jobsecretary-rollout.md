@@ -9,6 +9,7 @@
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
+- 2026-09-21 로컬 브랜치 Preview(`coverlettervault-r8wut74m7-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회하지 않은 `vercel curl`로 `/` 200, 비로그인 `/style` 307, 새 검색 품질 집계 API 401을 확인했다. Preview 로그에는 조회 시점 오류가 없었고 Production alias는 변경하지 않았다.
 
 ## 1. 배포 전 검증
 

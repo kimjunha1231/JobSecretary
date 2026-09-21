@@ -248,6 +248,7 @@
 
 - Supabase migration 순서, Preview 검증, 개인정보 없는 Analytics 지표, 작성 작업대 롤백 기준은 [`docs/operations/jobsecretary-rollout.md`](docs/operations/jobsecretary-rollout.md)에 정리했습니다.
 - `npm run rollout:verify`로 migration 순서·verify SQL·환경변수 템플릿·클라이언트 service-role 경계·Sentry 개인정보 설정을 원격 변경 없이 점검할 수 있습니다.
+- 2026-09-21에는 로컬 브랜치를 Vercel Preview로 배포해 `/` 200, 비로그인 보호 경로 리디렉션, 새 검색 품질 API의 인증 경계를 `vercel curl`로 확인했습니다. Production alias와 환경변수는 변경하지 않았습니다.
 - 마지막으로 확인한 Production은 원격 `main`의 2026-09-14 커밋이며, 로컬 개선 커밋은 Preview와 운영 승인 후 별도로 승격해야 합니다.
 
 ### 제품 완료율 측정(M6-g)
