@@ -36,7 +36,9 @@ function walk(relativeDirectory: string): string[] {
 }
 
 function verifyMigrationOrder(): void {
-    const files = list('supabase/migrations').filter(file => file.endsWith('.sql'));
+    const files = list('supabase/migrations')
+        .filter(file => file.endsWith('.sql'))
+        .sort((left, right) => left.localeCompare(right));
     const parsed = files.map(file => ({
         file,
         timestamp: /^([0-9]{14})_/.exec(file)?.[1] ?? '',
