@@ -131,4 +131,20 @@ describe('writing evidence retrieval baseline', () => {
         expect(cases).toHaveLength(1);
         expect(cases[0].relevantEvidenceIds).toEqual([evidence.record.id]);
     });
+
+    it('prefers explicit user-authored labels and preserves an explicit empty label', () => {
+        const selectedEvidence = withIds(makeEvidence({ title: '선택된 활동' }), 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+        const otherEvidence = withIds(makeEvidence({ title: '정답으로 표시한 활동' }), 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'ffffffff-ffff-4fff-8fff-ffffffffffff');
+        const requirement = makeRequirement('검색');
+        const details = {
+            requirements: [requirement],
+            evidence: [selectedEvidence, otherEvidence],
+            matches: [{ match: { jobRequirementId: requirement.id, evidenceRecordId: selectedEvidence.record.id, selectionState: 'selected' } }],
+        } as never;
+
+        expect(buildEvidenceRetrievalCases(details, [{ requirementId: requirement.id, evidenceRecordIds: [otherEvidence.record.id] }])[0].relevantEvidenceIds)
+            .toEqual([otherEvidence.record.id]);
+        expect(buildEvidenceRetrievalCases(details, [{ requirementId: requirement.id, evidenceRecordIds: [] }])[0].relevantEvidenceIds)
+            .toEqual([]);
+    });
 });

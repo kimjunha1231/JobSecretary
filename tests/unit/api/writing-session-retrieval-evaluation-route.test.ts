@@ -2,7 +2,7 @@
 
 import { POST } from '@/app/api/writing-sessions/[id]/retrieval-evaluation/route';
 import { WritingSessionServiceError, writingSessionService } from '@/entities/writing-session/api';
-import { buildEvidenceRetrievalCases, evaluateEvidenceRetrieval } from '@/entities/writing-session/api';
+import { buildEvidenceRetrievalCases, evaluateEvidenceRetrieval, listRetrievalLabels } from '@/entities/writing-session/api';
 
 jest.mock('@/shared/lib', () => ({ logger: { error: jest.fn() } }));
 jest.mock('@/entities/writing-session/api', () => {
@@ -10,6 +10,7 @@ jest.mock('@/entities/writing-session/api', () => {
     return {
         ...actual,
         writingSessionService: { get: jest.fn() },
+        listRetrievalLabels: jest.fn(),
         buildEvidenceRetrievalCases: jest.fn(),
         evaluateEvidenceRetrieval: jest.fn(),
     };
@@ -18,9 +19,13 @@ jest.mock('@/entities/writing-session/api', () => {
 const mockGet = writingSessionService.get as jest.Mock;
 const mockBuildCases = buildEvidenceRetrievalCases as jest.Mock;
 const mockEvaluate = evaluateEvidenceRetrieval as jest.Mock;
+const mockListLabels = listRetrievalLabels as jest.Mock;
 
 describe('writing-session retrieval evaluation route', () => {
-    beforeEach(() => jest.clearAllMocks());
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockListLabels.mockResolvedValue([]);
+    });
 
     it('uses the authenticated session snapshot and returns metrics for the requested k', async () => {
         const details = { requirements: [], evidence: [], matches: [] };
@@ -50,7 +55,8 @@ describe('writing-session retrieval evaluation route', () => {
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toEqual(summary);
         expect(mockGet).toHaveBeenCalledWith('session-id');
-        expect(mockBuildCases).toHaveBeenCalledWith(details);
+        expect(mockListLabels).toHaveBeenCalledWith('session-id');
+        expect(mockBuildCases).toHaveBeenCalledWith(details, []);
         expect(mockEvaluate).toHaveBeenCalledWith(cases, { k: 5 });
     });
 

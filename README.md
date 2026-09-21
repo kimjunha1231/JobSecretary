@@ -195,7 +195,7 @@
 ### 작성 세션 검색 품질 측정(M5-g)
 
 - `/writing/[sessionId]`의 근거 선택 단계에서 `현재 선택으로 측정`을 누르면 `POST /api/writing-sessions/[id]/retrieval-evaluation`이 실행됩니다. 기본 `k=3`이며 1~100 범위의 `k`를 받을 수 있습니다.
-- 서버는 해당 사용자의 승인 근거·승인 요구사항만 읽고, 현재 질문에서 선택하거나 고정한 match를 relevance label로 변환합니다. 선택하지 않은 추천과 stale ID는 label에서 제외합니다.
+- 서버는 해당 사용자의 승인 근거·승인 요구사항만 읽고, 저장된 사용자 정답 라벨을 우선 사용합니다. 라벨이 없는 요구사항은 현재 질문에서 선택하거나 고정한 match를 기준선으로 변환하며, 선택하지 않은 추천과 stale ID는 제외합니다.
 - 화면에는 Recall@k·nDCG@k·MRR@k, label이 있는 요구사항 수, 빈 label 수를 표시합니다. 이는 사용자의 선택 기반 기준선이지 정답 자동 판정이나 모델 학습 데이터 저장이 아닙니다.
 - `/api/writing-sessions/retrieval-evaluation?limit=5&k=3`은 최근 세션을 같은 방식으로 집계해 `/style`의 검색 품질 카드에 보여줍니다. 응답에는 세션·문항 수와 품질 지표만 포함하며 원문·활동 내용·세션 ID는 반환하지 않습니다.
 
@@ -217,6 +217,13 @@
 - `POST /api/style-profiles/[id]/examples/from-source`는 자료 ID만 받고, 서버에서 현재 사용자 소유·`approved`·`cover_letter` 상태와 원문/fragment를 다시 확인합니다. 20,000자를 넘거나 본문이 비어 있으면 저장하지 않습니다.
 - `style_examples.source_document_id`와 `source = 'source_document'`로 원본 연결을 보존하고, 예문을 삭제하거나 사용 중지하면 다음 생성에서 제외할 수 있습니다. 사실 근거 검색과 말투 예문 검색은 계속 분리됩니다.
 - `supabase/migrations/20260920010000_m5j_source_style_examples.sql`과 `supabase/verify/rls-m5j-source-style-examples.sql`은 운영 DB에 아직 적용하지 않았습니다. M2 자료·M5 스타일 migration 이후 순서로 읽기 전용 검증을 먼저 실행해야 합니다.
+
+### 사용자 작성 검색 정답 라벨(M5-k)
+
+- `/writing/[sessionId]` 근거 선택 단계에서 요구사항별로 실제 관련 활동을 직접 체크하고 `정답 라벨 저장`을 누를 수 있습니다. 활동을 하나도 고르지 않은 요구사항도 명시적으로 저장해 “관련 활동 없음”으로 평가할 수 있습니다.
+- 저장한 라벨은 선택·고정 match보다 우선해 Recall@k·nDCG@k·MRR@k의 relevance label이 됩니다. 아직 라벨을 저장하지 않은 요구사항은 기존 선택 기반 기준선으로 폴백해 migration 전후 작성 흐름을 계속 사용할 수 있습니다.
+- 서버는 현재 세션·문항 소유권, 승인된 요구사항, 승인된 활동 ID를 다시 확인하고 원문을 복제하지 않습니다. `GET/PUT /api/writing-sessions/[id]/retrieval-labels` 응답도 요구사항·활동 ID만 반환합니다.
+- `supabase/migrations/20260921010000_m5k_retrieval_labels.sql`과 `supabase/verify/rls-m5k-retrieval-labels.sql`은 운영 DB에 아직 적용하지 않았습니다. 실제 사용자 라벨이 충분히 쌓인 뒤 기준선과 비교해 hybrid retrieval·pgvector 도입 여부를 결정합니다.
 
 ### 서버 PDF 출력·기존 문서 전환(M6-a)
 

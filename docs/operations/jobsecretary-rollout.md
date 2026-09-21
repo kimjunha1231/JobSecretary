@@ -5,7 +5,7 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-g, M5-j 구현 커밋까지 포함
+- 로컬 기능 기준: M0~M6-g, M5-k 구현 커밋까지 포함
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
@@ -33,8 +33,9 @@ git diff --check
 ## 2. Supabase 적용 순서
 
 1. 각 migration의 `supabase/verify/*.sql`을 읽기 전용으로 실행해 기존 테이블·정책·Storage bucket을 확인한다.
-2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`), M2 Storage, M6 OCR 의존성을 확인한다.
+2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`)와 사용자 작성 검색 정답 라벨(`20260921010000_m5k_retrieval_labels.sql`), M2 Storage, M6 OCR 의존성을 확인한다.
 3. 적용 직후 사용자 소유 RLS와 `style_evaluation_preferences`의 hash-only 저장을 다시 확인한다.
+   `retrieval_evaluation_labels`는 활동 원문 없이 ID만 저장하고, 빈 `evidence_record_id` 행은 해당 요구사항에 관련 활동이 없다는 명시적 라벨이다.
 4. migration이 실패하면 다음 migration으로 건너뛰지 않고, 기존 사용자 데이터에 쓰기를 시작하지 않는다.
 
 이 저장소에서는 원격 DB에 migration을 자동 적용하지 않는다.

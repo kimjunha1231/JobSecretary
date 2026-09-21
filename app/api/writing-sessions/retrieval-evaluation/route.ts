@@ -3,6 +3,7 @@ import {
     RetrievalEvaluationAggregateSummarySchema,
     buildEvidenceRetrievalCases,
     evaluateEvidenceRetrieval,
+    listRetrievalLabels,
     WritingSessionServiceError,
     writingSessionService,
 } from '@/entities/writing-session/api';
@@ -35,7 +36,7 @@ function isRetrievalMigrationUnavailable(error: unknown): boolean {
     const code = typeof record.code === 'string' ? record.code : '';
     const message = typeof record.message === 'string' ? record.message : '';
     return ['42P01', 'PGRST204', 'PGRST205'].includes(code)
-        && /writing_sessions|evidence_matches|cover_letter_questions|draft_fact_citations/i.test(message);
+        && /writing_sessions|evidence_matches|cover_letter_questions|draft_fact_citations|retrieval_evaluation_labels/i.test(message);
 }
 
 export async function GET(request: NextRequest) {
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
         // cap keeps this privacy-safe summary bounded when a user has many drafts.
         const sessions = await writingSessionService.list({ limit: parsed.data.limit });
         const details = await Promise.all(sessions.map(session => writingSessionService.get(session.id)));
-        const caseGroups = details.map(buildEvidenceRetrievalCases);
+        const labels = await Promise.all(sessions.map(session => listRetrievalLabels(session.id)));
+        const caseGroups = details.map((item, index) => buildEvidenceRetrievalCases(item, labels[index]));
         const cases = caseGroups.flat();
         const summary = evaluateEvidenceRetrieval(cases, { k: parsed.data.k });
         return NextResponse.json(RetrievalEvaluationAggregateSummarySchema.parse({

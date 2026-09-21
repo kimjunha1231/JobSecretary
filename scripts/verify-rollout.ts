@@ -78,6 +78,7 @@ function verifyReadOnlyScripts(): void {
         ['20260919060000', ['rls-m2-source-storage.sql']],
         ['20260919070000', ['rls-m5h-blind-style-preferences.sql']],
         ['20260920010000', ['rls-m5j-source-style-examples.sql']],
+        ['20260921010000', ['rls-m5k-retrieval-labels.sql']],
     ];
     const missing = required.flatMap(([, expected]) => expected.filter(file => !verifyFiles.has(file)));
     addCheck(

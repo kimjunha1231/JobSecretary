@@ -5,6 +5,7 @@ import { GET } from '@/app/api/writing-sessions/retrieval-evaluation/route';
 import {
     buildEvidenceRetrievalCases,
     evaluateEvidenceRetrieval,
+    listRetrievalLabels,
     WritingSessionServiceError,
     writingSessionService,
 } from '@/entities/writing-session/api';
@@ -15,6 +16,7 @@ jest.mock('@/entities/writing-session/api', () => {
     return {
         ...actual,
         writingSessionService: { list: jest.fn(), get: jest.fn() },
+        listRetrievalLabels: jest.fn(),
         buildEvidenceRetrievalCases: jest.fn(),
         evaluateEvidenceRetrieval: jest.fn(),
     };
@@ -24,9 +26,13 @@ const mockList = writingSessionService.list as jest.Mock;
 const mockGet = writingSessionService.get as jest.Mock;
 const mockBuildCases = buildEvidenceRetrievalCases as jest.Mock;
 const mockEvaluate = evaluateEvidenceRetrieval as jest.Mock;
+const mockListLabels = listRetrievalLabels as jest.Mock;
 
 describe('aggregate writing-session retrieval evaluation route', () => {
-    beforeEach(() => jest.clearAllMocks());
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockListLabels.mockResolvedValue([]);
+    });
 
     it('aggregates recent owned session snapshots without returning content', async () => {
         mockList.mockResolvedValue([{ id: 'session-a' }, { id: 'session-b' }]);
@@ -62,6 +68,8 @@ describe('aggregate writing-session retrieval evaluation route', () => {
         expect(mockList).toHaveBeenCalledWith({ limit: 2 });
         expect(mockGet).toHaveBeenNthCalledWith(1, 'session-a');
         expect(mockGet).toHaveBeenNthCalledWith(2, 'session-b');
+        expect(mockListLabels).toHaveBeenNthCalledWith(1, 'session-a');
+        expect(mockListLabels).toHaveBeenNthCalledWith(2, 'session-b');
         expect(mockEvaluate).toHaveBeenCalledWith([{ relevantEvidenceIds: ['evidence-a'] }, { relevantEvidenceIds: [] }], { k: 3 });
     });
 
