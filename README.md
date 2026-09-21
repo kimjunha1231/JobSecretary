@@ -222,6 +222,7 @@
 
 - `/writing/[sessionId]` 근거 선택 단계에서 요구사항별로 실제 관련 활동을 직접 체크하고 `정답 라벨 저장`을 누를 수 있습니다. 활동을 하나도 고르지 않은 요구사항도 명시적으로 저장해 “관련 활동 없음”으로 평가할 수 있습니다.
 - 저장한 라벨은 선택·고정 match보다 우선해 Recall@k·nDCG@k·MRR@k의 relevance label이 됩니다. 아직 라벨을 저장하지 않은 요구사항은 기존 선택 기반 기준선으로 폴백해 migration 전후 작성 흐름을 계속 사용할 수 있습니다.
+- `/style` 최근 검색 품질 카드에는 명시 라벨 문항/세션 수를 함께 표시해 실제 골든셋 커버리지를 확인할 수 있습니다. 커버리지가 충분해지기 전에는 pgvector나 모델 변경을 성급하게 결정하지 않습니다.
 - 서버는 현재 세션·문항 소유권, 승인된 요구사항, 승인된 활동 ID를 다시 확인하고 원문을 복제하지 않습니다. `GET/PUT /api/writing-sessions/[id]/retrieval-labels` 응답도 요구사항·활동 ID만 반환합니다.
 - `supabase/migrations/20260921010000_m5k_retrieval_labels.sql`과 `supabase/verify/rls-m5k-retrieval-labels.sql`은 운영 DB에 아직 적용하지 않았습니다. 실제 사용자 라벨이 충분히 쌓인 뒤 기준선과 비교해 hybrid retrieval·pgvector 도입 여부를 결정합니다.
 

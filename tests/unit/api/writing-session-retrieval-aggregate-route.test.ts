@@ -36,7 +36,9 @@ describe('aggregate writing-session retrieval evaluation route', () => {
 
     it('aggregates recent owned session snapshots without returning content', async () => {
         mockList.mockResolvedValue([{ id: 'session-a' }, { id: 'session-b' }]);
-        mockGet.mockResolvedValueOnce({ id: 'details-a' }).mockResolvedValueOnce({ id: 'details-b' });
+        const requirementId = '11111111-1111-4111-8111-111111111111';
+        mockGet.mockResolvedValueOnce({ id: 'details-a', requirements: [{ id: requirementId }] }).mockResolvedValueOnce({ id: 'details-b', requirements: [] });
+        mockListLabels.mockResolvedValueOnce([{ requirementId, evidenceRecordIds: [] }]).mockResolvedValueOnce([]);
         mockBuildCases
             .mockReturnValueOnce([{ relevantEvidenceIds: ['evidence-a'] }])
             .mockReturnValueOnce([{ relevantEvidenceIds: [] }]);
@@ -48,6 +50,8 @@ describe('aggregate writing-session retrieval evaluation route', () => {
             recallAtK: 1,
             ndcgAtK: 1,
             mrrAtK: 1,
+            explicitLabelCaseCount: 1,
+            explicitLabelSessionCount: 1,
         });
 
         const response = await GET(new NextRequest('http://localhost/api/writing-sessions/retrieval-evaluation?limit=2&k=3'));
@@ -64,6 +68,8 @@ describe('aggregate writing-session retrieval evaluation route', () => {
             mrrAtK: 1,
             sessionCount: 2,
             evaluatedSessionCount: 1,
+            explicitLabelCaseCount: 1,
+            explicitLabelSessionCount: 1,
         });
         expect(mockList).toHaveBeenCalledWith({ limit: 2 });
         expect(mockGet).toHaveBeenNthCalledWith(1, 'session-a');
@@ -83,6 +89,8 @@ describe('aggregate writing-session retrieval evaluation route', () => {
             recallAtK: 0,
             ndcgAtK: 0,
             mrrAtK: 0,
+            explicitLabelCaseCount: 0,
+            explicitLabelSessionCount: 0,
         });
 
         const response = await GET(new NextRequest('http://localhost/api/writing-sessions/retrieval-evaluation'));

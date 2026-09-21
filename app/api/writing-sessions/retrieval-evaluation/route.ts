@@ -58,11 +58,17 @@ export async function GET(request: NextRequest) {
         const caseGroups = details.map((item, index) => buildEvidenceRetrievalCases(item, labels[index]));
         const cases = caseGroups.flat();
         const summary = evaluateEvidenceRetrieval(cases, { k: parsed.data.k });
+        const explicitLabelCaseCount = details.reduce((total, item, index) => {
+            const requirementIds = new Set(item.requirements.map(requirement => requirement.id));
+            return total + (labels[index] ?? []).filter(label => requirementIds.has(label.requirementId)).length;
+        }, 0);
         return NextResponse.json(RetrievalEvaluationAggregateSummarySchema.parse({
             ...summary,
             available: true,
             sessionCount: sessions.length,
             evaluatedSessionCount: caseGroups.filter(group => group.some(item => item.relevantEvidenceIds.length > 0)).length,
+            explicitLabelCaseCount,
+            explicitLabelSessionCount: labels.filter(item => item.length > 0).length,
         }));
     } catch (error) {
         return errorResponse(error);

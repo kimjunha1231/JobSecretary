@@ -25,6 +25,8 @@ export const RetrievalEvaluationAggregateSummarySchema = RetrievalEvaluationSumm
     available: z.literal(true),
     sessionCount: z.number().int().min(0),
     evaluatedSessionCount: z.number().int().min(0),
+    explicitLabelCaseCount: z.number().int().min(0),
+    explicitLabelSessionCount: z.number().int().min(0),
 });
 export type RetrievalEvaluationAggregateSummary = z.infer<typeof RetrievalEvaluationAggregateSummarySchema>;
 

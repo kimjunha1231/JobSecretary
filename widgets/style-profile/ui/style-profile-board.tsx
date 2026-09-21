@@ -28,6 +28,8 @@ type RetrievalEvaluationAggregate = {
     caseCount: number;
     evaluatedCaseCount: number;
     emptyRelevantLabelCount: number;
+    explicitLabelCaseCount: number;
+    explicitLabelSessionCount: number;
     recallAtK: number;
     ndcgAtK: number;
     mrrAtK: number;
@@ -390,12 +392,13 @@ export function StyleProfileBoard() {
                 </div>
                 <span className="shrink-0 rounded-lg border border-sky-200/20 bg-sky-200/10 px-2.5 py-1.5 text-xs text-sky-100">평가 문항 {retrievalSummary.evaluatedCaseCount}/{retrievalSummary.caseCount}</span>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">Recall@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.recallAtK * 100)}%</p></div>
                 <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">nDCG@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.ndcgAtK * 100)}%</p></div>
                 <div className="rounded-xl border border-white/10 bg-background/30 p-3"><p className="text-[11px] text-zinc-500">MRR@{retrievalSummary.k}</p><p className="mt-1 text-2xl font-semibold text-white">{Math.round(retrievalSummary.mrrAtK * 100)}%</p></div>
+                <div className="rounded-xl border border-violet-300/15 bg-violet-300/5 p-3"><p className="text-[11px] text-violet-200/70">명시 라벨 문항</p><p className="mt-1 text-2xl font-semibold text-violet-100">{retrievalSummary.explicitLabelCaseCount}<span className="ml-1 text-sm font-normal text-violet-100/60">/ {retrievalSummary.caseCount}</span></p></div>
             </div>
-                <p className="mt-4 text-xs text-zinc-500">관련 활동 라벨이 있는 세션 {retrievalSummary.evaluatedSessionCount}개 · 관련 활동이 없다고 표시한 문항 {retrievalSummary.emptyRelevantLabelCount}개</p>
+                <p className="mt-4 text-xs text-zinc-500">명시 라벨이 저장된 세션 {retrievalSummary.explicitLabelSessionCount}개 · 관련 활동이 없다고 표시한 문항 {retrievalSummary.emptyRelevantLabelCount}개</p>
         </section>}
         <section className="space-y-3" aria-labelledby="profile-list-title">
             <div><h2 id="profile-list-title" className="text-xl font-semibold text-white">저장된 프로필</h2><p className="mt-1 text-xs text-zinc-500">승인된 예문만 생성 context에 들어갑니다. 분석 결과는 확인한 뒤 반영할 수 있습니다.</p></div>
