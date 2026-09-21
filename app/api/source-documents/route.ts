@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MAX_SOURCE_BYTES } from '@/features/source-ingestion/api';
 import { SourceDocumentServiceError, sourceDocumentService } from '@/entities/source-document/api';
+import { AiAccessError, requireUserRateLimit } from '@/shared/lib/ai-access';
 import { logger } from '@/shared/lib';
 
 export const runtime = 'nodejs';
@@ -8,6 +9,12 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 function errorResponse(error: unknown, fallback: string): NextResponse {
+    if (error instanceof AiAccessError) {
+        return NextResponse.json({ error: error.message }, {
+            status: error.code === 'RATE_LIMITED' ? 429 : 401,
+            headers: error.retryAfterSeconds ? { 'Retry-After': String(error.retryAfterSeconds) } : undefined,
+        });
+    }
     if (error instanceof SourceDocumentServiceError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
     }
@@ -55,6 +62,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        await requireUserRateLimit('source_ingestion', '자료 등록 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+
         const contentLength = Number(request.headers.get('content-length') ?? 0);
         // Multipart overhead is small relative to the file cap; the parser checks the exact byte size again.
         if (contentLength > MAX_SOURCE_BYTES + 1024 * 1024) {

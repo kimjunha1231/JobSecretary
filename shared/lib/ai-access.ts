@@ -14,6 +14,8 @@ export type AiOperation =
     | 'outline_generation'
     | 'draft_generation';
 
+export type ProtectedOperation = AiOperation | 'source_ingestion';
+
 export class AiAccessError extends Error {
     public readonly code: 'UNAUTHORIZED' | 'RATE_LIMITED';
     public readonly retryAfterSeconds?: number;
@@ -30,7 +32,7 @@ export class AiAccessError extends Error {
     }
 }
 
-const OPERATION_LIMITS: Record<AiOperation, { limit: number; windowMs: number }> = {
+const OPERATION_LIMITS: Record<ProtectedOperation, { limit: number; windowMs: number }> = {
     insight: { limit: 20, windowMs: 60_000 },
     questions: { limit: 10, windowMs: 60_000 },
     draft: { limit: 8, windowMs: 60_000 },
@@ -41,9 +43,15 @@ const OPERATION_LIMITS: Record<AiOperation, { limit: number; windowMs: number }>
     source_ocr: { limit: 2, windowMs: 60_000 },
     outline_generation: { limit: 5, windowMs: 60_000 },
     draft_generation: { limit: 5, windowMs: 60_000 },
+    // Source registration can fetch remote URLs and parse large documents even
+    // when it does not invoke a model, so it needs an independent budget.
+    source_ingestion: { limit: 10, windowMs: 60_000 },
 };
 
-export async function requireAiAccess(operation: AiOperation) {
+export async function requireUserRateLimit(
+    operation: ProtectedOperation,
+    rateLimitMessage = '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+) {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.auth.getUser();
 
@@ -58,7 +66,9 @@ export async function requireAiAccess(operation: AiOperation) {
             decision = await consumeSharedRateLimit(rateLimitKey, OPERATION_LIMITS[operation]);
         } catch {
             logger.error(
-                'Shared AI rate limiter unavailable; using local fallback.',
+                operation === 'source_ingestion'
+                    ? 'Shared source ingestion rate limiter unavailable; using local fallback.'
+                    : 'Shared AI rate limiter unavailable; using local fallback.',
                 'shared_rate_limiter_unavailable',
             );
             decision = null;
@@ -69,10 +79,14 @@ export async function requireAiAccess(operation: AiOperation) {
     if (!decision.allowed) {
         throw new AiAccessError(
             'RATE_LIMITED',
-            'AI 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+            rateLimitMessage,
             decision.retryAfterSeconds,
         );
     }
 
     return data.user;
+}
+
+export async function requireAiAccess(operation: AiOperation) {
+    return requireUserRateLimit(operation, 'AI 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
 }

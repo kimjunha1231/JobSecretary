@@ -1,4 +1,4 @@
-import { AiAccessError, requireAiAccess } from '@/shared/lib/ai-access';
+import { AiAccessError, requireAiAccess, requireUserRateLimit } from '@/shared/lib/ai-access';
 import { createServerSupabaseClient } from '@/shared/api/server';
 import {
     consumeRateLimit,
@@ -34,6 +34,7 @@ describe('requireAiAccess shared limiter fallback', () => {
             auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
         });
         mockedConsumeRateLimit.mockReturnValue({ allowed: true, remaining: 2 });
+        mockedConsumeSharedRateLimit.mockResolvedValue(undefined);
         mockedHasSharedRateLimiterConfig.mockReturnValue(true);
     });
 
@@ -64,5 +65,14 @@ describe('requireAiAccess shared limiter fallback', () => {
             retryAfterSeconds: 9,
         });
         expect(mockedConsumeRateLimit).not.toHaveBeenCalled();
+    });
+
+    it('applies the same shared budget boundary to source ingestion', async () => {
+        await expect(requireUserRateLimit('source_ingestion', '자료 등록 요청이 너무 많습니다.')).resolves.toEqual({ id: 'user-1' });
+
+        expect(mockedConsumeRateLimit).toHaveBeenCalledWith('ai:user-1:source_ingestion', expect.objectContaining({
+            limit: 10,
+            windowMs: 60_000,
+        }));
     });
 });
