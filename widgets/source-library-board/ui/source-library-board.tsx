@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -12,6 +12,7 @@ import {
     FileText,
     Pencil,
     RefreshCw,
+    Search,
     Save,
     Sparkles,
     X,
@@ -20,6 +21,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/shared/ui';
 import type { SourceDocument, SourceFragment } from '@/entities/source-document';
 import type { CareerCandidate } from '@/features/career-extraction';
+import { filterSourceDocuments } from '@/features/source-search';
 import {
     SOURCE_KIND_LABELS,
     SOURCE_ORIGIN_LABELS,
@@ -73,6 +75,9 @@ export function SourceLibraryBoard() {
     const [suggestionLoadingId, setSuggestionLoadingId] = useState<string | null>(null);
     const [savingSuggestionKey, setSavingSuggestionKey] = useState<string | null>(null);
     const [editingSuggestion, setEditingSuggestion] = useState<{ documentId: string; identity: string; value: CareerCandidate } | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [kindFilter, setKindFilter] = useState<SourceDocument['kind'] | 'all'>('all');
+    const [statusFilter, setStatusFilter] = useState<SourceDocument['status'] | 'all'>('all');
     const [error, setError] = useState<string | null>(null);
 
     const loadDocuments = async (showSpinner = false) => {
@@ -96,6 +101,11 @@ export function SourceLibraryBoard() {
     useEffect(() => {
         void loadDocuments();
     }, []);
+
+    const filteredDocuments = useMemo(
+        () => filterSourceDocuments(documents, { query: searchQuery, kind: kindFilter, status: statusFilter }),
+        [documents, kindFilter, searchQuery, statusFilter],
+    );
 
     const toggleDetail = async (id: string) => {
         if (expandedId === id) {
@@ -354,8 +364,45 @@ export function SourceLibraryBoard() {
                         <p className="mt-1 text-xs text-zinc-500">이력서나 포트폴리오를 먼저 등록해 보세요.</p>
                     </div>
                 ) : (
-                    <div className="grid gap-3">
-                        {documents.map(document => {
+                    <>
+                        <div role="region" aria-label="등록 자료 검색 및 필터" className="rounded-2xl border border-white/10 bg-surface/45 p-4">
+                            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto] lg:items-end">
+                                <label className="space-y-1.5 text-xs text-zinc-400">
+                                    <span>자료 검색</span>
+                                    <span className="relative block">
+                                        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
+                                        <input
+                                            type="search"
+                                            value={searchQuery}
+                                            onChange={event => setSearchQuery(event.target.value)}
+                                            placeholder="제목, URL, 추출 경고 검색"
+                                            aria-label="등록 자료 검색"
+                                            className="w-full rounded-lg border border-white/10 bg-background px-9 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                                        />
+                                    </span>
+                                </label>
+                                <label className="space-y-1.5 text-xs text-zinc-400">
+                                    <span>자료 종류</span>
+                                    <select value={kindFilter} onChange={event => setKindFilter(event.target.value as SourceDocument['kind'] | 'all')} aria-label="자료 종류 필터" className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20">
+                                        <option value="all">전체 종류</option>
+                                        {Object.entries(SOURCE_KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                                    </select>
+                                </label>
+                                <label className="space-y-1.5 text-xs text-zinc-400">
+                                    <span>검수 상태</span>
+                                    <select value={statusFilter} onChange={event => setStatusFilter(event.target.value as SourceDocument['status'] | 'all')} aria-label="검수 상태 필터" className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20">
+                                        <option value="all">전체 상태</option>
+                                        {Object.entries(SOURCE_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                                    </select>
+                                </label>
+                                <button type="button" onClick={() => { setSearchQuery(''); setKindFilter('all'); setStatusFilter('all'); }} disabled={!searchQuery && kindFilter === 'all' && statusFilter === 'all'} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-2.5 text-xs text-zinc-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40">
+                                    <X size={14} aria-hidden="true" /> 필터 초기화
+                                </button>
+                            </div>
+                            <p className="mt-3 text-xs text-zinc-500" aria-live="polite">{filteredDocuments.length}개 표시 · 전체 {documents.length}개</p>
+                        </div>
+                        <div className="grid gap-3">
+                        {filteredDocuments.map(document => {
                             const detail = details[document.id];
                             const isExpanded = expandedId === document.id;
                             const isBusy = loadingId === document.id || ocrLoadingId === document.id;
@@ -541,7 +588,9 @@ export function SourceLibraryBoard() {
                                 </article>
                             );
                         })}
-                    </div>
+                        </div>
+                        {filteredDocuments.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 bg-surface/30 px-5 py-10 text-center"><Search size={24} className="mx-auto mb-2 text-zinc-600" aria-hidden="true" /><p className="text-sm font-medium text-zinc-300">조건에 맞는 자료가 없습니다.</p><p className="mt-1 text-xs text-zinc-500">검색어 또는 검수 필터를 바꿔 보세요.</p></div>}
+                    </>
                 )}
             </section>
         </div>
