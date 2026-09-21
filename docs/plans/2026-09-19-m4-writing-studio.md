@@ -513,4 +513,4 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 ### M5-l 검증 결과
 
-`npm run harness:verify`(47개 스위트/279개 테스트), 더미 환경변수 `npm run build`, Playwright Chromium E2E, `git diff --check`를 실행해 확인한다. 실제 말투 예문 선택과 생성 결과의 체감 품질은 인증된 사용자 평가가 필요하므로 운영 배포 후 별도 측정 대상으로 남긴다.
+`npm run harness:verify`(49개 스위트/280개 테스트), 더미 환경변수 `npm run build`, Playwright Chromium E2E, `git diff --check`를 통과했다. 승인되지 않은 예문이 세션 생성 전에 차단되는 서버 경계도 단위 테스트로 확인했다. 실제 말투 예문 선택과 생성 결과의 체감 품질은 인증된 사용자 평가가 필요하므로 운영 배포 후 별도 측정 대상으로 남긴다.
