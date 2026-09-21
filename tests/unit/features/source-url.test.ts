@@ -92,12 +92,28 @@ describe('safe source URL ingestion', () => {
         await expect(fetchSourceUrl('https://example.com/bad-redirect')).rejects.toMatchObject({ code: 'invalid_url' });
     });
 
-    it('rejects unsupported media and oversized responses before parsing', async () => {
-        global.fetch = jest.fn().mockResolvedValue(new Response('not a pdf', {
+    it('accepts a public PDF and keeps its bytes for the existing PDF extractor', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]);
+        global.fetch = jest.fn().mockResolvedValue(new Response(pdfBytes, {
             status: 200,
             headers: { 'content-type': 'application/pdf' },
         }));
-        await expect(fetchSourceUrl('https://example.com/file.pdf')).rejects.toMatchObject({
+
+        const result = await fetchSourceUrl('https://example.com/file.pdf');
+        expect(result).toMatchObject({
+            finalUrl: 'https://example.com/file.pdf',
+            contentType: 'application/pdf',
+        });
+        expect(result.body).toBeUndefined();
+        expect(Array.from(result.bytes)).toEqual(Array.from(pdfBytes));
+    });
+
+    it('rejects unsupported media and oversized responses before parsing', async () => {
+        global.fetch = jest.fn().mockResolvedValue(new Response('not an archive', {
+            status: 200,
+            headers: { 'content-type': 'application/zip' },
+        }));
+        await expect(fetchSourceUrl('https://example.com/file.zip')).rejects.toMatchObject({
             code: 'unsupported_content_type',
         });
 

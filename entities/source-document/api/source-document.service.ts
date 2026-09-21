@@ -178,19 +178,28 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
                 throw new SourceExtractionError('empty_input', '가져올 URL을 입력해 주세요.');
             }
             const fetched = await fetchSourceUrl(metadata.sourceUrl);
-            const extraction = fetched.contentType === 'text/plain'
-                ? extractTextSource({
-                    text: fetched.body,
+            const isPdf = fetched.contentType === 'application/pdf';
+            const extraction = isPdf
+                ? await extractSourceFile({
+                    buffer: fetched.bytes,
+                    filename: `${metadata.kind}.pdf`,
                     kind: metadata.kind,
                     originType: 'url',
                     mimeType: fetched.contentType,
                 })
-                : extractHtmlSource({
-                    html: fetched.body,
-                    kind: metadata.kind,
-                    originType: 'url',
-                    mimeType: fetched.contentType,
-                });
+                : fetched.contentType === 'text/plain'
+                    ? extractTextSource({
+                        text: fetched.body ?? '',
+                        kind: metadata.kind,
+                        originType: 'url',
+                        mimeType: fetched.contentType,
+                    })
+                    : extractHtmlSource({
+                        html: fetched.body ?? '',
+                        kind: metadata.kind,
+                        originType: 'url',
+                        mimeType: fetched.contentType,
+                    });
             return {
                 extraction: {
                     ...extraction,
@@ -198,8 +207,8 @@ async function extractInput(input: SourceDocumentRegistrationInput, metadata: {
                     fetchedAt: new Date().toISOString(),
                 },
                 original: {
-                    bytes: Buffer.from(fetched.body, 'utf8'),
-                    filename: `${metadata.kind}.${fetched.contentType === 'text/plain' ? 'txt' : 'html'}`,
+                    bytes: fetched.bytes,
+                    filename: `${metadata.kind}.${isPdf ? 'pdf' : fetched.contentType === 'text/plain' ? 'txt' : 'html'}`,
                     mimeType: fetched.contentType,
                 },
             };

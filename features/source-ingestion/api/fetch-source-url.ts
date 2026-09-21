@@ -8,7 +8,7 @@ export const SOURCE_URL_TIMEOUT_MS = 10_000;
 
 const ALLOWED_PROTOCOL = 'https:';
 const ALLOWED_PORTS = new Set(['', '443']);
-const ALLOWED_CONTENT_TYPES = new Set(['text/html', 'application/xhtml+xml', 'text/plain']);
+const ALLOWED_CONTENT_TYPES = new Set(['text/html', 'application/xhtml+xml', 'text/plain', 'application/pdf']);
 const BLOCKED_IP_RANGES = new Set([
     'private',
     'loopback',
@@ -54,7 +54,8 @@ export class SourceUrlFetchError extends Error {
 export type SourceUrlFetchResult = {
     finalUrl: string;
     contentType: string;
-    body: string;
+    bytes: Uint8Array;
+    body?: string;
 };
 
 export function validateExternalUrl(value: unknown): URL {
@@ -115,18 +116,18 @@ async function validateResolvableHost(url: URL): Promise<void> {
     }
 }
 
-async function readResponseBody(response: Response): Promise<string> {
+async function readResponseBytes(response: Response): Promise<Uint8Array> {
     const contentLength = Number(response.headers.get('content-length') ?? 0);
     if (Number.isFinite(contentLength) && contentLength > MAX_SOURCE_URL_BYTES) {
         throw new SourceUrlFetchError('response_too_large', '웹페이지 응답이 너무 큽니다. 2MB 이하의 페이지를 사용해 주세요.', 413);
     }
 
     if (!response.body) {
-        const text = await response.text();
-        if (Buffer.byteLength(text, 'utf8') > MAX_SOURCE_URL_BYTES) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.byteLength > MAX_SOURCE_URL_BYTES) {
             throw new SourceUrlFetchError('response_too_large', '웹페이지 응답이 너무 큽니다. 2MB 이하의 페이지를 사용해 주세요.', 413);
         }
-        return text;
+        return bytes;
     }
 
     const reader = response.body.getReader();
@@ -149,7 +150,7 @@ async function readResponseBody(response: Response): Promise<string> {
         reader.releaseLock();
     }
 
-    return Buffer.concat(chunks.map(chunk => Buffer.from(chunk))).toString('utf8');
+    return Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
 }
 
 function isRedirectStatus(status: number): boolean {
@@ -168,7 +169,7 @@ export async function fetchSourceUrl(value: unknown): Promise<SourceUrlFetchResu
                 method: 'GET',
                 redirect: 'manual',
                 headers: {
-                    Accept: 'text/html,application/xhtml+xml,text/plain;q=0.9',
+                    Accept: 'text/html,application/xhtml+xml,application/pdf;q=0.9,text/plain;q=0.8',
                     'User-Agent': 'JobSecretarySourceFetcher/1.0',
                 },
                 signal: AbortSignal.timeout(SOURCE_URL_TIMEOUT_MS),
@@ -204,18 +205,23 @@ export async function fetchSourceUrl(value: unknown): Promise<SourceUrlFetchResu
 
         const contentType = (response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()) || '';
         if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-            throw new SourceUrlFetchError('unsupported_content_type', 'HTML 또는 일반 텍스트 페이지 URL만 가져올 수 있습니다.', 422);
+            throw new SourceUrlFetchError('unsupported_content_type', 'HTML, 일반 텍스트 또는 PDF URL만 가져올 수 있습니다.', 422);
         }
 
-        let body: string;
+        let bytes: Uint8Array;
         try {
-            body = await readResponseBody(response);
+            bytes = await readResponseBytes(response);
         } catch (error) {
             if (error instanceof SourceUrlFetchError) throw error;
             throw new SourceUrlFetchError('fetch_failed', '웹페이지 응답을 읽지 못했습니다.', 502);
         }
 
-        return { finalUrl: currentUrl.toString(), contentType, body };
+        return {
+            finalUrl: currentUrl.toString(),
+            contentType,
+            bytes,
+            ...(contentType === 'application/pdf' ? {} : { body: Buffer.from(bytes).toString('utf8') }),
+        };
     }
 
     throw new SourceUrlFetchError('redirect_limit', 'URL 리다이렉트 횟수가 너무 많습니다.', 422);

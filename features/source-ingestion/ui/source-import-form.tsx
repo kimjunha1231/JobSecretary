@@ -106,7 +106,7 @@ export function SourceImportForm({ onCreated }: SourceImportFormProps) {
                 <div>
                     <h2 className="text-lg font-semibold text-white">자료 가져오기</h2>
                     <p className="mt-1 text-sm leading-6 text-zinc-400">
-                        파일·텍스트·채용공고 URL을 등록하면 본문을 나눠 저장합니다. 등록 직후에는 검수 전 상태로 보류됩니다.
+                        파일·텍스트·공개 웹페이지 또는 PDF URL을 등록하면 본문을 나눠 저장합니다. 등록 직후에는 검수 전 상태로 보류됩니다.
                     </p>
                 </div>
             </div>
@@ -201,7 +201,7 @@ export function SourceImportForm({ onCreated }: SourceImportFormProps) {
                 <label className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background/40 px-4 py-3 text-sm text-zinc-300">
                     <span className="flex items-center gap-2">
                         <Link2 size={16} aria-hidden="true" />
-                        채용공고·인재상 페이지 URL
+                        채용공고·인재상·포트폴리오 URL
                     </span>
                     <input
                         type="url"
@@ -213,7 +213,7 @@ export function SourceImportForm({ onCreated }: SourceImportFormProps) {
                         autoComplete="url"
                         className="rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
                     />
-                    <span className="text-xs leading-5 text-zinc-500">HTTPS 공개 페이지의 HTML·일반 텍스트만 가져옵니다. 로그인·자바스크립트 렌더링 페이지는 다음 단계에서 지원합니다.</span>
+                    <span className="text-xs leading-5 text-zinc-500">HTTPS 공개 페이지의 HTML·일반 텍스트·PDF만 가져옵니다. 로그인·자바스크립트 렌더링 페이지는 지원하지 않으며, 가져온 자료는 검수 후 사용됩니다.</span>
                 </label>
             )}
 
