@@ -226,6 +226,13 @@
 - 서버는 현재 세션·문항 소유권, 승인된 요구사항, 승인된 활동 ID를 다시 확인하고 원문을 복제하지 않습니다. `GET/PUT /api/writing-sessions/[id]/retrieval-labels` 응답도 요구사항·활동 ID만 반환합니다.
 - `supabase/migrations/20260921010000_m5k_retrieval_labels.sql`과 `supabase/verify/rls-m5k-retrieval-labels.sql`은 운영 DB에 아직 적용하지 않았습니다. 실제 사용자 라벨이 충분히 쌓인 뒤 기준선과 비교해 hybrid retrieval·pgvector 도입 여부를 결정합니다.
 
+### 사용자 선택형 말투 예문(M5-l)
+
+- `/writing/new`에서 말투 프로필을 고른 뒤 이번 지원서에 참고할 승인 예문을 최대 5개까지 직접 선택할 수 있습니다. 회사·수치·사건은 사실 근거가 아니라 말투 참고 자료로만 전달됩니다.
+- 선택하지 않으면 기존처럼 승인 예문 중 최근 5개를 자동으로 사용하고, 모두 해제하면 해당 세션에는 승인 예문을 넣지 않습니다. 선택 결과는 `writing_sessions.generation_settings.styleExampleIds`에 ID만 저장해 원문을 중복 보관하지 않습니다.
+- 서버는 선택한 ID가 현재 사용자의 승인 예문인지 다시 확인하고, 세션 조회·생성 context에도 같은 선택을 적용합니다. 말투 프로필을 바꾸거나 선택을 초기화하면 새 세션에서 다시 결정할 수 있습니다.
+- 별도 migration 없이 기존 `generation_settings` JSON과 호환되며, 이전 세션에 선택값이 없으면 기존 자동 선택 동작을 유지합니다.
+
 ### 서버 PDF 출력·기존 문서 전환(M6-a)
 
 - 최종 확정된 작성 세션은 `/api/writing-sessions/[id]/export`에서 모든 문항의 확정 상태를 다시 확인한 뒤 A4 PDF로 내려받을 수 있습니다. 미확정 문항이 하나라도 있으면 409로 차단합니다.

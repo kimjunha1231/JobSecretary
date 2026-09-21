@@ -45,11 +45,14 @@ const sessionQuestionInputSchema = z.object({
 const sessionCreateSchema = z.object({
     jobTargetId: DomainIdSchema,
     styleProfileId: DomainIdSchema.optional(),
+    styleExampleIds: z.array(DomainIdSchema).max(5).optional(),
     question: z.string().trim().min(1).max(5_000).optional(),
     charLimit: z.coerce.number().int().min(100).max(100_000).default(700),
     questions: z.array(sessionQuestionInputSchema).min(1).max(20).optional(),
 }).refine(value => Boolean(value.questions?.length || value.question), {
     message: '자기소개서 문항을 하나 이상 입력해 주세요.',
+}).refine(value => value.styleExampleIds === undefined || Boolean(value.styleProfileId), {
+    message: '말투 예문을 선택하려면 말투 프로필을 먼저 선택해 주세요.',
 });
 
 const sessionListSchema = z.object({
@@ -102,6 +105,20 @@ export type WritingSessionQuestion = {
     status: CoverLetterQuestionStatus;
     finalAnswer?: string;
 };
+
+/**
+ * Applies an optional user selection to the already owner/approval-filtered
+ * style examples. `undefined` preserves the legacy automatic top-five choice;
+ * an empty selection intentionally disables approved examples for this session.
+ */
+export function filterStyleExamplesBySelection(
+    examples: StyleExample[],
+    generationSettings: Record<string, unknown>,
+): StyleExample[] {
+    if (!Object.prototype.hasOwnProperty.call(generationSettings, 'styleExampleIds')) return examples;
+    const selectedIds = new Set(idArray(generationSettings.styleExampleIds));
+    return examples.filter(example => selectedIds.has(example.id));
+}
 
 export type EvidenceMatchDetails = {
     match: EvidenceMatch;
@@ -667,7 +684,7 @@ async function fetchDetails(
         session,
         target,
         styleProfile: styleDetails?.profile,
-        styleExamples: styleDetails?.examples ?? [],
+        styleExamples: styleDetails ? filterStyleExamplesBySelection(styleDetails.examples, session.generationSettings) : [],
         questions,
         question,
         requirements,
@@ -857,7 +874,18 @@ export const writingSessionService = {
         if (!parsed.success) throw new WritingSessionServiceError('invalid_input', '지원 대상과 문항을 확인해 주세요.', 400);
         const { supabase, userId } = await getAuthenticatedClient();
         const { target, requirements } = await fetchTargetAndRequirements(parsed.data.jobTargetId);
-        if (parsed.data.styleProfileId) await styleProfileService.getForGeneration(parsed.data.styleProfileId);
+        let selectedStyleExampleIds: string[] | undefined;
+        if (parsed.data.styleProfileId) {
+            const styleDetails = await styleProfileService.getForGeneration(parsed.data.styleProfileId);
+            if (parsed.data.styleExampleIds !== undefined) {
+                const approvedExampleIds = new Set(styleDetails?.examples.filter(example => example.approved).map(example => example.id) ?? []);
+                const normalizedIds = [...new Set(parsed.data.styleExampleIds)];
+                if (normalizedIds.some(id => !approvedExampleIds.has(id))) {
+                    throw new WritingSessionServiceError('invalid_input', '승인된 말투 예문만 선택할 수 있습니다.', 400);
+                }
+                selectedStyleExampleIds = normalizedIds;
+            }
+        }
         const questions = parsed.data.questions ?? [{ question: parsed.data.question!, charLimit: parsed.data.charLimit }];
 
         const { data: coverLetterData, error: coverLetterError } = await supabase
@@ -898,6 +926,11 @@ export const writingSessionService = {
             throw new WritingSessionServiceError('storage', '작성 문항을 만들지 못했습니다.', 500);
         }
 
+        const generationSettings: Record<string, unknown> = {
+            charLimit: questions[0].charLimit,
+            questionCount: questions.length,
+        };
+        if (selectedStyleExampleIds !== undefined) generationSettings.styleExampleIds = selectedStyleExampleIds;
         const { data: sessionData, error: sessionError } = await supabase
             .from('writing_sessions')
             .insert({
@@ -907,7 +940,7 @@ export const writingSessionService = {
                 cover_letter_id: coverLetterId,
                 cover_letter_question_id: questionId,
                 state: 'evidence_selecting',
-                generation_settings: { charLimit: questions[0].charLimit, questionCount: questions.length },
+                generation_settings: generationSettings,
             })
             .select('*')
             .single();

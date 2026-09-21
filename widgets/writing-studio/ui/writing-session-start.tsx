@@ -9,7 +9,8 @@ import type { JobTarget } from '@/entities/job-target';
 import { trackProductEvent } from '@/shared/lib/product-analytics';
 import { markWritingSessionStarted } from '@/shared/lib/writing-session-timing';
 
-type StyleProfileOption = { profile: { id: string; name: string; bannedExpressions: string[]; endingStyle: string[] }; examples: Array<{ approved: boolean }> };
+type StyleExampleOption = { id: string; content: string; approved: boolean; questionId?: string };
+type StyleProfileOption = { profile: { id: string; name: string; bannedExpressions: string[]; endingStyle: string[] }; examples: StyleExampleOption[] };
 
 export function WritingSessionStart() {
     const router = useRouter();
@@ -18,6 +19,7 @@ export function WritingSessionStart() {
     const [targets, setTargets] = useState<JobTarget[]>([]);
     const [styleProfiles, setStyleProfiles] = useState<StyleProfileOption[]>([]);
     const [styleProfileId, setStyleProfileId] = useState('');
+    const [selectedStyleExampleIds, setSelectedStyleExampleIds] = useState<string[] | null>(null);
     const [jobTargetId, setJobTargetId] = useState(requestedTargetId);
     const [questions, setQuestions] = useState<Array<{ question: string; charLimit: string }>>([{ question: '', charLimit: '700' }]);
     const [isLoading, setIsLoading] = useState(true);
@@ -69,6 +71,7 @@ export function WritingSessionStart() {
                 body: JSON.stringify({
                     jobTargetId,
                     styleProfileId: styleProfileId || undefined,
+                    styleExampleIds: styleProfileId && selectedStyleExampleIds !== null ? selectedStyleExampleIds : undefined,
                     questions: validQuestions.map(item => ({ question: item.question.trim(), charLimit: Number(item.charLimit) })),
                 }),
             });
@@ -87,6 +90,25 @@ export function WritingSessionStart() {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const selectedStyleProfile = styleProfiles.find(item => item.profile.id === styleProfileId);
+    const approvedStyleExamples = selectedStyleProfile?.examples.filter(example => example.approved) ?? [];
+    const automaticStyleExampleIds = approvedStyleExamples.slice(0, 5).map(example => example.id);
+    const activeStyleExampleIds = selectedStyleExampleIds ?? automaticStyleExampleIds;
+
+    const toggleStyleExample = (exampleId: string, checked: boolean) => {
+        const current = new Set(activeStyleExampleIds);
+        if (checked) {
+            if (current.size >= 5) {
+                toast.error('한 세션에서 사용할 말투 예문은 최대 5개까지 선택할 수 있습니다.');
+                return;
+            }
+            current.add(exampleId);
+        } else {
+            current.delete(exampleId);
+        }
+        setSelectedStyleExampleIds([...current]);
     };
 
     return (
@@ -115,9 +137,15 @@ export function WritingSessionStart() {
                     )}
                 </label>
                 <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-background/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <label className="flex-1 space-y-1.5 text-sm text-zinc-300"><span>말투 프로필 (선택)</span><select value={styleProfileId} onChange={event => setStyleProfileId(event.target.value)} className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60"><option value="">기본 말투로 작성</option>{styleProfiles.map(item => <option key={item.profile.id} value={item.profile.id}>{item.profile.name} · 승인 예문 {item.examples.filter(example => example.approved).length}개</option>)}</select></label>
+                    <label className="flex-1 space-y-1.5 text-sm text-zinc-300"><span>말투 프로필 (선택)</span><select value={styleProfileId} onChange={event => { setStyleProfileId(event.target.value); setSelectedStyleExampleIds(null); }} className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60"><option value="">기본 말투로 작성</option>{styleProfiles.map(item => <option key={item.profile.id} value={item.profile.id}>{item.profile.name} · 승인 예문 {item.examples.filter(example => example.approved).length}개</option>)}</select></label>
                     <Link href="/style" className="shrink-0 text-xs text-primary transition hover:text-white">말투 프로필 관리 →</Link>
                 </div>
+                {styleProfileId && approvedStyleExamples.length > 0 && <fieldset className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <legend className="px-1 text-sm font-semibold text-primary">이번 작성에 사용할 말투 예문</legend>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">기본값은 승인 예문 중 최근 5개입니다. 이번 지원서와 더 잘 맞는 예문만 남기거나 모두 해제할 수 있습니다. 예문 속 회사·수치·사건은 말투 참고로만 전달됩니다.</p>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">{approvedStyleExamples.map(example => <label key={example.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/10 bg-background/40 px-3 py-2.5 text-xs text-zinc-300 transition hover:border-primary/40"><input type="checkbox" checked={activeStyleExampleIds.includes(example.id)} onChange={event => toggleStyleExample(example.id, event.target.checked)} className="mt-0.5 accent-primary" /><span><span className="block font-medium text-zinc-200">{example.questionId ? '문항별 예문' : '전역 예문'}</span><span className="mt-1 block leading-5 text-zinc-500">{example.content.slice(0, 180)}{example.content.length > 180 ? '…' : ''}</span></span></label>)}</div>
+                    <p className="mt-3 text-[11px] text-zinc-500">현재 선택 {activeStyleExampleIds.length}/5개 · {selectedStyleExampleIds === null ? '자동 선택' : '직접 선택'}</p>
+                </fieldset>}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div><span className="text-sm text-zinc-300">자기소개서 문항</span><p className="mt-1 text-xs text-zinc-500">한 세션에서 여러 문항을 만들고 작업대의 탭으로 전환할 수 있습니다.</p></div>
