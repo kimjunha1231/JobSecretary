@@ -852,6 +852,12 @@ URL이 로그인 뒤에서만 보이거나 JavaScript 렌더링이 필수인 페
 - 이력서 PDF에서 label과 값·단위가 결과에 정확히 포함된 경우에만 별도 지표를 생략하고 퍼센트 출력 간격을 정리한다. 확인: 단위 불일치 회귀 테스트.
 - 문장 내용 또는 위치가 바뀌면 해당 문장 citation 선택을 즉시 제거하고, 명시적 사용자 검토 마커가 없는 과거 citation은 품질 근거율에서 제외한다. 확인: citation 보존/제거 및 legacy coverage 테스트.
 - 새로고침 도중 활동 편집 시작을 막고, 영문·한글 단위 접미사나 슬래시로 이어진 합성 단위를 단순 수치/단위와 일치하는 것으로 처리하지 않는다. 확인: 비동기 UI 경합, 퍼센트포인트와 합성 단위 PDF 테스트.
-- 운영 runbook의 M6-h~M6-r 기능/배포 기준선과 M6-r migration 적용·verify 순서를 갱신했다. 원격 Supabase/Vercel은 변경하지 않았다.
+- 운영 runbook의 M6-h~M6-s 기능/배포 기준선과 M6-r migration 적용·verify 순서를 갱신했다. 원격 Supabase/Vercel은 변경하지 않았다.
 - 검증: `npm run harness:verify`의 lint·TypeScript·65개 테스트 스위트/362개 테스트 통과. `npm run rollout:verify` 10개 점검, `git diff --check`, 더미 Supabase/AI 환경변수를 사용한 production build도 통과했다. 빌드는 기존 Supabase Realtime 의존성의 Edge Runtime Node API 경고 및 Edge 페이지 정적 생성 제한 안내를 남겼다.
-- 연속 독립 리뷰에서 나온 총 11개 구체적 finding을 수정했다. PostgreSQL/실 Supabase에서 migration SQL 실행은 검증하지 않았으며 운영 DB migration, Vercel Production 배포, commit/PR은 아직 실행하지 않았다.
+- 연속 독립 리뷰에서 나온 총 11개 구체적 finding을 수정했다. PostgreSQL/실 Supabase에서 migration SQL 실행은 검증하지 않았으며 운영 DB migration과 Vercel Production 배포는 하지 않았다.
+
+### M6-s 전달 상태 (2026-09-22)
+
+- 커밋 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`를 feature branch에 push했고, PR #3에 포함했다. GitHub에서 확인한 head SHA가 로컬 HEAD와 같고 필수 Vercel 검사가 통과했다.
+- 해당 커밋의 Preview는 `READY`이며 공개 진입점과 비로그인 보호 경로/API 응답을 확인했다. 실제 사용자 로그인·Supabase 연동을 포함한 경력 프로필 저장, 인용 검토, PDF 생성은 Preview에서 아직 확인하지 않았다.
+- 남은 release gate는 PR 병합, migration을 timestamp 순서대로 운영자가 적용하고 verify SQL로 확인, 인증된 Preview 전체 흐름 검증, 운영 환경 설정 확인, Production 배포 후 관측이다. 이 작업에서는 원격 Supabase와 Production을 변경하지 않았다.

@@ -5,10 +5,12 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-r, M5-l까지 구현. 현재 커밋은 `b176575`이며 M6-h~M6-r 누적 변경은 로컬 미커밋 상태다. 해당 변경은 아직 원격 feature branch/Preview에 반영되지 않았고, Supabase migration도 적용하지 않았다.
+- 로컬 기능 기준: M0~M6-s, M5-l까지 구현. 현재 `codex/m0-security-foundation`의 HEAD는 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`이며 원격 feature branch와 일치한다.
+- 변경은 [PR #3](https://github.com/kimjunha1231/JobSecretary/pull/3)에 반영되어 있고, 2026-09-22 확인 시 `OPEN`, merge 상태 `CLEAN`, Vercel 및 Preview Comments 검사가 모두 통과했다. 최종 병합은 사용자가 수행한다.
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
-- 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
-- 2026-09-22 확인한 현재 feature branch의 최신 Preview는 `READY` (`coverlettervault-gupjoiokq-junhas-projects-a748ef77.vercel.app`, 커밋 `b176575`)다. 이 Preview는 커밋 시점까지만 포함하며 로컬 미커밋 변경은 포함하지 않는다.
+- 2026-09-22 확인한 Production alias는 `READY` 배포 `dpl_EAGF2VbXVhJWVCpxfoiZfd8U8SS8`(2026-09-14 생성)를 가리킨다. PR 변경은 Production에 반영되지 않았다.
+- 2026-09-22 최신 feature Preview는 `READY` (`https://coverlettervault-dy52muw0h-junhas-projects-a748ef77.vercel.app`, deployment `dpl_GkZQMwzyNvbgCMH6HXSHTW9R6jjW`)다. 읽기 전용 확인 결과 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401이며 조회 직전 15분의 오류·경고 로그는 없었다. 인증 사용자 기반 end-to-end 검증은 계정과 migration 적용 이후 남아 있다.
+- 이전 기준 커밋 `b176575`의 Preview 주소는 `coverlettervault-gupjoiokq-junhas-projects-a748ef77.vercel.app`이었다. 현재 기준은 위의 `e9533e5` Preview이며, 과거 검증 이력과 혼동하지 않는다.
 - `https://kimjunha.vercel.app/`은 별도 `portfolio` Vercel 프로젝트이며 이 저장소의 JobSecretary 배포와 구분한다.
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
 - 2026-09-21 최신 로컬 커밋 Preview(`coverlettervault-pd9nfakrp-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회한 `vercel curl`로 `/` 200, 비로그인 `/career` 307, 인증 필요 API 401을 확인했다. 활동·자료 검색 필터와 명시적 문단·활동 선택, 공개 PDF URL 수집, 레거시 계정 정리, 선택형 Upstash 공유 AI 제한기 변경을 포함한 Preview에서 `vercel logs --level error --level warning`은 조회 시점 로그가 없었고 Production alias는 변경하지 않았다.
