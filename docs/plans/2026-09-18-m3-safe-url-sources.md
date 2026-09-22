@@ -13,7 +13,7 @@
 
 ## 이번 단계 범위
 
-1. HTTPS URL 검증과 SSRF 방어(DNS 사설·루프백 차단, 기본 포트, 사용자 정보 차단)
+1. HTTPS URL 검증과 SSRF 방어(DNS 사설·루프백 차단, 검증된 주소로 socket 연결 고정, 기본 포트, 사용자 정보 차단)
 2. 수동 리다이렉트(최대 3회), 10초 timeout, 응답 2MB cap, HTML/일반 텍스트 MIME whitelist
 3. HTML에서 script/style/comment를 제거한 텍스트·heading/문단 fragment 추출
 4. source document POST에 URL 등록 경로 추가와 `/career` URL 입력 UI 추가
@@ -37,13 +37,14 @@
 
 ## 위험과 복구
 
-- DNS 검증과 실제 연결 사이의 rebinding 위험을 완전히 제거하려면 고정 IP 연결용 HTTP client 또는 egress proxy가 필요하다. 이번 단계는 DNS 전체 주소 검증, redirect 재검증, 기본 포트 제한으로 위험을 줄이고 다음 운영 점검에서 보완한다.
+- DNS A/AAAA 전체 주소를 검증한 뒤 같은 주소 목록만 custom socket lookup에 제공하고 연결마다 agent 재사용을 끈다. 리다이렉트도 매 단계 새로 확인·고정한다. 네트워크 경계는 애플리케이션 외부 egress 정책으로도 제한하는 것이 바람직하다.
 - HTML 파서는 DOM을 실행하지 않는다. HTML 구조가 깨지거나 텍스트가 없으면 `manual_input`/`needs_review`로 남기고 원문을 성공으로 가장하지 않는다.
 - 외부 사이트의 robots 정책·이용약관·응답 변동은 수집 성공과 별개로 운영 정책에서 확인한다.
 
 ## 진행
 
 - [x] safe URL fetch adapter — URL/redirect/DNS/MIME/size/timeout 경계
+- [x] DNS rebinding 보완 — 연결 시 재조회 대신 검증된 주소에 고정
 - [x] source registration — URL source API와 원본 메타데이터 저장
 - [x] career library UI — URL 입력과 상태 표시
 - [x] regression verification — 보안 경계 단위 테스트, lint, TypeScript, Jest, build
@@ -55,3 +56,5 @@
 - `git diff --check` 통과.
 - URL 수집 경계는 단위 테스트로 HTTPS·공개 IP·IPv4 매핑 주소·리다이렉트 재검증·MIME·응답 크기·HTML unsafe block 제거를 확인했다.
 - `supabase/migrations/20260918010000_m1_domain_foundation.sql`에 이미 `source_url`/`fetched_at`이 있어 새 원격 migration은 추가하지 않았다. 운영 Supabase/Vercel에는 적용하지 않았다.
+- 2026-09-22 DNS rebinding 후속 보완: DNS 전체 결과 중 사설 주소가 하나라도 섞이면 거절하고, 검사한 A/AAAA 주소 목록만 custom socket lookup에 전달한다. 매 연결마다 agent 재사용을 끄고 리다이렉트마다 같은 과정을 반복한다. 조회·응답을 포함해 각 hop을 10초로 제한한다.
+- 후속 검증: `npm run harness:verify -- --runInBand` 린트·TypeScript 및 65개 스위트/366개 테스트 통과, `npm run rollout:verify` 10개 점검 통과, 더미 환경변수를 사용한 `npm run build` 통과, `git diff --check` 통과. 기존 Supabase Edge Runtime 경고는 계속 관찰되며 이번 변경과 무관하다.
