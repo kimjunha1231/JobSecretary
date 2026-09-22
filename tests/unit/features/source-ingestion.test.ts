@@ -6,8 +6,17 @@ import {
     inferSourceMimeType,
     splitTextIntoFragments,
 } from '@/features/source-ingestion/api';
+import { PDFParse } from 'pdf-parse';
+
+jest.mock('pdf-parse', () => ({
+    PDFParse: jest.fn(),
+}));
+
+const mockedPdfParse = PDFParse as unknown as jest.Mock;
 
 describe('source ingestion extraction', () => {
+    beforeEach(() => mockedPdfParse.mockReset());
+
     it('normalizes pasted text and creates reviewable fragments', () => {
         const result = extractTextSource({
             text: '  첫 번째 프로젝트  \r\n\r\n두 번째 프로젝트\n',
@@ -60,6 +69,56 @@ describe('source ingestion extraction', () => {
             filename: 'archive.zip',
             kind: 'other',
         })).rejects.toMatchObject({ code: 'unsupported_type' });
+    });
+
+    it('treats page separators from an image-only PDF as manual input, not extracted text', async () => {
+        mockedPdfParse.mockImplementation(() => ({
+            getText: jest.fn().mockResolvedValue({
+                text: '\n-- 1 of 2 --\n\n-- 2 of 2 --',
+                total: 2,
+                pages: [{ num: 1, text: '' }, { num: 2, text: '' }],
+            }),
+            destroy: jest.fn().mockResolvedValue(undefined),
+        }));
+
+        const result = await extractSourceFile({
+            buffer: Buffer.from('%PDF mock'),
+            filename: 'scanned-resume.pdf',
+            kind: 'resume',
+        });
+
+        expect(result.status).toBe('manual_input');
+        expect(result.extractionMethod).toBe('none');
+        expect(result.rawText).toBeUndefined();
+        expect(result.fragments).toEqual([]);
+        expect(result.pageCount).toBe(2);
+        expect(result.warnings).toContain('텍스트를 추출하지 못했습니다. 내용을 직접 붙여넣어 검수해 주세요.');
+    });
+
+    it('keeps page locators while excluding empty pages from extracted PDF text', async () => {
+        mockedPdfParse.mockImplementation(() => ({
+            getText: jest.fn().mockResolvedValue({
+                text: '실제 프로젝트 설명\n-- 1 of 2 --\n\n-- 2 of 2 --',
+                total: 2,
+                pages: [{ num: 1, text: '실제 프로젝트 설명' }, { num: 2, text: '' }],
+            }),
+            destroy: jest.fn().mockResolvedValue(undefined),
+        }));
+
+        const result = await extractSourceFile({
+            buffer: Buffer.from('%PDF mock'),
+            filename: 'portfolio.pdf',
+            kind: 'portfolio',
+        });
+
+        expect(result.status).toBe('needs_review');
+        expect(result.rawText).toBe('실제 프로젝트 설명');
+        expect(result.fragments).toEqual([
+            expect.objectContaining({
+                content: '실제 프로젝트 설명',
+                locator: expect.objectContaining({ type: 'page', page: 1 }),
+            }),
+        ]);
     });
 
 });

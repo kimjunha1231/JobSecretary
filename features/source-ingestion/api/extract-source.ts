@@ -380,10 +380,11 @@ async function extractPdfSource({
             const pageFragments = result.pages.flatMap(page =>
                 splitTextIntoFragments(page.text, { type: 'page', page: page.num }),
             );
+            const pageText = result.pages.map(page => page.text).join('\n\n');
 
             return buildResult({
-                rawText: result.text,
-                fragments: pageFragments.length > 0 ? pageFragments : splitTextIntoFragments(result.text),
+                rawText: pageText,
+                fragments: pageFragments,
                 buffer,
                 mimeType,
                 pageCount: result.total,
