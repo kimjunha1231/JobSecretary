@@ -58,3 +58,4 @@
 - `supabase/migrations/20260918010000_m1_domain_foundation.sql`에 이미 `source_url`/`fetched_at`이 있어 새 원격 migration은 추가하지 않았다. 운영 Supabase/Vercel에는 적용하지 않았다.
 - 2026-09-22 DNS rebinding 후속 보완: DNS 전체 결과 중 사설 주소가 하나라도 섞이면 거절하고, 검사한 A/AAAA 주소 목록만 custom socket lookup에 전달한다. 매 연결마다 agent 재사용을 끄고 리다이렉트마다 같은 과정을 반복한다. 조회·응답을 포함해 각 hop을 10초로 제한한다.
 - 후속 검증: `npm run harness:verify -- --runInBand` 린트·TypeScript 및 65개 스위트/366개 테스트 통과, `npm run rollout:verify` 10개 점검 통과, 더미 환경변수를 사용한 `npm run build` 통과, `git diff --check` 통과. 기존 Supabase Edge Runtime 경고는 계속 관찰되며 이번 변경과 무관하다.
+- HTTPS 전송 어댑터 회귀 테스트: 모의 `node:https` 요청으로 DNS pin lookup 전달, HTTPS 검증 비활성화 금지, gzip 해제 및 압축 해제 후 2MB 초과 차단을 확인했다. 최신 `npm run harness:verify -- --runInBand`는 66개 스위트/368개 테스트, `npm run rollout:verify`는 10개 점검 통과. 변경은 테스트·문서만 포함하므로 이 보완에서 빌드는 재실행하지 않았다.
