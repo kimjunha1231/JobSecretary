@@ -861,3 +861,18 @@ URL이 로그인 뒤에서만 보이거나 JavaScript 렌더링이 필수인 페
 - 기능 커밋 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`와 문서 동기화 커밋 `843f276fba3183258e0242cfb2ee0a64836c6a8c`를 feature branch에 push했고 PR #3에 포함했다. GitHub에서 원격 head 일치와 필수 Vercel 검사를 확인했다.
 - `843f276` Preview는 `READY`이며 공개 진입점과 비로그인 보호 경로/API 응답을 확인했다. 실제 사용자 로그인·Supabase 연동을 포함한 경력 프로필 저장, 인용 검토, PDF 생성은 Preview에서 아직 확인하지 않았다.
 - 남은 release gate는 PR 병합, migration을 timestamp 순서대로 운영자가 적용하고 verify SQL로 확인, 인증된 Preview 전체 흐름 검증, 운영 환경 설정 확인, Production 배포 후 관측이다. 이 작업에서는 원격 Supabase와 Production을 변경하지 않았다.
+
+## M6-t 스캔 PDF 페이지 구분자 오분류 방지
+
+### 발견과 범위
+
+- `pdf-parse`의 `getText().text`는 각 페이지 본문 외에 기본 페이지 경계 문자열도 합칠 수 있다. 페이지별 `text`가 전부 비어 있어도 전체 `text`만 보면 내용이 있는 것처럼 보이고, 기존 fallback은 이 문자열을 자료 본문과 근거 조각으로 등록할 수 있었다.
+- PDF 자료는 페이지별 실제 본문만 결합한다. 구분자는 본문·활동 근거로 저장하지 않으며, 모든 페이지 본문이 비어 있으면 `manual_input`으로 돌려 수동 입력 또는 선택형 OCR로 안내한다.
+- 텍스트와 빈 페이지가 섞인 PDF는 실제 텍스트만 추출하되 페이지 locator를 유지한다. OCR 실행 전에는 외부 AI 호출이 없어야 하고, OCR 결과는 기존처럼 항상 사용자 검수 대기 상태다.
+
+### 변경 및 검증
+
+- `extractPdfSource`에서 `result.text` fallback을 제거하고 `result.pages[].text`만 `rawText`와 fragment 원천으로 사용한다.
+- 페이지 경계 문자열만 있는 스캔 PDF 및 실제 본문/빈 페이지 혼합 PDF 회귀 테스트를 추가했다. 검증: `npm run harness:verify`의 lint·TypeScript·65개 테스트 스위트/364개 테스트 통과, `npm run rollout:verify` 10개 점검 통과, 실제 로컬 PDF 두 파일이 모두 `manual_input`/fragment 0으로 분류됨.
+- 커밋 `3ef7197e996ff38ffa62f9272c0e6d0ea0a64a81` Preview 배포 `dpl_2UxMuktH7ktV8TUr21iZvsw7SxT4`가 `READY`이며 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401, 최근 30분 오류 로그 없음. PR #3의 Vercel 및 Preview Comments 검사는 통과했다.
+- 인증 사용자 기반 Supabase 저장, 인용 검토, 실제 PDF 내보내기는 여전히 인증 계정과 운영자가 migration을 적용한 뒤 검증해야 한다. 이 변경에서 Gemini OCR, 원격 Supabase migration, Production 변경은 수행하지 않았다.

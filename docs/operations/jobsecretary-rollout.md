@@ -5,11 +5,12 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-s, M5-l까지 구현. 기능 구현 커밋은 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`이며, 운영 문서 동기화 후속 커밋 `843f276`도 feature branch에 push했다.
-- 변경은 [PR #3](https://github.com/kimjunha1231/JobSecretary/pull/3)에 반영되어 있고, 2026-09-22 확인 시 head `843f276fba3183258e0242cfb2ee0a64836c6a8c`, 상태 `OPEN`, merge 상태 `CLEAN`, Vercel 및 Preview Comments 검사가 모두 통과했다. 최종 병합은 사용자가 수행한다.
+- 로컬 기능 기준: M0~M6-t, M5-l까지 구현. PDF 페이지 경계 문자열이 원문 근거로 오분류되지 않도록 수정한 앱 커밋은 `3ef7197e996ff38ffa62f9272c0e6d0ea0a64a81`이다.
+- [PR #3](https://github.com/kimjunha1231/JobSecretary/pull/3)은 M6-t 앱 커밋 `3ef7197e996ff38ffa62f9272c0e6d0ea0a64a81`을 포함한다. 해당 코드 커밋 기준 2026-09-22 상태는 `OPEN`/`CLEAN`이고 Vercel 및 Preview Comments 검사가 통과했다. 최종 병합은 사용자가 수행한다.
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 2026-09-22 확인한 Production alias는 `READY` 배포 `dpl_EAGF2VbXVhJWVCpxfoiZfd8U8SS8`(2026-09-14 생성)를 가리킨다. PR 변경은 Production에 반영되지 않았다.
 - 2026-09-22 문서 동기화 커밋 `843f276` 기준 Preview는 `READY` (`https://coverlettervault-630zhnkvq-junhas-projects-a748ef77.vercel.app`, deployment `dpl_9e73UKdXNJszFfP1ySQcNsNEJhDR`)다. 읽기 전용 확인 결과 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401이며 조회 직전 15분의 오류·경고 로그는 없었다. 인증 사용자 기반 end-to-end 검증은 계정과 migration 적용 이후 남아 있다.
+- M6-t 앱 커밋 `3ef7197` Preview는 `READY` (`https://coverlettervault-9pfwco545-junhas-projects-a748ef77.vercel.app`, deployment `dpl_2UxMuktH7ktV8TUr21iZvsw7SxT4`)다. 보호를 유지한 `vercel curl` 결과 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401이며 조회 직전 30분의 오류 로그는 없었다. 인증 사용자 기반 end-to-end 검증은 계정과 migration 적용 이후 남아 있다.
 - 이전 기준 커밋 `b176575`와 기능 커밋 `e9533e5`의 Preview는 과거 검증 이력으로만 참고한다.
 - `https://kimjunha.vercel.app/`은 별도 `portfolio` Vercel 프로젝트이며 이 저장소의 JobSecretary 배포와 구분한다.
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
@@ -59,7 +60,7 @@ git diff --check
    - 자기소개서·이력서·포트폴리오 PDF 다운로드
    - blind 비교 선택과 `/style` 선호 요약
    - `/style`에서 검수 완료한 기존 자기소개서를 말투 예문으로 한 번 가져온 뒤 생성 context에 포함되는지 확인
-4. 이미지 PDF는 OCR 버튼을 명시적으로 누르기 전에는 Gemini 요청이 발생하지 않는지 확인한다.
+4. 이미지 PDF는 OCR 실행 전 `manual_input`으로 남고 잘못된 페이지 구분선이 자료/활동 근거로 나타나지 않는지 확인한다. OCR은 버튼을 명시적으로 누른 뒤에만 Gemini 요청이 발생하며, OCR 결과도 사용자 검수 전에는 승인되지 않는지 확인한다.
 
 ## 4. 운영 완료율 기준선(제안)
 
