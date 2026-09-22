@@ -1,0 +1,85 @@
+# JobSecretary 운영 rollout runbook
+
+이 문서는 현재 로컬 코드와 운영 Vercel 프로젝트를 연결할 때 필요한 순서만 정리한다. 원격 Supabase migration, Vercel 환경변수 변경, Production 승격은 담당자의 확인 후 실행한다.
+
+## 현재 기준선
+
+- 로컬 작업 브랜치: `codex/m0-security-foundation`
+- 로컬 기능 기준: M0~M6-t, M5-l까지 구현. PDF 페이지 경계 문자열이 원문 근거로 오분류되지 않도록 수정한 앱 커밋은 `3ef7197e996ff38ffa62f9272c0e6d0ea0a64a81`이다.
+- [PR #3](https://github.com/kimjunha1231/JobSecretary/pull/3)은 M6-t 앱 커밋 `3ef7197e996ff38ffa62f9272c0e6d0ea0a64a81`을 포함한다. 해당 코드 커밋 기준 2026-09-22 상태는 `OPEN`/`CLEAN`이고 Vercel 및 Preview Comments 검사가 통과했다. 최종 병합은 사용자가 수행한다.
+- Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
+- 2026-09-22 확인한 Production alias는 `READY` 배포 `dpl_EAGF2VbXVhJWVCpxfoiZfd8U8SS8`(2026-09-14 생성)를 가리킨다. PR 변경은 Production에 반영되지 않았다.
+- 2026-09-22 문서 동기화 커밋 `843f276` 기준 Preview는 `READY` (`https://coverlettervault-630zhnkvq-junhas-projects-a748ef77.vercel.app`, deployment `dpl_9e73UKdXNJszFfP1ySQcNsNEJhDR`)다. 읽기 전용 확인 결과 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401이며 조회 직전 15분의 오류·경고 로그는 없었다. 인증 사용자 기반 end-to-end 검증은 계정과 migration 적용 이후 남아 있다.
+- M6-t 앱 커밋 `3ef7197` Preview는 `READY` (`https://coverlettervault-9pfwco545-junhas-projects-a748ef77.vercel.app`, deployment `dpl_2UxMuktH7ktV8TUr21iZvsw7SxT4`)다. 보호를 유지한 `vercel curl` 결과 `/` 200, 비로그인 `/career` 307, 비로그인 `/api/career-profiles/me` 401이며 조회 직전 30분의 오류 로그는 없었다. 인증 사용자 기반 end-to-end 검증은 계정과 migration 적용 이후 남아 있다.
+- 이전 기준 커밋 `b176575`와 기능 커밋 `e9533e5`의 Preview는 과거 검증 이력으로만 참고한다.
+- `https://kimjunha.vercel.app/`은 별도 `portfolio` Vercel 프로젝트이며 이 저장소의 JobSecretary 배포와 구분한다.
+- Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
+- 2026-09-21 최신 로컬 커밋 Preview(`coverlettervault-pd9nfakrp-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회한 `vercel curl`로 `/` 200, 비로그인 `/career` 307, 인증 필요 API 401을 확인했다. 활동·자료 검색 필터와 명시적 문단·활동 선택, 공개 PDF URL 수집, 레거시 계정 정리, 선택형 Upstash 공유 AI 제한기 변경을 포함한 Preview에서 `vercel logs --level error --level warning`은 조회 시점 로그가 없었고 Production alias는 변경하지 않았다.
+- Sentry 10.75.0·PostCSS 8.5.28 보안 갱신과 Sentry 권장 config import를 포함한 최신 Preview(`coverlettervault-2w7k5k0hb-junhas-projects-a748ef77.vercel.app`, deployment `dpl_7SSdBVqbcxCshWwLxAHfm6aDP8ER`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, 인증 필요 API 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias는 변경하지 않았다.
+- 자료 등록 사용자별 분당 10회 제한까지 포함한 최신 Preview(`coverlettervault-ns582kuct-junhas-projects-a748ef77.vercel.app`, deployment `dpl_HzXLzXNSZ25Ja8SbGEjpNQnwZC4e`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, `/api/source-documents` 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias는 변경하지 않았다. 더미 환경변수 기반 Playwright Chromium 19개 시나리오도 재검증했다.
+- 사용자 작성 검색 정답 라벨(M5-k)을 포함한 최신 Preview(`coverlettervault-hil9hdqk3-junhas-projects-a748ef77.vercel.app`, deployment `dpl_4XpQ3Sq16X6Xy5Cgi9SwK2gNMkct`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, `/api/source-documents`·`/api/writing-sessions/retrieval-evaluation`·`/api/writing-sessions/[id]/retrieval-labels` 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias는 변경하지 않았다. 더미 환경변수 기반 production build와 Playwright Chromium 19개 시나리오도 통과했다.
+- 명시 라벨 문항·세션 커버리지 집계를 포함한 최신 Preview(`coverlettervault-2hzuo6q7u-junhas-projects-a748ef77.vercel.app`, deployment `dpl_8CsbUo8pc6orR8eVgKbC3PX4qtWb`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, `/api/source-documents`·`/api/writing-sessions/retrieval-evaluation`·`/api/writing-sessions/[id]/retrieval-labels` 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias는 변경하지 않았다.
+- 사용자 선택형 말투 예문(M5-l)까지 포함한 최신 Preview(`coverlettervault-gcrnv22qy-junhas-projects-a748ef77.vercel.app`, deployment `dpl_FqBgPi8nhmRzrFZ2MjHq5zQFnLnh`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, `/api/source-documents`·`/api/writing-sessions/retrieval-evaluation`·`/api/writing-sessions/[id]/retrieval-labels` 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias·Supabase 원격 schema는 변경하지 않았다. 배포 빌드에서 Sentry auth token 미설정 경고는 source map release를 생략한 기존 Preview 설정으로, 애플리케이션 빌드는 성공했다.
+- 명시적으로 고른 다른 문항의 말투 예문까지 생성 context에 반영하는 보완을 포함한 최신 Preview(`coverlettervault-21wo8aeu5-junhas-projects-a748ef77.vercel.app`, deployment `dpl_3KLicnNzD49wzuMepHyjaKusoeEr`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, `/api/source-documents`·`/api/writing-sessions/retrieval-evaluation`·`/api/writing-sessions/[id]/retrieval-labels` 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias·Supabase 원격 schema는 변경하지 않았다. 배포 빌드에서 Sentry auth token 미설정 경고가 있었지만 애플리케이션 빌드는 성공했다.
+- 같은 날 `vercel env ls production`을 읽기 전용으로 확인한 결과 `SUPABASE_SERVICE_ROLE_KEY`와 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 목록에 없고, `GEMINI_API_KEY` 및 Supabase 공개 키는 있었다. service-role 키가 없는 동안 회원 탈퇴 API는 503으로 명확히 차단되며, 키가 설정된 뒤에는 기존 `documents`·`user_profiles`를 먼저 정리한 뒤 Auth 계정을 삭제한다. 실제 키를 채팅이나 저장소에 기록하지 않고 Vercel Production/Preview에 안전하게 추가해야 한다.
+
+## 1. 배포 전 검증
+
+```bash
+npm run rollout:verify
+npm run harness:verify
+NEXT_PUBLIC_SUPABASE_URL=... \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+GEMINI_API_KEY=... \
+npm run build
+git diff --check
+```
+
+`rollout:verify`는 migration timestamp 순서와 destructive SQL, read-only verify SQL 누락, career profile RLS/권한 검증 항목, 환경변수 템플릿, client service-role 참조, Sentry 개인정보 마스킹을 로컬 파일만으로 확인한다. 이 명령은 Supabase·Vercel 원격 상태를 읽거나 변경하지 않는다.
+
+운영 환경변수에는 비밀값을 저장소나 로그에 출력하지 않는다. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 `true`이며, 장애 시 정확히 `false`로 설정하면 `/writing/new`가 기존 `/write`로 돌아간다. 다중 인스턴스 AI 호출·자료 등록 제한을 사용하려면 `UPSTASH_REDIS_REST_URL`과 `UPSTASH_REDIS_REST_TOKEN`을 Vercel 서버 환경변수에 함께 추가한다. 둘 중 하나가 없거나 공유 제한기가 일시 실패하면 로컬 제한기로 폴백한다. 자료 등록/공개 URL 수집은 사용자별 분당 10회로 제한되고, OCR·생성 등 AI 작업은 작업별 제한을 별도로 적용한다.
+
+## 2. Supabase 적용 순서
+
+1. 각 migration의 `supabase/verify/*.sql`을 읽기 전용으로 실행해 기존 테이블·정책·Storage bucket을 확인한다.
+2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`)와 사용자 작성 검색 정답 라벨(`20260921010000_m5k_retrieval_labels.sql`), M2 Storage, M6 OCR 의존성을 확인한다. 개인 이력서 프로필을 배포하는 경우 `20260922010000_m6h_career_profiles.sql`을 적용한 뒤 `supabase/verify/rls-m6h-career-profiles.sql`에서 강제 RLS, anon/authenticated 유효 권한, 사용자별 정책, 사용자 키·cascade FK, 입력 길이 제한을 확인한다. `credential` 종류를 지원하는 코드를 배포할 때는 `20260922020000_m6n_career_credential_kind.sql`을 적용하고 `supabase/verify/m6n-career-credential-kind.sql`에서 `career_items.kind` 제약에 `credential`이 포함됐는지 확인한다. 활동 편집·복원 이력을 배포할 때는 `20260922030000_m6r_career_activity_revisions.sql`을 적용하고 `supabase/verify/m6r-career-activity-revisions.sql`을 실행해 revision/RPC/RLS 권한을 확인한다.
+3. 적용 직후 사용자 소유 RLS와 `style_evaluation_preferences`의 hash-only 저장을 다시 확인한다.
+   `retrieval_evaluation_labels`는 활동 원문 없이 ID만 저장하고, 빈 `evidence_record_id` 행은 해당 요구사항에 관련 활동이 없다는 명시적 라벨이다.
+4. migration이 실패하면 다음 migration으로 건너뛰지 않고, 기존 사용자 데이터에 쓰기를 시작하지 않는다.
+
+이 저장소에서는 원격 DB에 migration을 자동 적용하지 않는다.
+
+## 3. Preview 검증
+
+1. 로컬 브랜치로 Preview를 만들고 deployment protection을 끄지 않은 채 `vercel curl`로 접근한다.
+2. 비로그인 상태에서 `/dashboard`, `/career`, `/jobs`, `/write`, `/writing/new`, `/exports`가 랜딩으로 돌아가는지 확인한다.
+3. 인증 계정으로 다음 경로를 순서대로 확인한다.
+   - 자료 업로드/수동 본문 보정/활동 승인
+   - 채용공고·인재상 URL 연결 및 요구사항 승인
+   - 작성 세션의 근거·개요·초안 비교와 최종 확정
+   - 자기소개서·이력서·포트폴리오 PDF 다운로드
+   - blind 비교 선택과 `/style` 선호 요약
+   - `/style`에서 검수 완료한 기존 자기소개서를 말투 예문으로 한 번 가져온 뒤 생성 context에 포함되는지 확인
+4. 이미지 PDF는 OCR 실행 전 `manual_input`으로 남고 잘못된 페이지 구분선이 자료/활동 근거로 나타나지 않는지 확인한다. OCR은 버튼을 명시적으로 누른 뒤에만 Gemini 요청이 발생하며, OCR 결과도 사용자 검수 전에는 승인되지 않는지 확인한다.
+
+## 4. 운영 완료율 기준선(제안)
+
+첫 50개 작성 세션을 기준으로 아래 지표를 관찰한 뒤 기본 경로 전환 여부를 결정한다. 수치는 제품 의사결정을 위한 제안 기준이며 현재 실측값이 아니다.
+
+| 지표 | 확인 이벤트/로그 | 제안 기준 |
+| --- | --- | --- |
+| 작성 세션 생성 성공률 | `writing_studio_started`, API 5xx | 98% 이상 |
+| 최종 확정 전환율 | `writing_studio_finalized` / `writing_studio_started` | 60% 이상 |
+| PDF 출력 성공률 | `writing_studio_exported`, `career_exported`, export 5xx | 95% 이상 |
+| AI 일시 오류율 | Sentry/Vercel 로그의 429·5xx | 5% 미만 |
+| OCR 검수 안전성 | OCR 결과 `needs_review` 상태 | 자동 승인 0건 |
+| 개인정보 이벤트 누출 | Web Analytics payload 샘플 | 원문·ID·오류 메시지 0건 |
+
+이벤트는 원문·회사명·직무명·질문·세션 ID·사용자 ID를 포함하지 않는다. Analytics가 차단되어도 작성·출력 기능은 계속 동작해야 한다.
+
+## 5. 점진 전환과 롤백
+
+- Preview에서 기준선을 통과하면 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED=true` 상태로 일부 사용자에게 먼저 노출한다.
+- 오류율이나 PDF 실패율이 기준을 벗어나면 `NEXT_PUBLIC_WRITING_STUDIO_ENABLED=false`로 새 작업대 직접 접근까지 차단하고 기존 `/write`를 유지한다.
+- 원격 DB migration 오류는 롤백 SQL을 임의로 실행하지 말고, additive migration과 기존 문서 adapter를 유지한 채 원인을 확인한다.
+- Production 배포 후 최소 60초 동안 Vercel error 로그를 확인하고, Gemini capacity 오류가 반복되면 모델 fallback·키 fallback 상태와 Sentry 이벤트를 확인한다.

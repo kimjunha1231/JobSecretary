@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { logger } from '@/shared/lib';
 
 // DELETE: Delete user account and all associated data
 export async function DELETE() {
@@ -34,15 +35,12 @@ export async function DELETE() {
         }
 
         // 2. Create an Admin client with SERVICE_ROLE_KEY to delete the user
-        // Note: This key must be in your .env.local file
+        // This server-only key must be configured before deletion is enabled.
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!serviceRoleKey) {
-
-            return NextResponse.json({
-                error: 'Server configuration error',
-                details: 'Service role key is missing'
-            }, { status: 500 });
+            logger.error('Account deletion is unavailable: missing service role configuration.');
+            return NextResponse.json({ error: '회원 탈퇴 기능이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.' }, { status: 503 });
         }
 
         const supabaseAdmin = createClient(
@@ -56,20 +54,67 @@ export async function DELETE() {
             }
         );
 
-        // 3. Delete the user from auth.users
-        // Because we set up ON DELETE CASCADE in the database, this will automatically
-        // delete all related rows in 'documents' and 'user_profiles'.
+        const sourceBucket = process.env.SUPABASE_SOURCE_STORAGE_BUCKET?.trim() || 'source-documents';
+        const sourceStorage = supabaseAdmin.storage.from(sourceBucket);
+        const listSourceObjects = async (prefix: string): Promise<string[]> => {
+            const paths: string[] = [];
+            for (let offset = 0; ; offset += 1000) {
+                const { data: objects, error: listError } = await sourceStorage.list(prefix, { limit: 1000, offset });
+                if (listError) {
+                    // A deployment without the optional bucket has no source objects to clean up.
+                    if (/not found|does not exist|bucket/i.test(listError.message)) return [];
+                    throw listError;
+                }
+                for (const object of objects ?? []) {
+                    if (!object.name) continue;
+                    const objectPath = `${prefix}/${object.name}`;
+                    if (object.id) paths.push(objectPath);
+                    else paths.push(...await listSourceObjects(objectPath));
+                }
+                if (!objects || objects.length < 1000) break;
+            }
+            return paths;
+        };
+
+        let sourceObjectPaths: string[];
+        try {
+            sourceObjectPaths = await listSourceObjects(user.id);
+        } catch (listError) {
+            logger.error('Failed to list source originals before account deletion:', listError);
+            return NextResponse.json({ error: '원본 자료를 정리하지 못해 회원 탈퇴를 완료할 수 없습니다.' }, { status: 500 });
+        }
+        for (let index = 0; index < sourceObjectPaths.length; index += 100) {
+            const { error: removeError } = await sourceStorage.remove(sourceObjectPaths.slice(index, index + 100));
+            if (removeError) {
+                logger.error('Failed to remove source originals before account deletion:', removeError);
+                return NextResponse.json({ error: '원본 자료를 정리하지 못해 회원 탈퇴를 완료할 수 없습니다.' }, { status: 500 });
+            }
+        }
+
+        // 3. Explicitly remove legacy rows before deleting auth.users.
+        // The existing documents/user_profiles schema predates the additive migrations,
+        // so their foreign-key cascade cannot be assumed from this application code.
+        for (const table of ['documents', 'user_profiles'] as const) {
+            const { error: cleanupError } = await supabaseAdmin
+                .from(table)
+                .delete()
+                .eq('user_id', user.id);
+            if (cleanupError) {
+                logger.error(`Failed to remove legacy ${table} rows before account deletion:`, cleanupError);
+                return NextResponse.json({ error: '기존 계정 데이터를 정리하지 못해 회원 탈퇴를 완료할 수 없습니다.' }, { status: 500 });
+            }
+        }
+
+        // 4. Delete the user from auth.users.
+        // Additive domain tables reference auth.users with ON DELETE CASCADE.
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
         if (deleteError) {
-
-            return NextResponse.json({
-                error: 'Failed to delete user account',
-                details: deleteError.message
-            }, { status: 500 });
+            logger.error('Failed to delete user account:', deleteError);
+            return NextResponse.json({ error: 'Failed to delete user account' }, { status: 500 });
         }
 
-        // 4. Sign out the user from the current session
+        // 5. Sign out the user from the current session
         await supabase.auth.signOut();
 
         return NextResponse.json({
@@ -77,10 +122,7 @@ export async function DELETE() {
             message: '회원 탈퇴가 완료되었습니다. 모든 데이터가 영구 삭제되었습니다.'
         });
     } catch (error) {
-
-        return NextResponse.json({
-            error: 'Internal server error',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        logger.error('Account deletion request failed:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

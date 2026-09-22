@@ -1,6 +1,11 @@
 import { createServerSupabaseClient } from '@/shared/api/server';
 import { NextResponse } from 'next/server';
 import { logger } from "@/shared/lib";
+import { z } from 'zod';
+
+const archiveInputSchema = z.object({
+    ids: z.array(z.string().trim().min(1).max(200)).min(1).max(100),
+});
 
 export async function POST(request: Request) {
     try {
@@ -11,16 +16,22 @@ export async function POST(request: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const { ids } = await request.json();
+        let body: unknown;
+        try {
+            body = await request.json();
+        } catch {
+            return new NextResponse('Invalid JSON body', { status: 400 });
+        }
 
-        if (!ids || !Array.isArray(ids)) {
+        const parsedBody = archiveInputSchema.safeParse(body);
+        if (!parsedBody.success) {
             return new NextResponse('Invalid request body', { status: 400 });
         }
 
         const { error } = await supabase
             .from('documents')
             .update({ is_archived: true })
-            .in('id', ids)
+            .in('id', parsedBody.data.ids)
             .eq('user_id', user.id);
 
         if (error) {

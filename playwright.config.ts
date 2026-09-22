@@ -1,7 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-    testDir: './tests',
+    // Unit tests are executed by Jest and are not Playwright specs. Keep the
+    // browser runner scoped to the end-to-end suite so it does not attempt to
+    // evaluate Jest globals such as `describe` and `jest`.
+    testDir: './tests/e2e',
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,

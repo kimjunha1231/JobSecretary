@@ -10,6 +10,10 @@ export const GoogleGenAI = jest.fn().mockImplementation(() => ({
     },
 }));
 
+export const createPartFromBase64 = (data: string, mimeType: string) => ({
+    inlineData: { data, mimeType },
+});
+
 export class ApiError extends Error {
     constructor(message: string) {
         super(message);

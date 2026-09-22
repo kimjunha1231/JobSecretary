@@ -51,6 +51,19 @@ afterEach(() => {
 });
 
 describe('AI service requests', () => {
+    it('rejects invalid input before authentication or model calls', async () => {
+        await expect(generateQuestions('', '개발자', '')).rejects.toThrow('Invalid AI request.');
+        expect(mockGetUser).not.toHaveBeenCalled();
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('rejects unauthenticated insight requests before calling Gemini', async () => {
+        mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+
+        await expect(generateInsight('이전 경험을 찾아주세요.', [])).rejects.toThrow('Unauthorized');
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
     it('generates questions with the configured model and request timeout', async () => {
         mockGenerateContent.mockResolvedValue({ text: '1. 협업 경험을 설명해 주세요.' });
 

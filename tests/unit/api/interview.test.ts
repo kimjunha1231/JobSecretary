@@ -7,6 +7,9 @@ jest.mock('@google/genai', () => ({ GoogleGenAI: jest.fn() }));
 jest.mock('@/shared/lib', () => ({
     logger: { warn: jest.fn(), error: jest.fn() },
 }));
+jest.mock('@/shared/lib/ai-access', () => ({
+    requireAiAccess: jest.fn().mockResolvedValue({ id: 'test-user' }),
+}));
 
 const mockGenerateContent = jest.fn();
 const mockGoogleGenAI = GoogleGenAI as jest.Mock;
@@ -30,6 +33,11 @@ afterEach(() => {
 });
 
 describe('generateInterviewQuestions', () => {
+    it('rejects oversized input before calling Gemini', async () => {
+        await expect(generateInterviewQuestions('x'.repeat(20_001))).rejects.toThrow('Invalid AI request.');
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
     it('generates a JSON question array through the current SDK with a request timeout', async () => {
         const questions = ['프로젝트에서 맡은 역할은 무엇인가요?', '의견 충돌을 어떻게 해결했나요?'];
         mockGenerateContent.mockResolvedValue({ text: JSON.stringify(questions) });

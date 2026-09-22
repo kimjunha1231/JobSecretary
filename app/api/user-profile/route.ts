@@ -9,8 +9,11 @@ export async function GET() {
         return NextResponse.json(data);
     } catch (error: unknown) {
         logger.error('Error fetching user profile:', error);
+        if (error instanceof Error && error.message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Unknown error' },
+            { error: 'Failed to fetch user profile' },
             { status: 500 }
         );
     }
@@ -19,7 +22,12 @@ export async function GET() {
 // POST: Create or update user profile with consent
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        let body: unknown;
+        try {
+            body = await request.json();
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        }
         const data = await userProfileService.upsertUserProfile(body);
         return NextResponse.json(data);
     } catch (error: unknown) {
@@ -31,10 +39,8 @@ export async function POST(request: Request) {
             if (error.message === 'Both consents are required') {
                 return NextResponse.json({ error: error.message }, { status: 400 });
             }
-            // Fallback for other known errors
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 });
         }
-        // Fallback for unknown errors
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 });
     }
 }

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Document } from '@/entities/document';
-import { PdfDocument } from '@/entities/document';
 
 /**
- * PDF 다운로드 기능을 제공하는 훅
- * Dynamic import로 @react-pdf/renderer를 로드하여 번들 최적화
+ * 서버에서 소유권과 최종 문서 내용을 다시 확인한 뒤 PDF를 내려받는다.
+ * 클라이언트에 PDF renderer와 외부 글꼴을 싣지 않아 초기 번들을 줄이고,
+ * 사용자가 화면을 조작해 다른 문서를 출력하는 경계를 서버로 고정한다.
  */
 export function usePdfDownload(doc: Document) {
     const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -13,8 +13,12 @@ export function usePdfDownload(doc: Document) {
     const downloadPdf = async () => {
         setIsPdfLoading(true);
         try {
-            const { pdf } = await import('@react-pdf/renderer');
-            const blob = await pdf(<PdfDocument doc={ doc } />).toBlob();
+            const response = await fetch(`/api/documents/${doc.id}/export`, { cache: 'no-store' });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({})) as { error?: unknown };
+                throw new Error(typeof payload.error === 'string' ? payload.error : 'PDF를 만들지 못했습니다.');
+            }
+            const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -24,7 +28,7 @@ export function usePdfDownload(doc: Document) {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         } catch (error) {
-            toast.error('PDF 생성 중 오류가 발생했습니다.');
+            toast.error(error instanceof Error ? error.message : 'PDF 생성 중 오류가 발생했습니다.');
         } finally {
             setIsPdfLoading(false);
         }
