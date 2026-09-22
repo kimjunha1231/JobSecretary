@@ -858,6 +858,6 @@ URL이 로그인 뒤에서만 보이거나 JavaScript 렌더링이 필수인 페
 
 ### M6-s 전달 상태 (2026-09-22)
 
-- 커밋 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`를 feature branch에 push했고, PR #3에 포함했다. GitHub에서 확인한 head SHA가 로컬 HEAD와 같고 필수 Vercel 검사가 통과했다.
-- 해당 커밋의 Preview는 `READY`이며 공개 진입점과 비로그인 보호 경로/API 응답을 확인했다. 실제 사용자 로그인·Supabase 연동을 포함한 경력 프로필 저장, 인용 검토, PDF 생성은 Preview에서 아직 확인하지 않았다.
+- 기능 커밋 `e9533e5a8bc9aa1683d3435e6d97804a670563d2`와 문서 동기화 커밋 `843f276fba3183258e0242cfb2ee0a64836c6a8c`를 feature branch에 push했고 PR #3에 포함했다. GitHub에서 원격 head 일치와 필수 Vercel 검사를 확인했다.
+- `843f276` Preview는 `READY`이며 공개 진입점과 비로그인 보호 경로/API 응답을 확인했다. 실제 사용자 로그인·Supabase 연동을 포함한 경력 프로필 저장, 인용 검토, PDF 생성은 Preview에서 아직 확인하지 않았다.
 - 남은 release gate는 PR 병합, migration을 timestamp 순서대로 운영자가 적용하고 verify SQL로 확인, 인증된 Preview 전체 흐름 검증, 운영 환경 설정 확인, Production 배포 후 관측이다. 이 작업에서는 원격 Supabase와 Production을 변경하지 않았다.
