@@ -26,6 +26,7 @@ function makeEvidence(overrides: Partial<Pick<EvidenceRecordDetails['careerItem'
             id: '22222222-2222-4222-8222-222222222222',
             careerItemId: '11111111-1111-4111-8111-111111111111',
             userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            revisionNumber: 1,
             action: '검색 상태를 정리했습니다.',
             result: '응답 시간을 줄였습니다.',
             metrics: [],

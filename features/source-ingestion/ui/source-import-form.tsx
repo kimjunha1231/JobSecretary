@@ -8,9 +8,12 @@ import { SOURCE_KIND_LABELS } from '../model';
 
 type SourceImportFormProps = {
     onCreated?: (document: Record<string, unknown>) => void;
+    allowedKinds?: SourceDocumentKind[];
+    initialKind?: SourceDocumentKind;
+    initialMode?: 'file' | 'text' | 'url';
 };
 
-const sourceKinds: SourceDocumentKind[] = [
+const DEFAULT_SOURCE_KINDS: SourceDocumentKind[] = [
     'resume',
     'portfolio',
     'cover_letter',
@@ -22,9 +25,14 @@ const sourceKinds: SourceDocumentKind[] = [
 
 type ImportMode = 'file' | 'text' | 'url';
 
-export function SourceImportForm({ onCreated }: SourceImportFormProps) {
-    const [kind, setKind] = useState<SourceDocumentKind>('portfolio');
-    const [mode, setMode] = useState<ImportMode>('file');
+export function SourceImportForm({
+    onCreated,
+    allowedKinds = DEFAULT_SOURCE_KINDS,
+    initialKind = 'portfolio',
+    initialMode = 'file',
+}: SourceImportFormProps) {
+    const [kind, setKind] = useState<SourceDocumentKind>(initialKind);
+    const [mode, setMode] = useState<ImportMode>(initialMode);
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
     const [sourceUrl, setSourceUrl] = useState('');
@@ -119,7 +127,7 @@ export function SourceImportForm({ onCreated }: SourceImportFormProps) {
                         onChange={event => setKind(event.target.value as SourceDocumentKind)}
                         className="w-full rounded-xl border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
                     >
-                        {sourceKinds.map(sourceKind => (
+                        {allowedKinds.map(sourceKind => (
                             <option key={sourceKind} value={sourceKind}>{SOURCE_KIND_LABELS[sourceKind]}</option>
                         ))}
                     </select>

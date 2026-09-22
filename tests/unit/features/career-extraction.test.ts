@@ -51,6 +51,25 @@ describe('career candidate extraction validation', () => {
         });
     });
 
+    it('accepts source-grounded credential candidates for certificates and language scores', () => {
+        const parsed = parseModelResponse(JSON.stringify({ candidates: [{
+            kind: 'credential',
+            title: 'TOEIC Speaking',
+            organization: '시험 기관',
+            result: 'IH',
+            sourceFragmentIds: [fragmentId],
+        }] }));
+        const result = validateCandidates(parsed.candidates, new Set([fragmentId]));
+
+        expect(result.candidates).toEqual([expect.objectContaining({
+            kind: 'credential',
+            title: 'TOEIC Speaking',
+            result: 'IH',
+            sourceFragmentIds: [fragmentId],
+        })]);
+        expect(result.warnings).toEqual([]);
+    });
+
     it('rejects malformed or structurally invalid model output', () => {
         expect(() => parseModelResponse('{"candidates":[{"kind":"unknown"}]}')).toThrow(CareerExtractionError);
         expect(() => parseModelResponse('not json')).toThrow(CareerExtractionError);
@@ -139,5 +158,10 @@ describe('career candidate extraction validation', () => {
         expect(result.candidates[0]).toEqual(expect.objectContaining({ title: '검색 개선', sourceFragmentIds: [fragmentId] }));
         expect(result.warnings).toEqual(['출처를 확인할 수 없는 활동 후보를 제외했습니다.']);
         expect(generateContent).toHaveBeenCalledWith(expect.objectContaining({ contents: expect.stringContaining(fragmentId) }));
+        expect(generateContent).toHaveBeenCalledWith(expect.objectContaining({
+            config: expect.objectContaining({
+                systemInstruction: expect.stringContaining('자격증·면허·어학 시험'),
+            }),
+        }));
     });
 });

@@ -16,9 +16,12 @@ function errorResponse(error: unknown, fallback: string): NextResponse {
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        return NextResponse.json(await evidenceRecordService.listApproved({ limit: searchParams.get('limit') ?? undefined }));
+        return NextResponse.json(await evidenceRecordService.listApproved({
+            limit: searchParams.get('limit') ?? undefined,
+            status: searchParams.get('status') ?? undefined,
+        }));
     } catch (error) {
-        return errorResponse(error, '승인된 활동 근거를 불러오지 못했습니다.');
+        return errorResponse(error, '활동 근거를 불러오지 못했습니다.');
     }
 }
 

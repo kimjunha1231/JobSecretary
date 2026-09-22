@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { CareerProfileFieldsSchema } from '@/entities/career-profile/model';
 
 export const PdfExportKindSchema = z.enum(['cover_letter', 'legacy_document', 'career_profile', 'portfolio']);
 export type PdfExportKind = z.infer<typeof PdfExportKindSchema>;
 
 export const PdfSectionSchema = z.object({
     heading: z.string().trim().min(1).max(5_000),
+    meta: z.string().trim().max(1_000).optional(),
     body: z.string().max(100_000),
     charCount: z.number().int().min(0).max(100_000),
 });
@@ -15,6 +17,8 @@ export const PdfExportPayloadSchema = z.object({
     subtitle: z.string().trim().max(500).optional(),
     company: z.string().trim().max(200).optional(),
     role: z.string().trim().max(200).optional(),
+    profileKind: z.enum(['resume', 'portfolio']).optional(),
+    candidateProfile: CareerProfileFieldsSchema.optional(),
     sections: z.array(PdfSectionSchema).min(1).max(100),
 });
 export type PdfExportPayload = z.infer<typeof PdfExportPayloadSchema>;

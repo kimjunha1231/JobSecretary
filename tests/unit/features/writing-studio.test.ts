@@ -106,6 +106,7 @@ function createDetails(): WritingSessionDetails {
                     id: evidenceId,
                     careerItemId: '88888888-8888-4888-8888-888888888888',
                     userId: target.userId,
+                    revisionNumber: 1,
                     action: '검색 흐름을 개선했습니다.',
                     result: '응답 시간이 줄었습니다.',
                     metrics: [],
@@ -271,6 +272,46 @@ describe('writing studio AI candidates', () => {
 
         await expect(generateDraftCandidates(session.id)).rejects.toBeInstanceOf(WritingGenerationError);
         expect(mockWritingSessionService.replaceDrafts).not.toHaveBeenCalled();
+    });
+
+    it('keeps a profile-only metric pending even when the model attaches an unrelated activity', async () => {
+        const details = createDetails();
+        details.careerProfileContext = {
+            headline: '사용자 문제를 해결하는 프론트엔드 개발자',
+            summary: '검색 성공률을 75% 개선했습니다.',
+            skills: ['TypeScript'],
+        };
+        mockWritingSessionService.getGenerationContext.mockResolvedValue({
+            ...details,
+            selectedEvidence: [],
+            selectedMatches: details.matches,
+            selectedOutline: details.outlines[0],
+        });
+        mockGenerateContent.mockResolvedValue({ text: JSON.stringify({ candidates: [
+            {
+                angle: '성과',
+                content: '검색 성공률을 75% 개선했습니다.',
+                evidenceRecordIds: [evidenceId],
+                citations: [{ sentenceIndex: 0, sentenceText: '검색 성공률을 75% 개선했습니다.', factType: 'metric', evidenceRecordIds: [evidenceId] }],
+            },
+            { angle: '협업', content: '팀의 의견을 먼저 듣고 방향을 정리했습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+            { angle: '성장', content: '새로운 도구를 차근히 익혔습니다.', evidenceRecordIds: [evidenceId], citations: [] },
+        ] }) });
+
+        await generateDraftCandidates(session.id);
+        const savedCandidates = mockWritingSessionService.replaceDrafts.mock.calls[0]?.[1];
+        expect(savedCandidates?.[0]).toEqual(expect.objectContaining({
+            citations: [{ sentenceIndex: 0, sentenceText: '검색 성공률을 75% 개선했습니다.', factType: 'metric', evidenceRecordIds: [evidenceId] }],
+            validationResult: expect.objectContaining({ citationsVerified: false, unverifiedFactCount: 1, factReviewVersion: 0 }),
+        }));
+
+        const request = mockGenerateContent.mock.calls[0][0];
+        expect(request.contents).toContain('"candidateProfileContext"');
+        expect(request.contents).toContain('검색 성공률을 75% 개선했습니다.');
+        expect(request.config.systemInstruction).toContain('candidateProfileContext');
+        expect(request.config.systemInstruction).toContain('강조 방향');
+        expect(request.config.systemInstruction).toContain('활동 근거에 없는 프로젝트·성과·회사·날짜·수치');
+        expect(mockWritingSessionService.replaceDrafts).toHaveBeenCalledTimes(1);
     });
 
     it('rejects a draft candidate that contains a banned expression from the selected style profile', async () => {

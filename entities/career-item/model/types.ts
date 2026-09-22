@@ -5,12 +5,24 @@ export const CareerItemKindSchema = z.enum([
     'project',
     'work',
     'education',
+    'credential',
     'award',
     'leadership',
     'community',
     'other',
 ]);
 export type CareerItemKind = z.infer<typeof CareerItemKindSchema>;
+
+export const CAREER_ITEM_KIND_LABELS: Record<CareerItemKind, string> = {
+    project: '프로젝트',
+    work: '경력',
+    education: '교육',
+    credential: '자격·어학',
+    award: '수상',
+    leadership: '리더십',
+    community: '커뮤니티',
+    other: '기타',
+};
 
 export const CareerItemStatusSchema = z.enum(['suggested', 'needs_review', 'approved', 'superseded', 'archived']);
 export type CareerItemStatus = z.infer<typeof CareerItemStatusSchema>;

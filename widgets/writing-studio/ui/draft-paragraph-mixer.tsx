@@ -56,12 +56,13 @@ export function DraftParagraphMixer({
                 const selected = draft.status === 'selected';
                 const draftBusy = busy === draft.id;
                 const unverifiedFactCount = typeof draft.validationResult.unverifiedFactCount === 'number' ? draft.validationResult.unverifiedFactCount : 0;
+                const factReviewComplete = draft.validationResult.factReviewVersion === 1;
                 const variation = typeof draft.validationResult.variation === 'string' ? draft.validationResult.variation : '';
                 const variationLabel = variation.length > 80 ? `${variation.slice(0, 80)}…` : variation;
                 return <article key={draft.id} className={`flex flex-col rounded-2xl border p-5 ${selected ? 'border-primary/50 bg-primary/5' : 'border-white/10 bg-surface/50'}`}>
                     <div className="flex items-start justify-between gap-2"><div className="flex flex-wrap items-center gap-1.5"><Badge variant={selected ? 'success' : overLimit ? 'fail' : 'pending'}>{selected ? '선택됨' : overLimit ? '글자 수 초과' : '후보'}</Badge>{variationLabel && <Badge variant="secondary">관점: {variationLabel}</Badge>}</div><span className={`shrink-0 text-xs ${overLimit ? 'text-red-300' : 'text-zinc-500'}`}>{draft.charCount.toLocaleString()} / {charLimit.toLocaleString()}자</span></div>
                     <p className="mt-4 flex-1 whitespace-pre-wrap text-sm leading-7 text-zinc-300">{draft.content}</p>
-                    <p className="mt-4 text-xs text-zinc-500">근거 {Array.isArray(draft.evidenceMap.evidenceRecordIds) ? draft.evidenceMap.evidenceRecordIds.length : 0}개 · 문장 근거 {unverifiedFactCount > 0 ? <span className="text-amber-300">{unverifiedFactCount}개 검증 필요</span> : <span className="text-emerald-300">검증됨</span>}</p>
+                    <p className="mt-4 text-xs text-zinc-500">근거 {Array.isArray(draft.evidenceMap.evidenceRecordIds) ? draft.evidenceMap.evidenceRecordIds.length : 0}개 · 문장 근거 {unverifiedFactCount > 0 ? <span className="text-amber-300">{unverifiedFactCount}개 확인 필요</span> : factReviewComplete ? <span className="text-emerald-300">사용자 확인 완료</span> : <span className="text-amber-300">근거 확인 필요</span>}</p>
                     <button type="button" onClick={() => onSelectDraft(draft.id)} disabled={selected || overLimit || draft.status === 'stale' || busy !== null} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-primary/15 px-3 py-2.5 text-xs font-semibold text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50">{draftBusy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{selected ? '선택한 초안' : overLimit ? '초과로 선택 불가' : '이 초안 선택'}</button>
                 </article>;
             })}

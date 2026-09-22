@@ -35,6 +35,15 @@ import {
 import { DomainIdSchema } from '@/shared/types';
 import type { StyleExample, StyleProfile } from '@/entities/style-profile/model';
 import { styleProfileService } from '@/entities/style-profile/api';
+import {
+    CareerProfileServiceError,
+    careerProfileService,
+} from '@/entities/career-profile/api';
+import {
+    CareerProfileWritingContextSchema,
+    type CareerProfile,
+    type CareerProfileWritingContext,
+} from '@/entities/career-profile/model';
 import { z } from 'zod';
 
 const sessionQuestionInputSchema = z.object({
@@ -46,6 +55,7 @@ const sessionCreateSchema = z.object({
     jobTargetId: DomainIdSchema,
     styleProfileId: DomainIdSchema.optional(),
     styleExampleIds: z.array(DomainIdSchema).max(5).optional(),
+    includeCareerProfile: z.boolean().optional().default(false),
     question: z.string().trim().min(1).max(5_000).optional(),
     charLimit: z.coerce.number().int().min(100).max(100_000).default(700),
     questions: z.array(sessionQuestionInputSchema).min(1).max(20).optional(),
@@ -120,6 +130,25 @@ export function filterStyleExamplesBySelection(
     return examples.filter(example => selectedIds.has(example.id));
 }
 
+export function createCareerProfileWritingContext(profile: CareerProfile | null): CareerProfileWritingContext | undefined {
+    if (!profile) return undefined;
+    const parsed = CareerProfileWritingContextSchema.safeParse({
+        headline: profile.headline,
+        summary: profile.summary,
+        skills: profile.skills,
+    });
+    if (!parsed.success) return undefined;
+    const context = parsed.data;
+    return context.headline || context.summary || context.skills.length > 0 ? context : undefined;
+}
+
+export function readCareerProfileWritingContext(settings: Record<string, unknown>): CareerProfileWritingContext | undefined {
+    const parsed = CareerProfileWritingContextSchema.safeParse(settings.careerProfileContext);
+    if (!parsed.success) return undefined;
+    const context = parsed.data;
+    return context.headline || context.summary || context.skills.length > 0 ? context : undefined;
+}
+
 export type EvidenceMatchDetails = {
     match: EvidenceMatch;
     evidence: EvidenceRecordDetails;
@@ -131,6 +160,7 @@ export type WritingSessionDetails = {
     target: JobTarget;
     styleProfile?: StyleProfile;
     styleExamples: StyleExample[];
+    careerProfileContext?: CareerProfileWritingContext;
     questions: WritingSessionQuestion[];
     question: WritingSessionQuestion;
     requirements: JobRequirement[];
@@ -168,9 +198,9 @@ export type WritingGenerationContext = WritingSessionDetails & {
 
 export class WritingSessionServiceError extends Error {
     constructor(
-        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'conflict' | 'analysis' | 'storage',
+        public readonly code: 'unauthorized' | 'invalid_input' | 'not_found' | 'conflict' | 'analysis' | 'storage' | 'unavailable',
         message: string,
-        public readonly status: 400 | 401 | 404 | 409 | 422 | 500 = 500,
+        public readonly status: 400 | 401 | 404 | 409 | 422 | 500 | 503 = 500,
     ) {
         super(message);
         this.name = 'WritingSessionServiceError';
@@ -251,7 +281,7 @@ function mapSession(record: Record<string, unknown>): WritingSession {
         coverLetterId: nullableString(record.cover_letter_id),
         coverLetterQuestionId: record.cover_letter_question_id,
         state: record.state,
-        styleProfileId: record.style_profile_id,
+        styleProfileId: nullableString(record.style_profile_id),
         generationSettings: jsonObject(record.generation_settings),
         createdAt: record.created_at,
         updatedAt: record.updated_at,
@@ -686,6 +716,7 @@ async function fetchDetails(
         target,
         styleProfile: styleDetails?.profile,
         styleExamples: styleDetails ? filterStyleExamplesBySelection(styleDetails.examples, session.generationSettings) : [],
+        careerProfileContext: readCareerProfileWritingContext(session.generationSettings),
         questions,
         question,
         requirements,
@@ -725,8 +756,9 @@ export function buildWritingQualitySummary(details: Pick<WritingSessionDetails, 
     const activeDrafts = details.drafts.filter(draft => draft.status !== 'stale');
     const selectedDraft = activeDrafts.find(draft => draft.status === 'selected');
     const factSentences = selectedDraft ? splitSentences(selectedDraft.content).filter(isFactLikeSentence) : [];
+    const hasExplicitFactReview = selectedDraft?.validationResult.factReviewVersion === 1;
     const verifiedFactSentenceIds = new Set(details.factCitations
-        .filter(citation => citation.draftCandidateId === selectedDraft?.id && citation.status === 'verified' && citation.evidenceRecordIds.length > 0)
+        .filter(citation => hasExplicitFactReview && citation.draftCandidateId === selectedDraft?.id && citation.status === 'verified' && citation.evidenceRecordIds.length > 0)
         .map(citation => citation.sentenceIndex));
     const factCitationCoverage = factSentences.length === 0
         ? (selectedDraft ? 1 : 0)
@@ -758,6 +790,27 @@ export type NormalizedDraftCitation = {
     evidenceRecordIds: string[];
     status: 'verified' | 'unverified';
 };
+
+export function markGeneratedDraftCitationsPendingReview(normalized: {
+    citations: NormalizedDraftCitation[];
+    unverifiedFactIndexes: number[];
+    sentences: string[];
+}): { citations: NormalizedDraftCitation[]; unverifiedFactIndexes: number[]; sentences: string[] } {
+    return {
+        ...normalized,
+        citations: normalized.citations.map(citation => ({ ...citation, status: 'unverified' })),
+        unverifiedFactIndexes: normalized.sentences
+            .map((sentence, index) => isFactLikeSentence(sentence) ? index : -1)
+            .filter(index => index >= 0),
+    };
+}
+
+export function isUserFactCheckReviewed(
+    validationResult: Record<string, unknown>,
+    citations: Array<Pick<NormalizedDraftCitation, 'status'>> = [],
+): boolean {
+    return validationResult.factReviewVersion === 1 && citations.every(citation => citation.status === 'verified');
+}
 
 function normalizeDraftCitations(
     content: string,
@@ -887,6 +940,32 @@ export const writingSessionService = {
                 selectedStyleExampleIds = normalizedIds;
             }
         }
+        let careerProfileContext: CareerProfileWritingContext | undefined;
+        if (parsed.data.includeCareerProfile) {
+            try {
+                const { profile } = await careerProfileService.get();
+                careerProfileContext = createCareerProfileWritingContext(profile);
+            } catch (error) {
+                if (error instanceof CareerProfileServiceError) {
+                    const code = error.status === 503
+                        ? 'unavailable'
+                        : error.status === 401
+                            ? 'unauthorized'
+                            : error.status === 400
+                                ? 'invalid_input'
+                                : 'storage';
+                    throw new WritingSessionServiceError(code, error.message, error.status);
+                }
+                throw error;
+            }
+            if (!careerProfileContext) {
+                throw new WritingSessionServiceError(
+                    'invalid_input',
+                    '작성에 참고할 직무 소개, 요약 또는 핵심 기술을 이력서 프로필에 먼저 저장해 주세요.',
+                    422,
+                );
+            }
+        }
         const questions = parsed.data.questions ?? [{ question: parsed.data.question!, charLimit: parsed.data.charLimit }];
 
         const { data: coverLetterData, error: coverLetterError } = await supabase
@@ -932,6 +1011,7 @@ export const writingSessionService = {
             questionCount: questions.length,
         };
         if (selectedStyleExampleIds !== undefined) generationSettings.styleExampleIds = selectedStyleExampleIds;
+        if (careerProfileContext) generationSettings.careerProfileContext = careerProfileContext;
         const { data: sessionData, error: sessionError } = await supabase
             .from('writing_sessions')
             .insert({
@@ -1223,6 +1303,7 @@ export const writingSessionService = {
         if (normalizedCitations.some(result => result.unverifiedFactIndexes.length > 0)) {
             throw new WritingSessionServiceError('analysis', '초안의 사실 문장에 활동 근거가 연결되지 않았습니다.', 422);
         }
+        const pendingReviewCitations = normalizedCitations.map(markGeneratedDraftCitationsPendingReview);
         await markDraftCandidatesStale(supabase, userId, id, session.coverLetterQuestionId);
         const { data: insertedDrafts, error } = await supabase.from('draft_candidates').insert(candidates.map((candidate, index) => ({
             writing_session_id: id,
@@ -1231,15 +1312,20 @@ export const writingSessionService = {
             outline_candidate_id: candidate.outlineCandidateId,
             content: candidate.content,
             char_count: candidate.charCount,
-            evidence_map: { evidenceRecordIds: candidate.evidenceRecordIds, citations: normalizedCitations[index].citations },
-            validation_result: { ...candidate.validationResult, unverifiedFactCount: 0, citationsVerified: true },
+            evidence_map: { evidenceRecordIds: candidate.evidenceRecordIds, citations: pendingReviewCitations[index].citations },
+            validation_result: {
+                ...candidate.validationResult,
+                unverifiedFactCount: pendingReviewCitations[index].unverifiedFactIndexes.length,
+                citationsVerified: pendingReviewCitations[index].unverifiedFactIndexes.length === 0,
+                factReviewVersion: 0,
+            },
             model: candidate.model ?? null,
             prompt_version: candidate.promptVersion ?? null,
             status: 'generated',
         }))).select('id');
         if (error) throw error;
         for (const [index, row] of (insertedDrafts ?? []).entries()) {
-            await replaceFactCitations(supabase, userId, id, session.coverLetterQuestionId, row.id as string, normalizedCitations[index].citations);
+            await replaceFactCitations(supabase, userId, id, session.coverLetterQuestionId, row.id as string, pendingReviewCitations[index].citations);
         }
         const { error: updateError } = await supabase
             .from('writing_sessions')
@@ -1337,6 +1423,7 @@ export const writingSessionService = {
                     overLimit: charLength(content) > getCharLimit(details.question),
                     unverifiedFactCount: normalized.unverifiedFactIndexes.length,
                     citationsVerified: normalized.unverifiedFactIndexes.length === 0,
+                    factReviewVersion: 0,
                 },
                 status: 'selected',
             })
@@ -1405,6 +1492,7 @@ export const writingSessionService = {
                     overLimit: nextCharCount > getCharLimit(details.question),
                     unverifiedFactCount: normalizedCitations.unverifiedFactIndexes.length,
                     citationsVerified: normalizedCitations.unverifiedFactIndexes.length === 0,
+                    factReviewVersion: 1,
                 },
             })
             .eq('id', selected.id)
@@ -1426,6 +1514,10 @@ export const writingSessionService = {
         const selected = details.drafts.find(draft => draft.status === 'selected');
         if (!selected) throw new WritingSessionServiceError('conflict', '최종 확정할 초안을 먼저 선택해 주세요.', 409);
         if (selected.charCount > getCharLimit(details.question)) throw new WritingSessionServiceError('conflict', '글자 수 제한을 넘은 초안은 최종 확정할 수 없습니다.', 409);
+        const selectedFactCitations = details.factCitations.filter(citation => citation.draftCandidateId === selected.id);
+        if (!isUserFactCheckReviewed(selected.validationResult, selectedFactCitations)) {
+            throw new WritingSessionServiceError('conflict', 'AI가 제안한 문장 근거를 직접 확인하고 저장한 뒤 최종 확정해 주세요.', 409);
+        }
         const allowedEvidenceIds = new Set(details.matches
             .filter(item => ['selected', 'locked'].includes(item.match.selectionState))
             .map(item => item.match.evidenceRecordId));

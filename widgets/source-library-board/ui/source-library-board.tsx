@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/shared/ui';
 import type { SourceDocument, SourceFragment } from '@/entities/source-document';
 import type { CareerCandidate } from '@/features/career-extraction';
+import { CAREER_ITEM_KIND_LABELS } from '@/entities/career-item';
 import { filterSourceDocuments } from '@/features/source-search';
 import {
     SOURCE_KIND_LABELS,
@@ -32,16 +33,6 @@ import {
 type SourceDetail = {
     document: SourceDocument;
     fragments: SourceFragment[];
-};
-
-const CAREER_KIND_LABELS: Record<CareerCandidate['kind'], string> = {
-    project: '프로젝트',
-    work: '경력',
-    education: '교육',
-    award: '수상',
-    leadership: '리더십',
-    community: '커뮤니티',
-    other: '기타',
 };
 
 function statusVariant(status: SourceDocument['status']) {
@@ -520,7 +511,7 @@ export function SourceLibraryBoard() {
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="min-w-0">
                                                                     <div className="flex flex-wrap items-center gap-2">
-                                                                        <Badge variant="pending">{CAREER_KIND_LABELS[candidate.kind]}</Badge>
+                                                                        <Badge variant="pending">{CAREER_ITEM_KIND_LABELS[candidate.kind]}</Badge>
                                                                         {candidate.confidence != null && <span className="text-xs text-zinc-500">신뢰도 {Math.round(candidate.confidence * 100)}%</span>}
                                                                     </div>
                                                                     <h5 className="mt-2 text-sm font-semibold text-white">{candidate.title}</h5>

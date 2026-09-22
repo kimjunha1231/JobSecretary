@@ -41,6 +41,14 @@ describe('career activity search', () => {
         expect(filterCareerActivities(activities, { query: 'jobsecretary', kind: 'education' })).toHaveLength(0);
     });
 
+    it('filters credential activities separately from education and awards', () => {
+        const credential = activity({ kind: 'credential', title: 'SQL 개발자 자격시험', organization: '한국데이터산업진흥원' });
+        const allActivities = [...activities, credential];
+
+        expect(filterCareerActivities(allActivities, { kind: 'credential' })).toEqual([credential]);
+        expect(filterCareerActivities(allActivities, { kind: 'education' })).toEqual([activities[1]]);
+    });
+
     it('returns all activities for an empty or invalid filter', () => {
         expect(filterCareerActivities(activities)).toEqual(activities);
         expect(filterCareerActivities(activities, { query: '   ', kind: 'not-a-kind' })).toEqual(activities);

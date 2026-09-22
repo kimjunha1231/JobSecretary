@@ -79,12 +79,114 @@ function verifyReadOnlyScripts(): void {
         ['20260919070000', ['rls-m5h-blind-style-preferences.sql']],
         ['20260920010000', ['rls-m5j-source-style-examples.sql']],
         ['20260921010000', ['rls-m5k-retrieval-labels.sql']],
+        ['20260922010000', ['rls-m6h-career-profiles.sql']],
+        ['20260922020000', ['m6n-career-credential-kind.sql']],
+        ['20260922030000', ['m6r-career-activity-revisions.sql']],
     ];
     const missing = required.flatMap(([, expected]) => expected.filter(file => !verifyFiles.has(file)));
     addCheck(
         'Read-only Supabase verify SQL coverage',
         missing.length === 0,
         missing.length === 0 ? `${required.length}개 migration 그룹의 verify SQL 확인됨` : `누락: ${missing.join(', ')}`,
+    );
+
+    const careerProfileVerify = read('supabase/verify/rls-m6h-career-profiles.sql')
+        .replace(/--.*$/gm, '')
+        .trim();
+    const careerProfileStatements = careerProfileVerify
+        .split(';')
+        .map(statement => statement.trim())
+        .filter(Boolean);
+    const careerProfileVerifyIsReadOnly = careerProfileStatements.length > 0
+        && careerProfileStatements.every(statement => /^select\b/i.test(statement));
+    const careerProfileSecurityChecks = [
+        'has_table_privilege',
+        'row_security_forced',
+        'has_only_expected_owner_policies',
+        'has_user_id_primary_key',
+        'has_auth_user_cascade_foreign_key',
+        'has_skills_limit',
+        'has_all_profile_length_checks',
+        'pg_policies',
+    ].every(fragment => careerProfileVerify.includes(fragment));
+    addCheck(
+        'Career profile verify security coverage',
+        careerProfileVerifyIsReadOnly && careerProfileSecurityChecks,
+        careerProfileVerifyIsReadOnly && careerProfileSecurityChecks
+            ? 'RLS, effective grants, owner policies, keys, and input limits are checked with SELECT only'
+            : 'career_profiles verify SQL의 읽기 전용 및 보안 확인 항목을 검토해야 함',
+    );
+
+    const credentialKindMigration = read('supabase/migrations/20260922020000_m6n_career_credential_kind.sql');
+    const credentialKindVerify = read('supabase/verify/m6n-career-credential-kind.sql')
+        .replace(/--.*$/gm, '')
+        .trim();
+    const credentialKindStatements = credentialKindVerify
+        .split(';')
+        .map(statement => statement.trim())
+        .filter(Boolean);
+    const credentialKindVerifyIsReadOnly = credentialKindStatements.length > 0
+        && credentialKindStatements.every(statement => /^select\b/i.test(statement));
+    const credentialKindContractPresent = credentialKindMigration.includes('career_items_kind_check')
+        && credentialKindMigration.includes("'credential'")
+        && credentialKindVerify.includes('career_items_kind_check')
+        && credentialKindVerify.includes('has_credential_kind_check');
+    addCheck(
+        'Career credential kind migration coverage',
+        credentialKindVerifyIsReadOnly && credentialKindContractPresent,
+        credentialKindVerifyIsReadOnly && credentialKindContractPresent
+            ? 'credential 종류의 additive constraint migration과 SELECT-only verify SQL 확인됨'
+            : 'career_items credential constraint migration/verify SQL을 검토해야 함',
+    );
+
+    const activityRevisionMigration = read('supabase/migrations/20260922030000_m6r_career_activity_revisions.sql');
+    const activityRevisionVerify = read('supabase/verify/m6r-career-activity-revisions.sql')
+        .replace(/--.*$/gm, '')
+        .trim();
+    const activityRevisionStatements = activityRevisionVerify
+        .split(';')
+        .map(statement => statement.trim())
+        .filter(Boolean);
+    const activityRevisionVerifyIsReadOnly = activityRevisionStatements.length > 0
+        && activityRevisionStatements.every(statement => /^select\b/i.test(statement));
+    const reviseFunctionStart = activityRevisionMigration.indexOf('create or replace function public.revise_evidence_activity(');
+    const restoreFunctionStart = activityRevisionMigration.indexOf('create or replace function public.restore_evidence_activity_revision(');
+    const statusFunctionStart = activityRevisionMigration.indexOf('create or replace function public.set_evidence_activity_status(');
+    const reviseFunctionSql = reviseFunctionStart >= 0 && restoreFunctionStart > reviseFunctionStart
+        ? activityRevisionMigration.slice(reviseFunctionStart, restoreFunctionStart)
+        : '';
+    const restoreFunctionSql = restoreFunctionStart >= 0 && statusFunctionStart > restoreFunctionStart
+        ? activityRevisionMigration.slice(restoreFunctionStart, statusFunctionStart)
+        : '';
+    const activityRevisionSecurityContract = [
+        'security invoker',
+        "set search_path = ''",
+        'auth.uid()',
+        'revoke all on function',
+        'to authenticated',
+        'career_item_snapshot',
+        'revision_of',
+        'restored_from_id',
+    ].every(fragment => activityRevisionMigration.toLowerCase().includes(fragment.toLowerCase()))
+        && activityRevisionMigration.toLowerCase().includes('p_next_status is null')
+        && reviseFunctionSql.length > 0
+        && !reviseFunctionSql.includes('public.evidence_sources')
+        && restoreFunctionSql.includes('insert into public.evidence_sources')
+        && restoreFunctionSql.includes('source.evidence_record_id = v_target_record.id');
+    const activityRevisionVerifyContract = [
+        'has_revision_columns',
+        'uses_security_invoker',
+        'has_empty_search_path',
+        'authenticated_can_execute_all',
+        'anon_cannot_execute_any',
+        'public_cannot_execute_any',
+    ].every(fragment => activityRevisionVerify.includes(fragment));
+    addCheck(
+        'Career activity revision migration coverage',
+        activityRevisionVerifyIsReadOnly && activityRevisionSecurityContract && activityRevisionVerifyContract,
+        activityRevisionVerifyIsReadOnly && activityRevisionSecurityContract && activityRevisionVerifyContract
+            ? 'revision columns, invoker-only RPC grants, and SELECT-only verification are present'
+            : 'career activity revision migration/verify SQL의 원자성 및 권한 경계를 검토해야 함',
     );
 }
 

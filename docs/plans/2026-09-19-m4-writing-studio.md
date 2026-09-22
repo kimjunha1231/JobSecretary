@@ -309,8 +309,16 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 
 - `buildCareerProfilePdfPayload`가 승인된 `career_items`·`evidence_records`만 안전한 문단으로 묶고 `/api/career/export?format=portfolio|resume`에서 서버 PDF로 반환한다.
 - `/career`에 승인된 활동 라이브러리와 포트폴리오·이력서 PDF 다운로드 링크를 추가했다. 기존 원본 자료와 검수 흐름은 삭제하거나 덮어쓰지 않는다.
-- 활동 PDF에 승인된 프로젝트의 역할·기여·상황/행동/결과·성과·기술만 표시하고 내부 UUID·AI metadata는 넣지 않는다.
+- 활동 PDF에 승인된 프로젝트의 역할·기여·상황/행동/결과·성과·기술만 표시하고 내부 UUID·AI metadata는 넣지 않는다. 최초 구현은 이력서와 포트폴리오의 본문 구성 차이가 충분하지 않았다.
 - 검증: PDF payload 단위 테스트에 승인 경계·내부 ID 비노출·빈 목록 차단을 추가했고 `npm run harness:verify`(25개 스위트/187개 테스트), 더미 환경변수 `npm run build`, `git diff --check`를 통과했다.
+
+### M6-b 보완: 이력서와 포트폴리오 출력 분리 (2026-09-22)
+
+- 이력서는 조직·역할·기간을 메타 정보로 분리하고 요약·기여·행동·결과·성과·기술을 간결한 목록과 촘촘한 레이아웃으로 출력한다. 결과 문장에 정량 성과가 이미 포함되어 있으면 같은 지표를 반복하지 않는다.
+- 포트폴리오는 조직·역할·기간 아래에 상황·문제·행동·결과·배운 점을 사례 서술형으로 유지한다. 두 출력 모두 승인된 활동만 사용하고 내부 식별자를 포함하지 않는다.
+- `/career` 내보내기 선택 영역에 두 출력의 차이를 설명하는 안내를 추가했다.
+- 검증: 전체 `npm run harness:verify`(49개 스위트/282개 테스트), Playwright E2E 19개, 더미 환경변수 `npm run build`, `npm run rollout:verify`(7개 검사), `git diff --check` 통과. 합성 자료로 이력서/포트폴리오 PDF를 렌더링해 A4 여백·한국어 글꼴·페이지 나눔을 시각 확인했다.
+- Preview `https://coverlettervault-gupjoiokq-junhas-projects-a748ef77.vercel.app` 배포 `dpl_GUjcqdsxTFRAK22DqaX3SqoRDrmC`는 `READY`다. `/` 200, 비로그인 `/career` 307, 두 내보내기 API 401을 확인했고 배포 로그에 오류·경고가 없었다. Production alias와 원격 Supabase는 변경하지 않았다.
 
 ## M6-c 선택형 경력 자료 출력
 
@@ -514,3 +522,336 @@ blind route의 성공·오류 응답, 잘못된 ID·인증 경계와 service 입
 ### M5-l 검증 결과
 
 `npm run harness:verify`(49개 스위트/280개 테스트), 더미 환경변수 `npm run build`, Playwright Chromium E2E, `git diff --check`를 통과했다. 승인되지 않은 예문이 세션 생성 전에 차단되는 서버 경계도 단위 테스트로 확인했다. 실제 말투 예문 선택과 생성 결과의 체감 품질은 인증된 사용자 평가가 필요하므로 운영 배포 후 별도 측정 대상으로 남긴다.
+
+## M6-h 개인 이력서 프로필과 PDF 반영
+
+### 현재 근거
+
+- 제공된 이력서·포트폴리오는 이미지형 PDF라 텍스트 레이어가 없다. 로컬 OCR로 구조를 확인한 결과, 기본 인적사항·소개·핵심 기술 외에 학력·자격·수상·프로젝트가 제출 자료의 핵심을 이룬다.
+- `/career`의 기존 PDF는 승인 활동을 출력하지만 이름, 소개, 연락처, 개인 링크, 전체 핵심 기술을 입력·저장하는 사용자 소유 리소스는 없다.
+- 기존 경력 자료 종류에 `education`·`award`가 이미 있으므로 중복 데이터 모델은 추가하지 않고, 승인된 활동과 개인 헤더를 한 PDF에서 조합한다.
+
+### 목표와 완료 조건
+
+1. 사용자가 `/career`에서 이름·직무 소개·요약·연락처·링크·핵심 기술을 편집하고 저장할 수 있다.
+2. 프로필은 로그인한 사용자만 읽고 수정할 수 있도록 별도 additive migration과 강제 RLS 정책으로 보호한다.
+3. 이력서·포트폴리오 PDF에 입력한 프로필과 선택한 승인 활동을 함께 반영하되, 값이 비어 있으면 임의 정보를 만들지 않는다.
+4. 프로필 테이블 migration 전 환경에서도 기존 승인 활동 PDF 다운로드는 계속 작동한다. 편집 화면은 migration 누락을 분명히 알린다.
+5. 클라이언트의 사용자 ID를 신뢰하지 않고 서버 인증 세션에서 소유자를 결정하며, 원격 DB에 직접 DDL/DML을 실행하지 않는다.
+
+### 실행 순서
+
+1. 사용자 소유 `career_profiles` 테이블·RLS migration 및 읽기 전용 검증 SQL 추가
+2. 입력 검증이 포함된 GET/PUT 단일 사용자 프로필 API 구현
+3. `/career` 편집 UI와 접근성·로딩·실패 상태 연결
+4. 승인 활동 PDF builder/renderer에 프로필 소개·기술·연락 링크 연결
+5. 소유권·입력·출력 회귀 테스트, rollout preflight, build·E2E 확인 후 계획 갱신
+
+### 위험과 경계
+
+- 연락처는 개인정보이므로 owner-only RLS를 적용하고 로그·분석 이벤트·생성 prompt에 포함하지 않는다. 이 단계에서는 사용자가 PDF 출력을 직접 요청한 경우에만 문서에 포함한다.
+- migration은 저장소에만 추가한다. Supabase 운영 적용은 별도 검증과 사용자 확인 뒤 진행한다.
+
+### 실행 결과와 검증
+
+- `career_profiles` 단일 사용자 행 테이블과 강제 RLS, `anon`/`public` 권한 회수, 인증 사용자 최소 권한(select/insert/update)만 허용하는 additive migration을 추가했다. 함께 제공하는 verify SQL은 컬럼·사용자 키·외래 키 cascade·RLS 강제·owner policy·권한을 읽기 전용으로 확인한다.
+- `/api/career-profiles/me` GET/PUT은 세션에서 user ID를 구하고, 클라이언트가 보내는 user ID를 거부한다. 이메일·HTTP(S) 링크·길이·기술 목록을 검증하고, 프로필 응답은 `private, no-store`로 반환한다.
+- `/career`에 이름·직무 소개·요약·연락처·개인 링크·핵심 기술 편집기를 추가했다. 저장 프로필은 생성 AI context에 넣지 않고, PDF에서만 사용한다. 학력·수상·프로젝트는 기존 승인 활동 모델을 재사용한다.
+- 이력서·포트폴리오 PDF에 이름·소개·연락처·클릭 가능한 링크·핵심 기술을 추가했고, 기존 승인 활동 상세는 그대로 포함한다. 프로필 테이블이 아직 없는 환경에서는 기존 PDF export만 활동 기반으로 계속 작동한다.
+- 검증: `npm run harness:verify -- --runInBand` 53개 스위트/295개 테스트, 더미 Supabase 환경변수 기반 `npm run build`, `npm run rollout:verify` 7개 사전 점검, Playwright Chromium E2E 19개, `git diff --check` 통과.
+- Supabase 운영 migration 적용과 Vercel 배포는 실행하지 않았다. 따라서 기존 PDF 다운로드는 가능하지만, 새 프로필 저장 기능은 해당 migration 적용 후 활성화된다. 원본 이력서의 인적 정보는 코드나 DB에 임의 복사하지 않았으므로 프로필 화면에서 사용자가 확인 후 입력해야 한다.
+
+## M6-i 이력서 프로필의 선택형 작성 context
+
+### 현재 근거
+
+- M6-h에서 `career_profiles`와 편집·PDF 흐름을 추가했지만, `features/writing-studio/api/generate-writing-candidates.ts`의 context에는 지원 대상·문항·말투·선택 활동만 들어간다.
+- 사용자의 직무 소개·요약·핵심 기술은 사용자가 요청한 자기소개서 작성 근거로 연결되어 있지 않다. 이름·이메일·전화번호·위치·외부 링크까지 전달할 필요는 없다.
+- 작성 세션은 이미 `generation_settings` JSON을 저장하므로 새 원격 스키마 변경 없이 opt-in과 서버가 만든 비민감 프로필 snapshot을 세션 단위로 보존할 수 있다.
+
+### 완료 조건
+
+1. 새 작성 세션에서 프로필 사용은 기본 비활성이고 사용자가 매번 명시적으로 선택한다.
+2. 선택 시 서버가 인증 사용자 프로필을 가져오며, 직무 소개·요약·핵심 기술만 세션 snapshot과 AI context에 포함한다. 클라이언트 임의 프로필 값은 받지 않는다.
+3. 이름·연락처·위치·개인 링크는 세션 설정·AI prompt에 저장/전달되지 않는다.
+4. 프로필은 강조 방향을 안내할 뿐 프로젝트·성과·회사·날짜·수치를 뒷받침하는 근거로 사용하지 않는다. 구체 주장은 계속 사용자가 선택한 승인 활동과 citation으로 제한한다.
+5. 비활성·기존 세션의 동작은 그대로 유지되고, 프로필 migration 누락/빈 프로필은 작성 자료를 만들기 전에 명확한 오류로 반환한다.
+
+### 실행 순서와 검증
+
+1. `/writing/new`에 기본 꺼짐의 프로필 참고 선택과 전송 범위 안내를 추가하고 request에 boolean opt-in만 보낸다.
+2. 작성 세션 서비스가 opt-in이 켜진 경우에만 서버 세션으로 프로필을 확인하고 허용 필드만 `generation_settings`에 snapshot으로 저장한다.
+3. outline/draft prompt에 허용된 snapshot만 포함하고, 근거·citation system instruction의 범위는 바꾸지 않는다.
+4. 입력 경계, owner lookup, 미적용 migration/빈 profile, 연락처 비포함, opt-in/default-off, prompt grounding을 자동 테스트한다.
+5. harness, build, rollout preflight, diff 검증 후 운영 Supabase/Vercel은 변경하지 않고 계획을 갱신한다.
+
+### 위험과 경계
+
+- 사용자가 opt-in했을 때만 선택한 직무 소개·요약·기술이 외부 AI provider의 생성 입력이 된다. 이를 화면에서 명시하고 세션별로 기본 꺼짐을 유지한다.
+- 프로필 내용은 사용자 작성 맥락이지 활동 증거가 아니다. 성과 주장이나 인용 허용목록을 확대하지 않는다.
+
+### 실행 결과와 검증
+
+- `/writing/new`에 기본 꺼짐의 세션별 opt-in을 추가했고, 선택되는 필드와 제외되는 개인정보를 생성 전에 안내한다. 작성 작업대에서도 실제 사용된 snapshot을 확인할 수 있다.
+- `writingSessionService.create`는 opt-in일 때만 현재 로그인 사용자 프로필을 조회하고 `headline`·`summary`·`skills`만 `generation_settings`에 저장한다. 빈 프로필 또는 career profile migration 미적용은 cover letter/session row를 만들기 전에 오류로 끝난다.
+- 실제 저장 경로 테스트에서 opt-in한 작성 세션에 허용된 세 필드만 저장되고 이름·연락처·위치·개인 링크가 snapshot에 남지 않는 것을 확인했다. 이 검증 중 말투 프로필이 없는 세션의 DB `NULL`을 문자열로 파싱하던 기존 오류를 발견해 `styleProfileId` 매핑을 nullable 처리했다.
+- outline·draft AI context는 허용 필드만 JSON으로 전달한다. system instruction은 이를 강조 방향으로만 사용하고 구체 성과·수치·회사·프로젝트 주장은 사용자가 고른 승인 활동과 기존 citation으로만 뒷받침하도록 유지한다. 이름·연락처·위치·링크는 snapshot과 prompt 모두에 들어가지 않는다.
+- 검증: 이번 변경 후 `npm run harness:verify -- --runInBand` 55개 스위트/302개 테스트, `npm run rollout:verify` 7개 점검, `git diff --check` 통과. 더미 Supabase 환경변수 기반 `npm run build`와 Playwright Chromium E2E 19개는 직전 M6-i 검증 결과이며, 이번 서비스의 nullable 매핑 변경 뒤에는 재실행하지 않았다. 빌드는 기존 Edge Runtime 정적 생성 경고와 함께 성공했다.
+- 추가 migration은 필요하지 않다. 운영 Supabase와 Vercel은 변경하지 않았으며, 프로필 opt-in은 M6-h의 `career_profiles` migration 적용 및 프로필 저장 이후 사용 가능하다.
+
+## M6-j 지원 대상 화면의 채용 링크 등록 흐름
+
+### 현재 근거와 범위
+
+- `/career`의 `SourceImportForm`은 이미 공개 웹페이지/PDF URL을 `job_post` 또는 `talent_page` 자료로 등록할 수 있고, URL 가져오기는 HTTPS 허용·DNS/IP 검사·redirect 제한·크기·시간 제한을 둔다.
+- `/jobs`는 해당 자료를 지원 대상에 연결해 분석하고 `responsibility`·`required`·`preferred`·`value`·`question` 후보를 원문 fragment 출처와 함께 보여준다. 다만 링크 등록과 요구사항 분석 사이에 `/career`로 이동해야 하며, 자료 선택 목록에는 검수 전 문서도 노출된다.
+- 목표는 새 분석 모델이나 외부 서비스가 아니라, 기존의 안전한 URL 수집·원문 검수·출처 기반 분석을 `/jobs`에서 더 발견하기 쉽고 잘못된 상태로 실행하기 어렵게 연결하는 것이다.
+
+### 완료 조건과 검증
+
+1. `/jobs`에서 채용공고·인재상 자료를 바로 등록할 수 있고, 등록된 자료가 목록에 갱신된다. 확인: UI 테스트가 URL request와 생성 callback을 확인한다.
+2. 이 화면의 등록기는 `job_post`/`talent_page`만 노출하고 URL 모드로 시작하되, 공용 자료 등록기는 기존 기본값을 유지한다. 확인: 기본/제한 모드 UI 테스트.
+3. 지원 대상 분석에 연결 가능한 문서는 승인된 자료만 선택 가능하고, 검수 대기 건에는 검수 안내 경로가 보인다. 확인: 화면 조건 검토와 type/lint/build.
+4. AI는 기존 출처 기반 분석 API를 그대로 사용하고 migration, Supabase 운영 데이터, Vercel 배포에는 손대지 않는다. 확인: diff와 rollout preflight.
+
+### 구현 순서와 위험 경계
+
+1. `SourceImportForm`에 선택 가능한 자료 종류와 초기 종류/입력 방식을 선택적으로 받도록 확장하고 기본 사용의 기존 동작을 보존한다.
+2. `JobTargetBoard`의 생성 폼과 분리된 접이식 영역에 제한형 가져오기를 배치하고 생성 후 자료를 다시 불러온다. 승인된 자료만 연결 후보로 보여 주고, 미승인 자료에는 `/career` 검수 안내를 제공한다.
+3. 컴포넌트 테스트, 전체 harness, build, rollout preflight, diff 검증 후 이 계획의 결과를 갱신한다.
+
+URL이 로그인 뒤에서만 보이거나 JavaScript 렌더링이 필수인 페이지는 기존 지원 범위 밖이며, 이 단계에서 우회 수집이나 자동 승인은 추가하지 않는다.
+
+### 실행 결과와 검증
+
+- `/jobs`에 접이식 채용공고·인재상 가져오기를 추가했다. 이 화면에서는 URL 입력을 기본 선택하고 자료 종류를 `job_post`/`talent_page`로 제한한다. 등록 성공 후 지원 대상 및 자료 목록을 다시 불러온다.
+- 지원 대상 등록에는 승인된 공고·인재상만 선택 후보로 보여 준다. 검수 전·처리 중 자료는 분석에 연결되지 않는다는 안내와 `/career` 검수 화면 링크를 제공하며, 기존 자료 라이브러리 등록기의 종류·파일 업로드 기본값은 그대로 유지한다.
+- 테스트: 제한형 URL 등록의 POST 본문/callback, 자료 라이브러리 기본값, `/jobs` 승인 자료 필터·인라인 URL 기본값을 확인했다. `npm run harness:verify -- --runInBand`: 57개 스위트/305개 테스트 통과.
+- 더미 Supabase 환경변수 기반 `npm run build` 통과. 기존 Supabase realtime-js Edge Runtime 경고와 빌드 캐시의 큰 문자열 경고가 있었고, 새 오류는 없었다. `npm run rollout:verify` 7개 점검 및 `git diff --check` 통과.
+- 공개 URL의 SSRF 방어, 페이지 추출 한계, 원문 수동 검수, 근거 fragment 인용 분석을 변경하지 않았다. 운영 Supabase와 Vercel은 변경하지 않았다.
+
+## M6-k 작성 시작 전 프로필 context 준비 상태 확인
+
+### 현재 근거와 범위
+
+- M6-i에서는 프로필 context를 세션별 opt-in으로 안전하게 저장하지만, `/writing/new`은 프로필 저장 여부·필요 필드·migration 이용 가능 여부를 확인하지 않고 체크박스를 항상 활성화한다. 사용자가 프로필이 비어 있거나 저장 기능이 준비되지 않은 상태에서 선택해야만 세션 생성 오류를 알 수 있다.
+- `/api/career-profiles/me`는 기존 인증 API이며 `headline`·`summary`·`skills` 중 하나 이상이 있으면 작성 참고 context로 유효하다. 나머지 일반 자기소개서 시작 흐름은 프로필 없이도 계속 가능해야 한다.
+
+### 완료 조건과 검증
+
+1. 프로필 상태를 확인 중/준비됨/내용 없음/기능 사용 불가로 구분하고, headline·summary·skills 중 하나가 있어야 체크할 수 있다. 확인: UI 서비스 응답별 테스트.
+2. missing/unavailable 상태에서 일반 작성은 가능하며 프로필 입력·확인 경로와 쉬운 안내를 제공한다. 확인: session-start UI 테스트.
+3. 선택 프로필 조회는 지원 대상·말투 프로필 로딩이나 작성 시작을 막지 않는다. 확인: profile request를 미해결로 둔 비차단 테스트.
+4. DB·AI prompt·Analytics 계약과 원격 상태는 변경하지 않는다. 확인: diff review, harness, build, rollout preflight.
+
+### 실행 결과와 검증
+
+- `/writing/new`이 프로필 준비 상태를 확인한다. context에 허용된 직무 소개·요약·기술이 없으면 체크박스를 비활성화하고 `/career#career-profile-title`로 안내한다. API/migration 확인 실패도 일반 작성을 차단하지 않고 별도 메시지를 보인다.
+- 프로필 검사는 지원 대상·말투 프로필 조회와 독립 실행하므로 느린 프로필 응답이 필수 작성 시작 UI를 막지 않는다. profile 값은 analytics나 클라이언트 로그로 보내지 않는다.
+- 응답별 UI, 누락 프로필, 기능 불가, 미해결 profile request 비차단을 검사했다. `npm run harness:verify -- --runInBand`: 57개 스위트/308개 테스트 통과; 더미 Supabase 환경변수 `npm run build` 통과; `npm run rollout:verify` 7개 점검 및 `git diff --check` 통과.
+- 운영 Supabase와 Vercel은 변경하지 않았다. 인증된 사용자로 실제 저장·생성 흐름을 확인하는 Preview 단계는 migration 적용 후 진행해야 한다.
+
+## M6-l 개인 프로필 migration의 최소 권한 검증 강화
+
+### 근거와 변경
+
+- M6-h의 migration은 `authenticated`에 최소 권한을 grant했지만, 테이블에 예상 외의 기존 권한이 있으면 이를 회수하지 않았다. 단일 `FOR ALL` 정책은 실제 grant가 없어도 쓰기/삭제 policy 경계를 필요 이상으로 넓게 표현했다.
+- migration에서 `anon`, `authenticated`, `public`의 기존 table grants를 회수한 뒤 `authenticated`에 select/insert/update만 부여한다. 삭제 권한은 열지 않고, SELECT·INSERT·UPDATE 각각에 owner 검사 정책을 분리했다. 예상하지 않은 기존 정책이 있으면 migration을 중단해 검토하도록 했다.
+- 읽기 전용 verify SQL은 RLS/정책 조건, anon과 authenticated의 유효 table privilege, user_id PK, `auth.users(id)` cascade FK, 입력 제한을 확인하고 정의도 조회한다. rollout preflight는 해당 스크립트가 SELECT 문으로만 구성되는지와 핵심 확인 항목의 존재를 검사한다.
+
+### 검증 및 경계
+
+- `npm run rollout:verify`: 8개 점검 통과. `git diff --check` 통과.
+- 이 환경에는 `psql` 실행 파일이 없어 verify SQL을 실제 PostgreSQL에서 파싱·실행하지 못했다. 따라서 SQL 결과가 운영 Supabase에서 검증되었다고 간주하지 않는다.
+- 원격 Supabase와 Vercel은 읽거나 변경하지 않았고, migration은 로컬 파일로만 준비되어 있다.
+
+## M6-m 프로필 context의 초안 사실 근거 회귀 테스트
+
+### 검토 근거와 보완
+
+- 초안 생성 system instruction에는 프로필을 사용자가 선택한 강조 방향으로만 활용하고, 활동 근거에 없는 프로젝트·성과·회사·날짜·수치의 근거로 사용하지 말라는 규칙이 이미 있다.
+- 기존 테스트는 허용된 프로필 필드가 JSON context에 들어가고 개인정보가 제외되는 점은 확인했지만, 실제 draft 생성 요청의 system instruction에 해당 규칙이 포함되는지, 프로필에만 있는 수치가 근거 없이 생성되면 저장 전에 거부되는지는 고정하지 않았다.
+- 별도 생성 규칙은 바꾸지 않고 실제 `generateDraftCandidates` 호출을 통해 위 경계를 검증하는 회귀 테스트를 추가했다.
+
+### 검증 및 경계
+
+- 프로필 요약에만 존재하는 `75%` 성과를 draft 후보가 근거 연결 없이 주장하면 사실 문장 검증에서 거부되고 `replaceDrafts`로 저장되지 않는 것을 확인했다. 요청 prompt에는 프로필 context와 강조 방향 전용 규칙이 모두 포함된다.
+- `npm run harness:verify -- --runInBand`: lint·TypeScript 검사 통과, 57개 스위트/309개 테스트 통과. `npm run rollout:verify`: 8개 점검 통과. `git diff --check` 통과.
+- 이번 보완은 테스트만 추가했으며 프롬프트 동작, DB, 외부 배포 상태는 변경하지 않았다.
+
+## M6-n 자격·어학 이력 유형 지원
+
+### 현재 근거와 범위
+
+- 제공된 이력서에는 자격증과 어학 시험 성적이 별도 이력으로 기록되어 있다. 포트폴리오도 자격·수상·프로젝트를 분리해 구성한다.
+- 현재 `CareerItemKindSchema`와 `career_items.kind` 제약에는 자격·어학 유형이 없어 AI 후보가 이를 `other`나 `education`으로 뭉뚱그릴 수 있다.
+- UI 표기는 `자격·어학`, 저장 enum은 교육 수료·수상 이력과 구분되는 `credential`을 사용한다. 사용자가 검수·승인하기 전 후보 상태와 근거 인용 규칙은 그대로 둔다.
+
+### 완료 조건과 검증
+
+1. 공통 Zod 타입과 Supabase 제약이 `credential`을 허용한다. 확인: migration preflight와 rollout의 SELECT-only 검증 SQL.
+2. 후보 추출 prompt가 자격증·면허·어학 시험, 교육 수료, 수상을 서로 구분하며 새 유형도 기존 source fragment 검증을 통과해야 한다. 확인: 추출 parser/grounding 테스트.
+3. 자료 후보 카드와 승인 활동 필터에서 모두 `자격·어학`으로 표시되고 검색할 수 있다. 확인: 검색 테스트와 TypeScript/UI 정적 검증.
+4. 원본 자료, 사용자 레코드, 운영 Supabase/Vercel에는 직접 쓰지 않는다. migration은 로컬에만 준비한다.
+
+### 실행 결과와 검증
+
+- 공통 `CareerItemKindSchema`와 자료 후보/승인 활동의 표시에 `credential`을 추가했다. 작성 안내는 자격증·면허·어학 시험을 자격·어학으로, 교육 수료와 수상을 각각 별도 유형으로 안내하며 원문 fragment 검수 규칙은 유지한다.
+- 기존 M1 migration은 수정하지 않았다. `20260922020000_m6n_career_credential_kind.sql`에 additive check constraint 교체를 추가했고, `supabase/verify/m6n-career-credential-kind.sql`은 constraint 포함 여부만 SELECT로 확인한다. rollout preflight도 새 migration 순서와 read-only 검사 포함 여부를 확인한다.
+- 자격·어학 후보 parser/source-grounding 및 활동 필터 테스트를 추가했다. `npm run harness:verify -- --runInBand`: lint·TypeScript 통과, 57개 스위트/311개 테스트 통과. `npm run rollout:verify`: 9개 점검 통과. 더미 환경변수 기반 `npm run build` 성공, `git diff --check` 통과.
+- 빌드에는 기존 `@supabase/realtime-js` Edge Runtime 호환 경고와 webpack 캐시의 큰 문자열 경고가 있었다. 이번 변경에서 발생한 빌드 오류는 없었다.
+- PDF는 로컬에서 시각적으로만 검토했으며 OCR 원문을 Gemini에 전송하지 않았다. Supabase CLI/psql 연동이 없어 migration·verify SQL을 원격에 적용하거나 실제 DB에서 실행하지 않았다. Vercel 배포도 하지 않았다.
+
+## M6-o 활동 라이브러리 직접 등록과 유형 선택
+
+### 현재 근거와 범위
+
+- `/career`는 승인 활동을 검색·필터링·PDF 선택하는 목록이지만 그 화면에서 새 활동을 직접 등록할 수는 없다. `/writing`의 활동 직접 입력은 현재 활동 종류를 전달하지 않아 API 기본값인 `project`로 저장된다.
+- `evidenceRecordService.createManual`은 이미 종류·기관·역할·기간·요약·근거 서술을 받아 Career Item과 Evidence Record를 만들고, 사용자가 직접 저장한 항목을 승인 상태로 둔다.
+- 도메인 경계상 원본 자료에서 추출한 사실은 승인된 Source Fragment에 연결하고, 직접 작성한 사실은 저장 동작으로 확정된 사용자 직접 입력 근거로 구분한다.
+
+### 완료 조건과 검증
+
+1. `/career`에서 사용자가 활동을 직접 추가할 수 있고, 모든 Career Item 종류(자격·어학 포함), 기관, 역할/등급, 기간과 요약/행동/결과를 보낼 수 있다. 확인: 활동 목록 컴포넌트 테스트가 POST payload와 새 목록 반영을 확인한다.
+2. `/writing`의 기존 직접 입력도 같은 폼과 종류 선택을 사용하며 기존 활동명·행동·결과 필수 조건을 유지한다. 확인: 폼 단위 테스트와 전체 UI/type 검사.
+3. 수동 기록의 필드·길이·소유권 검증은 기존 API를 그대로 사용한다. 새 테이블·migration은 만들지 않으며 원격 Supabase/Vercel은 변경하지 않는다.
+4. 터치·키보드·좁은 화면에서도 폼을 사용하고 제출 중·검증 오류 상태를 알 수 있다. 확인: label/role 기반 접근성 테스트 및 responsive class review.
+
+### 구현 순서
+
+1. 공유 `manual-career-entry` feature form과 값 타입을 만든다. 업무 맥락에 따라 credential 필드 설명과 writing 모드 필수 조건을 표시한다.
+2. `/career` 활동 보드에 생성·새로고침 흐름을 연결하고, `/writing` 기존 입력 UI를 같은 폼으로 교체한다.
+3. 서비스/UI 회귀 테스트 후 harness, build, rollout preflight, diff 검증을 수행한다.
+
+### 실행 결과
+
+- 공유 폼으로 프로젝트·경력·교육·수상·자격/어학 등 종류를 선택해 직접 저장할 수 있게 했다. `/career`는 저장 성공 응답을 활동 목록에 즉시 반영하고, `/writing`은 기존처럼 행동과 결과를 필수로 확인한 뒤 근거 목록을 다시 연결한다. API 실패 시 폼 입력은 유지한다.
+- 자격·어학 선택 시 필드 안내를 시험/자격명, 발급·시험 기관, 취득·응시 시점, 점수·등급에 맞게 바꾼다. 화면은 기존 다크 기술형 디자인 토큰을 따르고, label·오류 alert·focus ring과 좁은 화면용 grid를 사용한다.
+- 서비스 테스트는 `career_items` insert payload의 credential 종류·기관·역할·기간까지 확인한다. 공유 폼·활동 목록 UI 및 Evidence Record 서비스에 대한 집중 테스트 3개 스위트/8개 테스트 통과.
+- `npm run harness:verify -- --runInBand`: lint·TypeScript 검사 및 58개 스위트/316개 테스트 통과. `npm run rollout:verify`: 9개 점검 통과. 더미 Supabase/AI 환경변수 기반 `npm run build` 성공. `git diff --check` 통과.
+- build에는 webpack의 큰 cache 문자열 경고와 Edge Runtime 페이지의 정적 생성 제한 안내가 있었지만 빌드는 성공했다. rollout 사전 점검은 로컬 파일만 확인하며 원격 Supabase/Vercel은 조회·수정·배포하지 않았다.
+
+## M6-p 직접 입력 활동 수정
+
+### 현재 근거와 범위
+
+- M6-o는 활동을 직접 추가할 수 있게 했지만 `/career` 목록에는 수정 동작이 없고 `app/api/evidence-records/route.ts`도 GET/POST만 제공한다. 입력 오류를 고치려면 새 활동을 중복 생성해야 한다.
+- 이력서/포트폴리오 원본 fragment에 연결된 활동은 `evidence_sources` 인용이 기존 사실을 설명한다. 해당 행을 덮어쓰면 인용이 새 문구를 증명하는 것처럼 남을 수 있다.
+- 이번 단계는 원본 연결이 없는 사용자 직접 입력 활동의 수정만 허용한다. source-linked 활동은 이번 단계에서 편집할 수 없다고 UI/API에서 명확히 알리고, 별도 버전 생성 및 원본 근거 보존은 후속 설계로 남긴다. 하드 삭제나 원격 DB 작업은 범위에 넣지 않는다.
+
+### 완료 조건과 검증
+
+1. `/career`에서 편집 가능한 직접 입력 활동을 불러와 기존 값으로 폼을 채우고 수정 결과를 카드에 반영한다. 확인: 보드 UI 테스트의 GET → PATCH → 갱신 흐름.
+2. 서버는 세션 사용자 소유의 승인 활동만 수정하고, ID/본문 길이와 필수 근거를 Zod로 검증하며 동시 수정은 충돌로 거부한다. 확인: 서비스/API 테스트의 미인증·타인/없는 ID·잘못된 입력·충돌 케이스.
+3. `evidence_sources`가 있는 활동은 수정할 수 없고 인용 데이터를 건드리지 않는다. 확인: source-linked 수정 거절 테스트.
+4. 화면은 출처 연결 건수를 구분해 직접 수정 가능한 항목만 수정 버튼을 제공하고, 저장 중·성공·실패 상태를 키보드와 보조기술에 전달한다. 확인: 접근성 역할 테스트, focus/responsive class review.
+5. DB migration, 외부 서비스 변경 없이 현행 RLS를 통과하는 사용자 JWT 쿼리만 사용한다. 확인: 추가된 모든 DB 조건에 user_id 필터, 전체 harness/build 및 rollout verify.
+
+### 접근과 순서
+
+1. 기존 `EvidenceRecordDetails` 응답에 연결 source 수를 포함해 UI에서 수정 가능 여부를 추측하지 않도록 한다.
+2. `PATCH /api/evidence-records/[id]`와 service update를 추가한다. 서버는 승인 상태/소유권/출처 없음/현재 version을 확인하고, 두 테이블 업데이트가 부분 적용되면 첫 변경을 보상 복구한다. 활동 데이터는 SQL 조합 없이 Supabase query builder로 전달한다.
+3. 공통 입력 폼은 초기값과 진행 중 상태를 지원하게 하고, 활동 카드의 기존 다크 기술형 UI에 행 단위 수정 상태를 추가한다.
+4. 서비스/API/보드 단위 테스트 뒤 harness, rollout verify, production build와 diff 검증을 수행한다.
+
+### 위험과 후속
+
+- 두 행 업데이트는 현재 schema의 독립 REST 쿼리이므로 DB transaction은 아니다. 두 번째 변경 실패 시 보상 복구를 시도하고 복구 실패는 generic storage error로 처리하되, 완전한 원자성이 필요하면 향후 RPC transaction으로 옮긴다.
+- source-linked 활동 수정, 과거 버전 열람/복원, 활동 아카이브는 여전히 미구현이며 이 변경으로 구현 완료로 간주하지 않는다.
+
+### 실행 결과와 검증
+
+- `/career` 활동 카드에 수정 진입을 추가했다. 입력 폼은 기존 항목 값과 현재 진행 상태를 채우며 성공하면 카드 내용을 갱신하고, 실패하면 입력을 유지한다. 직접 만든 항목의 핵심 입력만 바꾸고 폼에 없는 지표·기술·문제·기여 데이터는 업데이트 payload에서 제외해 보존한다.
+- evidence 목록에 source fragment 수를 포함했다. 수가 0인 항목만 편집 버튼이 표시되며 출처 연결 항목에는 차단 사유를 표시한다. API도 같은 출처 검사를 독립적으로 수행한다.
+- `PATCH /api/evidence-records/[id]`는 세션 사용자 ID, 승인 상태, Zod ID/본문 검증, 소유권 조건, optimistic version 조건을 확인한다. Evidence Record 업데이트 실패 시 Career Item 복구를 시도하며 복구 자체가 실패하면 내부 상세를 노출하지 않는 저장 오류를 반환한다.
+- service/API/form/activity-board 회귀 테스트를 추가했다. 미인증, 사용자 범위 밖 ID, malformed ID/JSON, source-linked 차단, stale version 충돌, 두 테이블 변경 및 보상 복구 성공/실패, 편집 폼 초기값과 UI 반영을 검증한다.
+- `npm run harness:verify -- --runInBand`: 린트·TypeScript 통과, 60개 스위트/330개 테스트 통과. `npm run rollout:verify`: 9개 점검 통과. 더미 Supabase/AI 환경변수로 production build 성공. `git diff --check` 통과.
+- Next.js/ESLint 경계 selector 폐기 안내와 Edge Runtime 페이지의 정적 생성 제한 경고가 있었지만 검사·빌드는 통과했다. Supabase 실DB 통합 시험, migration, Vercel 반영은 수행하지 않았다.
+
+## M6-q 활동 보관 및 복원
+
+### 범위와 완료 조건
+
+1. 사용자는 승인된 활동을 삭제하지 않고 보관할 수 있고, 보관함에서 승인 상태로 복원할 수 있다. 확인: `/career` UI에서 보관 → 보관함 이동 → 복원 → 활성 목록 재조회 흐름.
+2. 보관된 활동과 근거는 작성 context 및 PDF 내보내기에서 제외된다. 확인: 기존 `listApproved` 기본값이 승인 상태만 반환한다는 서비스 경계 테스트 및 archive 상태 변경 테스트.
+3. 상태 변경은 로그인한 소유자의 현재 기대 상태/버전에만 적용되고, 두 테이블 변경 중 하나가 실패하면 앞선 변경을 보상 복구한다. 확인: 미인증·타인/없는 ID·stale 상태·rollback 성공/실패 테스트.
+4. 보관함에서는 활동 선택·순서 지정·PDF 출력/수정이 불가능하고 복원만 제공한다. 확인: 키보드 접근 가능한 toggle/button 및 UI 회귀 테스트.
+5. 활동 본문, `evidence_sources`, 원본 파일은 변경/삭제하지 않으며 migration·원격 Supabase/Vercel 조작을 하지 않는다. 확인: mutation payload 및 diff 검토.
+
+### 접근과 순서
+
+1. `listApproved`에 승인/보관 status 필터를 추가하고, 기존 작성·내보내기 호출의 기본 동작은 승인 전용으로 유지한다.
+2. 소유권·상태·version을 조건으로 하는 archive/restore service와 `/api/evidence-records/[id]/status` PATCH route를 추가한다. Career Item과 Evidence Record가 불일치하거나 예상 상태가 아니면 409를 반환한다.
+3. `/career`에 승인 목록/보관함 전환, 상태 변경, 성공·실패 상태를 추가한다. 보관함에서 selection·edit·PDF 액션은 노출하지 않는다.
+4. service/route/UI 테스트 후 필요한 harness, rollout, build, diff 검증을 실행한다.
+
+### 위험과 경계
+
+- 두 테이블은 별도 REST update이므로 완전한 transaction은 아니며, 보상 복구 실패를 검출해 generic storage error로 처리한다. 트랜잭션 보장이 필요하면 별도 승인 하에 DB RPC로 옮긴다.
+- 이 기능은 승인된 활동만 대상으로 한다. needs_review/suggested 항목과 과거 revision 탐색은 범위에 포함하지 않는다.
+
+### 실행 결과와 검증
+
+- `/career` 활동 목록에 보관함 보기/승인 활동 보기 전환을 추가했다. 활성 목록에서 보관하고 보관함에서 복원할 수 있으며, 보관함에는 PDF 선택·출력 및 수정 동작을 노출하지 않는다. 입력 편집·저장·목록 갱신 중에는 목록 전환을 막아 작성 중 내용이나 오래된 상태를 덮지 않게 했다.
+- `GET /api/evidence-records?status=archived`는 사용자 소유의 보관 상태만 반환하며, 기본 목록·작성 컨텍스트·PDF export는 승인 상태만 사용한다. 승인/보관 두 테이블의 상태가 일치하지 않으면 일반 목록에서 제외해 승인 자료로 잘못 사용되지 않도록 했다.
+- `PATCH /api/evidence-records/[id]/status`는 허용 상태만 받고, 사용자 ID·기대 상태·버전 조건을 확인해 Career Item과 Evidence Record를 함께 변경한다. 두 번째 쓰기 실패 시 첫 쓰기를 보상 복구하고 복구 실패는 generic storage error로 반환한다. `evidence_sources`와 본문/원본은 수정하거나 삭제하지 않는다.
+- service/API/UI 회귀 테스트에서 인증, 잘못된 상태, 없는 ID, 상태 충돌, optimistic version 충돌, 보상 복구, 인용 건수 보존, 보관 목록 전환과 복원 및 보관함에서 출력 대상 제외를 확인했다.
+- 검증: `npm run harness:verify -- --runInBand` 린트·TypeScript 통과, 62개 스위트/342개 테스트 통과. `npm run rollout:verify` 9개 점검 통과, 더미 환경변수 `npm run build` 성공, `git diff --check` 통과. 비차단 경고는 Next.js `next lint`/ESLint selector 폐기 안내와 Edge Runtime 정적 생성 제한뿐이다.
+- DB migration 추가/적용, 운영 Supabase 변경, Vercel 배포는 하지 않았다. 두 테이블은 별도 REST 요청이므로 완전한 DB 트랜잭션은 아니며, 보상 복구 자체가 실패한 경우 운영 복구 경로는 향후 RPC 트랜잭션 적용 전까지 남은 위험이다.
+
+## M6-r 원본 연결 활동의 안전한 수정과 버전 이력
+
+### 현재 근거와 목표
+
+- M6-p에서는 `evidence_sources` 인용을 잘못된 최신 내용에 붙이지 않도록 원본 연결 활동 편집을 차단했다. 사용자가 직접 수정하거나 이전 버전을 확인·복원하는 경로는 없다.
+- `career_items`는 활동의 현재 메타데이터 행이고, `evidence_records`는 활동별로 여러 근거 행을 가질 수 있다. `evidence_sources`는 근거 행에 연결되므로 기존 행을 보존하고 새 근거 행을 만들면 원본 인용을 과거 버전에 고정할 수 있다.
+- 승인 활동 편집은 단일 PostgreSQL transaction/RPC에서 이전 근거 supersede, 현재 활동 갱신, 새 근거 생성과 스냅샷 기록을 수행한다. history는 동일 `career_item_id`의 버전을 보여주고, 복원은 과거 내용을 새 현재 버전으로 복제하며 그 내용에 대응하는 원본 인용만 새 행에 복사한다.
+- RPC는 `SECURITY INVOKER`, `auth.uid()`/user-scoped row filters 및 RLS/grant를 사용한다. migration과 읽기 전용 verify SQL은 로컬에만 추가하고 운영 Supabase에는 적용하지 않는다.
+
+### 완료 조건과 검증
+
+1. source-linked 승인 활동 수정 시 새 `evidence_record` revision이 생성되고, 기존 텍스트와 `evidence_sources` 연결은 superseded history에 그대로 남는다. 새 revision은 그 문장을 증명한다고 오인될 수 있는 인용을 갖지 않는다. 확인: RPC migration 계약 검사와 service/API/UI 단위 테스트.
+2. 동일 활동의 모든 버전과 메타데이터 snapshot을 사용자 전용 history API/UI에서 볼 수 있고, quote excerpt나 타 사용자 데이터는 노출하지 않는다. 확인: history service/route/component 테스트 및 RLS read-only verify SQL.
+3. 과거 버전 복원은 이전 내용을 덮어쓰지 않고 새로운 활성 revision을 생성하며, 선택된 버전의 텍스트와 source link만 일치하게 복사한다. 확인: restore RPC/service/UI 테스트.
+4. 동시에 편집/보관/복원하거나 다른 사용자의 ID를 전달해도 활동 행 잠금·user_id·expected version/status 검사로 일관성을 지키며, 사용자 입력 길이·종류를 서버에서 검증한다. 확인: stale/unauthorized/invalid-input 테스트와 `SECURITY INVOKER`/함수 EXECUTE/RLS migration 계약 검토.
+5. 기존 source-free 직접 입력 수정은 호환을 유지하고, DB migration은 운영에 적용하지 않는다. 확인: 기존 회귀 테스트와 migration verify 결과.
+
+### 구현 순서와 위험
+
+1. `evidence_records`에 revision parent/restored-from relation 및 career snapshot을 더하는 additive migration과 SELECT-only verify SQL을 추가한다. 실제 Supabase DDL/마이그레이션 실행은 하지 않는다.
+2. revision·restore RPC를 구현하고 제한된 role만 실행할 수 있게 하며, source-linked text는 과거 evidence row와 citation 관계에 남긴다.
+3. service, history/restore API, feature client 및 `/career` UI를 연결한다. revision chain은 한 번에 승인 상태 버전 한 건을 유지하며 다른 증거 행은 변경하지 않는다.
+4. SQL 계약·service/API/UI 회귀를 확인한 후 harness, rollout preflight, build, diff를 검증한다.
+
+실패 모드: migration 미적용 환경에서 RPC를 찾을 수 없으면 명확한 503으로 안내한다. source copy는 선택 복원 원문이 동일한 경우에만 실행되고 DB transaction 안에서 처리한다. RPC 권한·RLS가 맞지 않으면 기능을 차단하며 권한을 넓히는 fallback은 추가하지 않는다.
+
+### 실행 결과와 검증
+
+- `evidence_records`에 revision 번호/parent/restored-from ID와 활동 metadata snapshot을 추가하는 M6-r migration 및 SELECT-only verify SQL을 로컬에 추가했다. 운영 Supabase에는 적용하지 않았다.
+- `revise_evidence_activity`, `restore_evidence_activity_revision`, `set_evidence_activity_status`를 `SECURITY INVOKER` + 빈 `search_path`로 추가했다. 각 RPC는 `auth.uid()`와 소유자 조건, 상태/version 확인, 활동 row lock을 사용하며 `authenticated`만 실행 가능하도록 제한했다. revision 및 archive/restore의 두 테이블 변경은 한 트랜잭션으로 처리한다.
+- 승인 활동 편집은 원본 행을 superseded 처리하고 새 승인 revision을 만든다. 이전 `evidence_sources`는 기존 revision에 그대로 두고 편집본에는 자동 복사하지 않는다. 과거 revision 복원은 선택한 revision의 실제 인용 행만 새 승인 revision에 복사한다.
+- 사용자 소유 history API는 revision 내용·metadata snapshot·원본 연결 개수만 반환하고 quote excerpt는 조회하거나 노출하지 않는다. `/career`에서는 승인/보관 활동 모두 버전 기록을 확인할 수 있고, 승인 활동의 이전 snapshot을 새 버전으로 복원할 수 있다. 편집/복원 후 PDF 선택 ID도 새 record ID로 이어진다.
+- 기존 source-free 편집 UI 흐름은 유지하면서 저장을 revision 생성으로 전환했다. migration 미적용 시 RPC 부재를 503으로 분류해 DB 업데이트 필요 안내를 반환한다.
+- 편집 폼을 연 시점의 evidence/career 버전을 요청에 실어 보내고, service와 RPC에서 모두 최신 버전과 비교해 다른 탭의 선행 저장을 409로 거절한다. history는 100개 단위 페이지 조회 및 citation count 배치로 전체 revision chain을 반환한다. PostgreSQL status RPC의 null 입력 검증도 명시했다.
+- 검증: 전체 lint, TypeScript, 64개 테스트 스위트/356개 테스트 통과. `npm run rollout:verify`의 10개 점검 통과. 더미 Supabase/AI 환경변수로 production build 성공, `git diff --check` 통과. 빌드는 기존 Supabase Edge Runtime 의존성 경고와 Edge 페이지의 정적 생성 제한 안내를 남겼다.
+- 로컬 PostgreSQL/CLI가 없어 migration SQL 자체를 DB에 적용해 파싱·실행하는 검증은 하지 않았다. 실제 Supabase migration, Vercel 배포, commit은 수행하지 않았다.
+
+## M6-s 리뷰 후속: 사실 근거 확인, 편집 입력 보호, PDF 지표 정합성
+
+### 근거와 완료 조건
+
+- 누적 변경 독립 리뷰에서 AI가 고른 활동 ID만으로 프로필 기반 수치 문장이 검증 완료될 수 있음, 목록 새로고침이 편집 중인 폼을 언마운트할 수 있음, 이력서 PDF에서 성과 지표의 단위 불일치로 별도 수치가 사라질 수 있음이 확인되었다.
+- 생성된 citation은 사용자 확인 전까지 제안 상태여야 하며, 미확인/과거 형식의 초안은 최종 확정할 수 없어야 한다.
+- 편집 중 목록 새로고침이 차단되고, PDF 중복 생략 판단은 지표 label과 값·단위가 모두 맞을 때만 가능해야 한다.
+- 후속 재리뷰에서 문장 편집 후 citation 재사용, 구버전 초안의 근거율 과대 표시, 새로고침 도중 편집 시작, `%`/`퍼센트`와 `%p`/`퍼센트포인트` 및 `GB`와 `GB/s` 합성 단위 혼동을 추가로 확인했다.
+
+### 변경 및 검증
+
+- AI 생성 citation을 `unverified`로 보존하고 해당 문장 수를 검토 필요로 표시한다. 편집기에서 기존 AI/legacy ID를 자동 선택하지 않으며, 사용자가 활동을 직접 골라 저장한 버전(`factReviewVersion: 1`)과 verified 상태가 모두 있어야 최종 확정한다. 확인: writing studio 생성 회귀 및 citation review 단위 테스트.
+- 활동 편집 중 목록 새로고침 버튼을 비활성화하고 안내를 표시한다. 확인: 입력 유지·fetch 미호출 UI 테스트.
+- 이력서 PDF에서 label과 값·단위가 결과에 정확히 포함된 경우에만 별도 지표를 생략하고 퍼센트 출력 간격을 정리한다. 확인: 단위 불일치 회귀 테스트.
+- 문장 내용 또는 위치가 바뀌면 해당 문장 citation 선택을 즉시 제거하고, 명시적 사용자 검토 마커가 없는 과거 citation은 품질 근거율에서 제외한다. 확인: citation 보존/제거 및 legacy coverage 테스트.
+- 새로고침 도중 활동 편집 시작을 막고, 영문·한글 단위 접미사나 슬래시로 이어진 합성 단위를 단순 수치/단위와 일치하는 것으로 처리하지 않는다. 확인: 비동기 UI 경합, 퍼센트포인트와 합성 단위 PDF 테스트.
+- 운영 runbook의 M6-h~M6-r 기능/배포 기준선과 M6-r migration 적용·verify 순서를 갱신했다. 원격 Supabase/Vercel은 변경하지 않았다.
+- 검증: `npm run harness:verify`의 lint·TypeScript·65개 테스트 스위트/362개 테스트 통과. `npm run rollout:verify` 10개 점검, `git diff --check`, 더미 Supabase/AI 환경변수를 사용한 production build도 통과했다. 빌드는 기존 Supabase Realtime 의존성의 Edge Runtime Node API 경고 및 Edge 페이지 정적 생성 제한 안내를 남겼다.
+- 연속 독립 리뷰에서 나온 총 11개 구체적 finding을 수정했다. PostgreSQL/실 Supabase에서 migration SQL 실행은 검증하지 않았으며 운영 DB migration, Vercel Production 배포, commit/PR은 아직 실행하지 않았다.

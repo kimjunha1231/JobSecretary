@@ -1,4 +1,4 @@
-import { CareerActivityBoard, SourceLibraryBoard } from '@/widgets';
+import { CareerActivityBoard, CareerProfileEditor, SourceLibraryBoard } from '@/widgets';
 
 export default function CareerLibraryPage() {
     return (
@@ -10,6 +10,7 @@ export default function CareerLibraryPage() {
                     이력서, 포트폴리오, 프로젝트 기록을 한곳에 모으고 직접 확인한 근거만 자기소개서 작성에 연결하세요.
                 </p>
             </div>
+            <CareerProfileEditor />
             <SourceLibraryBoard />
             <CareerActivityBoard />
         </div>

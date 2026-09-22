@@ -26,7 +26,9 @@ import type {
     JobTarget,
 } from '@/entities/job-target';
 import { Badge } from '@/shared/ui';
-import { SOURCE_KIND_LABELS, SOURCE_STATUS_LABELS } from '@/features/source-ingestion';
+import { SOURCE_KIND_LABELS, SOURCE_STATUS_LABELS, SourceImportForm } from '@/features/source-ingestion';
+
+const JOB_ANALYSIS_SOURCE_KINDS: SourceDocument['kind'][] = ['job_post', 'talent_page'];
 
 const REQUIREMENT_CATEGORY_LABELS: Record<JobRequirementCategory, string> = {
     responsibility: '주요 업무',
@@ -316,7 +318,9 @@ export function JobTargetBoard() {
         }
     };
 
-    const selectableSources = sourceDocuments.filter(source => source.kind === 'job_post' || source.kind === 'talent_page');
+    const recruitmentSources = sourceDocuments.filter(source => JOB_ANALYSIS_SOURCE_KINDS.includes(source.kind));
+    const selectableSources = recruitmentSources.filter(source => source.status === 'approved');
+    const pendingSourceCount = recruitmentSources.filter(source => source.status !== 'approved' && source.status !== 'archived').length;
 
     return (
         <div className="space-y-6">
@@ -353,9 +357,12 @@ export function JobTargetBoard() {
                 </div>
 
                 <fieldset className="mt-5 space-y-3">
-                    <legend className="text-sm text-zinc-300">연결할 채용 자료 <span className="text-xs text-zinc-500">(선택)</span></legend>
+                    <legend className="flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-300">
+                        <span>연결할 채용 자료 <span className="text-xs text-zinc-500">(승인 자료만 선택 가능)</span></span>
+                        <Link href="/career" target="_blank" rel="noreferrer" className="text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">자료 검수 화면 열기</Link>
+                    </legend>
                     {selectableSources.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs leading-5 text-zinc-500">먼저 경력 자료 라이브러리에서 채용공고나 인재상 URL을 등록하고 검수해 주세요.</p>
+                        <p className="rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs leading-5 text-zinc-500">승인된 채용공고·인재상 자료가 없습니다. 위에서 URL을 등록한 뒤 원문을 검수하고 승인해 주세요.</p>
                     ) : (
                         <div className="grid gap-2 md:grid-cols-2">
                             {selectableSources.map(source => {
@@ -380,6 +387,13 @@ export function JobTargetBoard() {
                             })}
                         </div>
                     )}
+                    {pendingSourceCount > 0 && (
+                        <p className="text-xs leading-5 text-amber-200/80">
+                            검수 또는 처리가 필요한 채용 자료 {pendingSourceCount}개는 분석에 연결되지 않습니다.{' '}
+                            <Link href="/career" target="_blank" rel="noreferrer" className="underline underline-offset-4">새 탭에서 검수하기</Link>
+                            {' '}후 지원 대상 목록의 새로고침을 눌러 주세요.
+                        </p>
+                    )}
                 </fieldset>
 
                 <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -391,6 +405,22 @@ export function JobTargetBoard() {
                 </div>
             </form>
 
+            <details className="rounded-2xl border border-white/10 bg-surface/45">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-zinc-200 outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 md:px-6">
+                    <span className="inline-flex items-center gap-2"><Link2 size={16} aria-hidden="true" />채용공고·인재상 링크 바로 가져오기</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                </summary>
+                <div className="space-y-4 border-t border-white/10 p-4 md:p-5">
+                    <p className="text-xs leading-5 text-zinc-400">공개 HTTPS 페이지나 PDF를 등록한 뒤 원문을 확인하고 승인하면, 위 지원 대상에 연결해 요구사항을 분석할 수 있습니다.</p>
+                    <SourceImportForm
+                        allowedKinds={JOB_ANALYSIS_SOURCE_KINDS}
+                        initialKind="job_post"
+                        initialMode="url"
+                        onCreated={() => void loadPage()}
+                    />
+                </div>
+            </details>
+
             <section className="space-y-4" aria-labelledby="job-target-title">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -400,7 +430,7 @@ export function JobTargetBoard() {
                     </div>
                     <button type="button" onClick={() => void loadPage(true)} disabled={isRefreshing} className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:border-white/20 hover:bg-white/5 disabled:opacity-50 sm:self-auto">
                         <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
-                        새로고침
+                        지원 대상·자료 새로고침
                     </button>
                 </div>
 

@@ -9,4 +9,5 @@ export * from './global-alert';
 export * from './landing-board';
 export * from './source-library-board';
 export * from './career-activity-board';
+export * from './career-profile-editor';
 export * from './style-profile';

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
     AlertTriangle,
@@ -28,6 +28,8 @@ import type { EvidenceMatch, OutlineCandidate, RetrievalEvaluationLabel, Retriev
 import type { DraftCandidate } from '@/entities/draft-candidate';
 import type { EvidenceRecord } from '@/entities/evidence-record';
 import type { CareerItem } from '@/entities/career-item';
+import { ManualCareerEntryForm, type ManualCareerEntryValues } from '@/features/manual-career-entry';
+import { retainUnchangedCitationSelections } from '@/features/writing-studio/lib/retain-unchanged-citation-selections';
 import { Badge } from '@/shared/ui';
 import { trackProductEvent } from '@/shared/lib/product-analytics';
 import {
@@ -45,6 +47,7 @@ type SessionResponse = {
     target: JobTarget;
     styleProfile?: { id: string; name: string };
     styleExamples?: Array<{ id: string; source: 'user_authored' | 'approved_final'; questionId?: string; approved: boolean }>;
+    careerProfileContext?: { headline: string; summary: string; skills: string[] };
     questions: QuestionDetails[];
     question: QuestionDetails;
     requirements: JobRequirement[];
@@ -66,7 +69,6 @@ type SessionResponse = {
 };
 
 type Step = 'evidence' | 'outline' | 'draft' | 'edit';
-type ManualEvidence = { title: string; action: string; result: string; learning: string };
 type EvaluationMetrics = {
     charCount: number;
     charLimit: number;
@@ -155,9 +157,8 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
     const [isLoading, setIsLoading] = useState(true);
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [manualEvidence, setManualEvidence] = useState<ManualEvidence>({ title: '', action: '', result: '', learning: '' });
     const [showEvidenceForm, setShowEvidenceForm] = useState(false);
-    const [editedContent, setEditedContent] = useState('');
+    const [editedContent, setEditedContentState] = useState('');
     const [citationEvidenceBySentence, setCitationEvidenceBySentence] = useState<Record<number, string[]>>({});
     const [evaluationCase, setEvaluationCase] = useState<EvaluationCase | null>(null);
     const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([]);
@@ -171,16 +172,21 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
     const [retrievalLabelSource, setRetrievalLabelSource] = useState<'explicit' | 'draft' | 'fallback'>('fallback');
     const [retrievalLabelError, setRetrievalLabelError] = useState<string | null>(null);
 
+    const setEditedContent = (nextContent: string) => {
+        setCitationEvidenceBySentence(current => retainUnchangedCitationSelections(editedContent, nextContent, current));
+        setEditedContentState(nextContent);
+    };
+
     const setCitationSelections = (draft: DraftCandidate | undefined) => {
         const citations = draft?.evidenceMap.citations;
-        if (!Array.isArray(citations)) {
+        if (!Array.isArray(citations) || draft?.validationResult.factReviewVersion !== 1) {
             setCitationEvidenceBySentence({});
             return;
         }
         setCitationEvidenceBySentence(citations.reduce<Record<number, string[]>>((next, citation) => {
             if (!citation || typeof citation !== 'object') return next;
-            const item = citation as { sentenceIndex?: unknown; evidenceRecordIds?: unknown };
-            if (typeof item.sentenceIndex === 'number' && Array.isArray(item.evidenceRecordIds)) {
+            const item = citation as { sentenceIndex?: unknown; evidenceRecordIds?: unknown; status?: unknown };
+            if (item.status === 'verified' && typeof item.sentenceIndex === 'number' && Array.isArray(item.evidenceRecordIds)) {
                 next[item.sentenceIndex] = item.evidenceRecordIds.filter((value): value is string => typeof value === 'string');
             }
             return next;
@@ -445,32 +451,23 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
         }
     };
 
-    const addManualEvidence = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!manualEvidence.title.trim() || !manualEvidence.action.trim() || !manualEvidence.result.trim()) {
-            toast.error('활동명, 내가 한 일, 결과를 입력해 주세요.');
-            return;
-        }
+    const addManualEvidence = async (values: ManualCareerEntryValues): Promise<boolean> => {
         setBusy('manual-evidence');
         try {
             const response = await fetch('/api/evidence-records', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: manualEvidence.title.trim(),
-                    action: manualEvidence.action.trim(),
-                    result: manualEvidence.result.trim(),
-                    learning: manualEvidence.learning.trim(),
-                }),
+                body: JSON.stringify(values),
             });
             const result = await readJson(response);
             if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : '활동 근거를 저장하지 못했습니다.');
             await refreshMatches();
-            setManualEvidence({ title: '', action: '', result: '', learning: '' });
             setShowEvidenceForm(false);
-            toast.success('활동 근거를 추가하고 선택 목록을 갱신했습니다.');
+            toast.success('활동 근거를 추가했습니다.');
+            return true;
         } catch (addError) {
             setError(addError instanceof Error ? addError.message : '활동 근거를 저장하지 못했습니다.');
+            return false;
         } finally {
             setBusy(null);
         }
@@ -781,6 +778,15 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
                         {details.styleProfile && <span className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-primary">말투 프로필 · {details.styleProfile.name} · 승인 예문 {(details.styleExamples ?? []).filter(example => example.approved).length}개</span>}
                         {details.quality && <span className="rounded-lg border border-white/10 bg-surface/50 px-2.5 py-1.5">근거 {details.quality.selectedEvidenceCount}/{details.quality.evidenceCount} · 후보 {details.quality.outlineCandidateCount + details.quality.draftCandidateCount}개 · 내 수정 {details.quality.userRevisionCount}회 · 사실 근거 {(details.quality.factCitationCoverage * 100).toFixed(0)}%</span>}
                     </div>}
+                    {details.careerProfileContext && <details className="mt-4 max-w-4xl rounded-xl border border-white/10 bg-surface/40 px-3 py-2.5 text-xs text-zinc-300">
+                        <summary className="cursor-pointer font-medium text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/40">이번 작성에 참고하는 이력서 프로필 정보</summary>
+                        <div className="mt-3 space-y-2 border-t border-white/10 pt-3 leading-5">
+                            {details.careerProfileContext.headline && <p><span className="text-zinc-500">직무 소개 · </span>{details.careerProfileContext.headline}</p>}
+                            {details.careerProfileContext.summary && <p><span className="text-zinc-500">요약 · </span>{details.careerProfileContext.summary}</p>}
+                            {details.careerProfileContext.skills.length > 0 && <p><span className="text-zinc-500">핵심 기술 · </span>{details.careerProfileContext.skills.join(' · ')}</p>}
+                            <p className="text-zinc-500">강조 방향 참고용이며, 성과·수치·회사·프로젝트는 선택한 활동 근거에서만 작성됩니다. 연락처와 개인 링크는 포함되지 않았습니다.</p>
+                        </div>
+                    </details>}
                     {details.questions.length > 1 && <div className="mt-4 flex max-w-3xl gap-2 overflow-x-auto pb-1" role="tablist" aria-label="자기소개서 문항">
                         {details.questions.map((question, index) => <button key={question.id} type="button" role="tab" aria-selected={question.id === details.question.id} onClick={() => void switchQuestion(question.id)} disabled={busy !== null} className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${question.id === details.question.id ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 text-zinc-400 hover:bg-white/5'}`}><span className="mr-1.5 text-[10px] text-zinc-600">{index + 1}</span>{question.question.slice(0, 42)}{question.question.length > 42 ? '…' : ''}</button>)}
                     </div>}
@@ -793,7 +799,8 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
 
             {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{error}</span></div>}
 
-            {step === 'edit' && selectedDraft && <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4" aria-labelledby="fact-citation-title"><div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300/80">Fact check</p><h2 id="fact-citation-title" className="mt-1 text-base font-semibold text-white">사실 문장에 활동 근거 연결</h2><p className="mt-1 text-xs leading-5 text-zinc-400">숫자·회사·프로젝트처럼 확인 가능한 문장을 선택한 활동과 연결하면 최종 확정할 수 있습니다.</p></div><span className="text-xs text-amber-200">검증 필요 {typeof selectedDraft.validationResult.unverifiedFactCount === 'number' ? selectedDraft.validationResult.unverifiedFactCount : 0}개</span></div><div className="mt-3 space-y-2">{splitSentences(editedContent).map((sentence, sentenceIndex) => isFactLikeSentence(sentence) ? <label key={`${sentenceIndex}-${sentence.slice(0, 12)}`} className="grid gap-2 rounded-xl border border-white/10 bg-background/40 p-3 md:grid-cols-[1fr_220px] md:items-center"><span className="text-xs leading-5 text-zinc-300"><span className="mr-1.5 text-[10px] text-zinc-600">{sentenceIndex + 1}</span>{sentence}</span><select value={citationEvidenceBySentence[sentenceIndex]?.[0] ?? ''} onChange={event => setCitationEvidenceBySentence(current => ({ ...current, [sentenceIndex]: event.target.value ? [event.target.value] : [] }))} disabled={finalized} className="w-full rounded-lg border border-white/10 bg-background px-2.5 py-2 text-xs text-zinc-300 outline-none focus:border-primary/60"><option value="">근거를 선택하세요</option>{selectedMatches.map(item => <option key={item.evidence.record.id} value={item.evidence.record.id}>{item.evidence.careerItem.title}</option>)}</select></label> : null)}</div></section>}
+            {step === 'edit' && selectedDraft && <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4" aria-labelledby="fact-citation-title"><div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300/80">Fact check</p><h2 id="fact-citation-title" className="mt-1 text-base font-semibold text-white">사실 문장에 활동 근거 연결</h2><p className="mt-1 text-xs leading-5 text-zinc-400">AI가 제안한 연결은 자동 검증으로 간주하지 않습니다. 문장을 대조해 알맞은 활동을 직접 고른 뒤 저장해야 최종 확정할 수 있습니다.</p></div><span className="text-xs text-amber-200">검증 필요 {typeof selectedDraft.validationResult.unverifiedFactCount === 'number' ? selectedDraft.validationResult.unverifiedFactCount : 0}개</span></div><div className="mt-3 space-y-2">{splitSentences(editedContent).map((sentence, sentenceIndex) => isFactLikeSentence(sentence) ? <label key={`${sentenceIndex}-${sentence.slice(0, 12)}`} className="grid gap-2 rounded-xl border border-white/10 bg-background/40 p-3 md:grid-cols-[1fr_220px] md:items-center"><span className="text-xs leading-5 text-zinc-300"><span className="mr-1.5 text-[10px] text-zinc-600">{sentenceIndex + 1}</span>{sentence}</span><select value={citationEvidenceBySentence[sentenceIndex]?.[0] ?? ''} onChange={event => setCitationEvidenceBySentence(current => ({ ...current, [sentenceIndex]: event.target.value ? [event.target.value] : [] }))} disabled={finalized} className="w-full rounded-lg border border-white/10 bg-background px-2.5 py-2 text-xs text-zinc-300 outline-none focus:border-primary/60"><option value="">근거를 선택하세요</option>{selectedMatches.map(item => <option key={item.evidence.record.id} value={item.evidence.record.id}>{item.evidence.careerItem.title}</option>)}</select></label> : null)}</div></section>}
+            {step === 'edit' && selectedDraft && selectedDraft.validationResult.factReviewVersion !== 1 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3"><p className="text-xs leading-5 text-amber-100/80">AI가 연결한 활동은 제안일 뿐입니다. 각 사실 문장을 직접 대조하고 선택을 저장해 주세요.</p><button type="button" onClick={() => void saveDraft()} disabled={busy !== null || finalized} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/30 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 disabled:opacity-50"><Save size={14} aria-hidden="true" /> 근거 확인·저장</button></div>}
 
             <nav aria-label="작성 단계" className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-surface/45 p-2 md:grid-cols-4">
                 {STEP_LABELS.map((item, index) => {
@@ -805,8 +812,8 @@ export function WritingStudioBoard({ sessionId }: { sessionId: string }) {
 
             {step === 'evidence' && (
                 <section className="space-y-5" aria-labelledby="evidence-step-title">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">01 · Evidence</p><h2 id="evidence-step-title" className="mt-1 text-2xl font-bold text-white">활동 근거를 직접 고르세요</h2><p className="mt-1 text-sm text-zinc-400">선택한 근거만 개요와 초안 생성에 전달됩니다. 추천 이유를 읽고 제외하거나 고정할 수 있습니다.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowEvidenceForm(previous => !previous)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5"><Plus size={15} aria-hidden="true" /> 활동 직접 추가</button><button type="button" onClick={() => void refreshMatches()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RotateCcw size={15} aria-hidden="true" /> 추천 갱신</button></div></div>
-                    {showEvidenceForm && <form onSubmit={addManualEvidence} className="grid gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 md:grid-cols-2"><label className="space-y-1.5 text-xs text-zinc-300 md:col-span-2"><span>활동명</span><input value={manualEvidence.title} onChange={event => setManualEvidence(previous => ({ ...previous, title: event.target.value }))} maxLength={200} placeholder="예: 사내 검색 서비스 개선" className="w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300"><span>내가 한 일</span><textarea value={manualEvidence.action} onChange={event => setManualEvidence(previous => ({ ...previous, action: event.target.value }))} maxLength={10_000} className="min-h-24 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300"><span>결과</span><textarea value={manualEvidence.result} onChange={event => setManualEvidence(previous => ({ ...previous, result: event.target.value }))} maxLength={10_000} className="min-h-24 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><label className="space-y-1.5 text-xs text-zinc-300 md:col-span-2"><span>배운 점 (선택)</span><textarea value={manualEvidence.learning} onChange={event => setManualEvidence(previous => ({ ...previous, learning: event.target.value }))} maxLength={10_000} className="min-h-20 w-full rounded-lg border border-white/10 bg-background px-3 py-2.5 text-sm leading-5 text-white outline-none focus:border-primary/60" /></label><div className="flex justify-end gap-2 md:col-span-2"><button type="button" onClick={() => setShowEvidenceForm(false)} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-400 hover:bg-white/5">취소</button><button type="submit" disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">{busy === 'manual-evidence' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />} 저장</button></div></form>}
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">01 · Evidence</p><h2 id="evidence-step-title" className="mt-1 text-2xl font-bold text-white">활동 근거를 직접 고르세요</h2><p className="mt-1 text-sm text-zinc-400">선택한 근거만 개요와 초안 생성에 전달됩니다. 추천 이유를 읽고 제외하거나 고정할 수 있습니다.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowEvidenceForm(previous => !previous)} aria-expanded={showEvidenceForm} aria-controls={showEvidenceForm ? 'writing-manual-entry-form' : undefined} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-primary/40"><Plus size={15} aria-hidden="true" /> 활동 직접 추가</button><button type="button" onClick={() => void refreshMatches()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 disabled:opacity-50"><RotateCcw size={15} aria-hidden="true" /> 추천 갱신</button></div></div>
+                    {showEvidenceForm && <ManualCareerEntryForm formId="writing-manual-entry-form" isSaving={busy !== null} onCancel={() => setShowEvidenceForm(false)} onSubmit={addManualEvidence} requireActionAndResult submitLabel="근거 추가" />}
                     <section className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4" aria-labelledby="retrieval-labels-title">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                             <div>

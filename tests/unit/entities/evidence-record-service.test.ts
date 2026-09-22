@@ -26,12 +26,12 @@ describe('evidence record source provenance', () => {
         const careerRow = {
             id: careerItemId,
             user_id: userId,
-            kind: 'project',
-            title: '검색 개선',
-            organization: '테스트 팀',
-            role: '프론트엔드 개발자',
+            kind: 'credential',
+            title: 'SQL 개발자 자격시험',
+            organization: '한국데이터산업진흥원',
+            role: 'SQLD',
             started_at: '2025-01',
-            ended_at: '2025-03',
+            ended_at: '2027-01',
             is_current: false,
             summary: '검색 흐름을 개선했습니다.',
             contribution_note: '검색 UI와 상태 관리를 담당했습니다.',
@@ -64,6 +64,7 @@ describe('evidence record source provenance', () => {
             select: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({ data: careerRow, error: null }),
         };
+        const careerInsert = jest.fn().mockReturnValue(careerInsertQuery);
         const evidenceInsertQuery = {
             select: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({ data: evidenceRow, error: null }),
@@ -71,7 +72,7 @@ describe('evidence record source provenance', () => {
         const evidenceSourcesInsert = jest.fn().mockResolvedValue({ error: null });
         const from = jest.fn((table: string) => {
             if (table === 'source_fragments') return sourceQuery;
-            if (table === 'career_items') return { insert: jest.fn().mockReturnValue(careerInsertQuery) };
+            if (table === 'career_items') return { insert: careerInsert };
             if (table === 'evidence_records') return { insert: jest.fn().mockReturnValue(evidenceInsertQuery) };
             if (table === 'evidence_sources') return { insert: evidenceSourcesInsert };
             throw new Error(`Unexpected table: ${table}`);
@@ -82,24 +83,40 @@ describe('evidence record source provenance', () => {
         });
 
         const result = await evidenceRecordService.createManual({
-            title: '검색 개선',
-            kind: 'project',
-            organization: '테스트 팀',
-            role: '프론트엔드 개발자',
+            title: 'SQL 개발자 자격시험',
+            kind: 'credential',
+            organization: '한국데이터산업진흥원',
+            role: 'SQLD',
             startedAt: '2025-01',
-            endedAt: '2025-03',
-            summary: '검색 흐름을 개선했습니다.',
-            problem: '검색 응답이 느렸습니다.',
-            action: '상태 흐름을 정리했습니다.',
-            result: '응답 시간을 줄였습니다.',
+            endedAt: '2027-01',
+            summary: '데이터베이스 관련 자격시험을 취득했습니다.',
+            problem: '관계형 데이터베이스 지식 검증이 필요했습니다.',
+            action: 'SQLD 자격시험을 준비하고 응시했습니다.',
+            result: 'SQLD 자격을 취득했습니다.',
             metrics: [{ label: '응답 시간', value: '30', unit: '%' }],
             skills: ['React'],
             competencyTags: ['문제 해결'],
             sourceFragmentIds: [fragmentId],
         });
 
-        expect(result.careerItem).toEqual(expect.objectContaining({ startedAt: '2025-01', endedAt: '2025-03' }));
+        expect(result.careerItem).toEqual(expect.objectContaining({
+            kind: 'credential',
+            organization: '한국데이터산업진흥원',
+            role: 'SQLD',
+            startedAt: '2025-01',
+            endedAt: '2027-01',
+        }));
+        expect(careerInsert).toHaveBeenCalledWith(expect.objectContaining({
+            kind: 'credential',
+            title: 'SQL 개발자 자격시험',
+            organization: '한국데이터산업진흥원',
+            role: 'SQLD',
+            started_at: '2025-01',
+            ended_at: '2027-01',
+            status: 'approved',
+        }));
         expect(sourceQuery.eq).toHaveBeenCalledWith('user_id', userId);
+        expect(result.sourceFragmentCount).toBe(1);
         expect(evidenceSourcesInsert).toHaveBeenCalledWith([expect.objectContaining({
             evidence_record_id: evidenceRecordId,
             source_fragment_id: fragmentId,
@@ -170,7 +187,17 @@ describe('evidence record source provenance', () => {
                 error: null,
             }),
         };
-        const from = jest.fn((table: string) => table === 'evidence_records' ? evidenceQuery : careerQuery);
+        const sourceQuery = {
+            select: jest.fn().mockReturnThis(),
+            in: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+        const from = jest.fn((table: string) => {
+            if (table === 'evidence_records') return evidenceQuery;
+            if (table === 'career_items') return careerQuery;
+            if (table === 'evidence_sources') return sourceQuery;
+            throw new Error(`Unexpected table: ${table}`);
+        });
         mockedCreateServerSupabaseClient.mockResolvedValue({
             auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
             from,
@@ -179,6 +206,7 @@ describe('evidence record source provenance', () => {
         const result = await evidenceRecordService.getApprovedByIds([secondRecordId, firstRecordId]);
 
         expect(result.map(item => item.record.id)).toEqual([secondRecordId, firstRecordId]);
+        expect(result.map(item => item.sourceFragmentCount)).toEqual([0, 0]);
         expect(evidenceQuery.in).toHaveBeenCalledWith('id', [secondRecordId, firstRecordId]);
     });
 });

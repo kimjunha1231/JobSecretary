@@ -11,6 +11,7 @@ import { markWritingSessionStarted } from '@/shared/lib/writing-session-timing';
 
 type StyleExampleOption = { id: string; content: string; approved: boolean; questionId?: string };
 type StyleProfileOption = { profile: { id: string; name: string; bannedExpressions: string[]; endingStyle: string[] }; examples: StyleExampleOption[] };
+type CareerProfileContextAvailability = 'loading' | 'ready' | 'missing' | 'unavailable';
 
 export function WritingSessionStart() {
     const router = useRouter();
@@ -20,6 +21,8 @@ export function WritingSessionStart() {
     const [styleProfiles, setStyleProfiles] = useState<StyleProfileOption[]>([]);
     const [styleProfileId, setStyleProfileId] = useState('');
     const [selectedStyleExampleIds, setSelectedStyleExampleIds] = useState<string[] | null>(null);
+    const [includeCareerProfile, setIncludeCareerProfile] = useState(false);
+    const [careerProfileAvailability, setCareerProfileAvailability] = useState<CareerProfileContextAvailability>('loading');
     const [jobTargetId, setJobTargetId] = useState(requestedTargetId);
     const [questions, setQuestions] = useState<Array<{ question: string; charLimit: string }>>([{ question: '', charLimit: '700' }]);
     const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +31,26 @@ export function WritingSessionStart() {
 
     useEffect(() => {
         let active = true;
+        const careerProfileRequest = fetch('/api/career-profiles/me', { cache: 'no-store' })
+            .then(async response => {
+                const result = await response.json().catch(() => null);
+                if (!response.ok) return 'unavailable' as const;
+                const profile = result && typeof result === 'object' && 'profile' in result
+                    ? (result as { profile?: Record<string, unknown> | null }).profile
+                    : null;
+                if (!profile) return 'missing' as const;
+                const hasContext = (
+                    (typeof profile.headline === 'string' && profile.headline.trim().length > 0)
+                    || (typeof profile.summary === 'string' && profile.summary.trim().length > 0)
+                    || (Array.isArray(profile.skills) && profile.skills.some(skill => typeof skill === 'string' && skill.trim().length > 0))
+                );
+                return hasContext ? 'ready' as const : 'missing' as const;
+            })
+            .catch(() => 'unavailable' as const);
+        void careerProfileRequest.then(availability => {
+            if (active) setCareerProfileAvailability(availability);
+        });
+
         void Promise.all([
             fetch('/api/job-targets?limit=50', { cache: 'no-store' }).then(async response => {
                 const result = await response.json().catch(() => []);
@@ -72,6 +95,7 @@ export function WritingSessionStart() {
                     jobTargetId,
                     styleProfileId: styleProfileId || undefined,
                     styleExampleIds: styleProfileId && selectedStyleExampleIds !== null ? selectedStyleExampleIds : undefined,
+                    includeCareerProfile,
                     questions: validQuestions.map(item => ({ question: item.question.trim(), charLimit: Number(item.charLimit) })),
                 }),
             });
@@ -146,6 +170,39 @@ export function WritingSessionStart() {
                     <div className="mt-3 grid gap-2 md:grid-cols-2">{approvedStyleExamples.map(example => <label key={example.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/10 bg-background/40 px-3 py-2.5 text-xs text-zinc-300 transition hover:border-primary/40"><input type="checkbox" checked={activeStyleExampleIds.includes(example.id)} onChange={event => toggleStyleExample(example.id, event.target.checked)} className="mt-0.5 accent-primary" /><span><span className="block font-medium text-zinc-200">{example.questionId ? '문항별 예문' : '전역 예문'}</span><span className="mt-1 block leading-5 text-zinc-500">{example.content.slice(0, 180)}{example.content.length > 180 ? '…' : ''}</span></span></label>)}</div>
                     <p className="mt-3 text-[11px] text-zinc-500">현재 선택 {activeStyleExampleIds.length}/5개 · {selectedStyleExampleIds === null ? '자동 선택' : '직접 선택'}</p>
                 </fieldset>}
+                <fieldset className="rounded-xl border border-white/10 bg-background/40 p-4">
+                    <legend className="px-1 text-sm font-semibold text-zinc-200">이력서 프로필 참고 (선택)</legend>
+                    <label className="flex cursor-pointer items-start gap-2 text-sm text-zinc-300">
+                        <input
+                            type="checkbox"
+                            checked={includeCareerProfile}
+                            onChange={event => setIncludeCareerProfile(event.target.checked)}
+                            disabled={careerProfileAvailability !== 'ready'}
+                            className="mt-0.5 accent-primary"
+                        />
+                        <span>이번 자기소개서의 강조 방향을 잡을 때 내 직무 소개·요약·핵심 기술을 참고합니다.</span>
+                    </label>
+                    {careerProfileAvailability === 'ready' && (
+                        <p className="mt-2 pl-6 text-xs leading-5 text-zinc-500">
+                            기본은 꺼져 있습니다. 선택하면 직무 소개·요약·핵심 기술만 AI 작성 요청에 포함됩니다. 이름·연락처·위치·개인 링크는 보내지 않으며, 프로젝트·성과·수치는 선택한 검수 완료 활동 근거만 사용합니다.
+                        </p>
+                    )}
+                    {careerProfileAvailability === 'loading' && (
+                        <p role="status" className="mt-2 pl-6 text-xs leading-5 text-zinc-500">프로필 참고 기능을 확인하는 중입니다. 일반 작성은 그대로 진행할 수 있습니다.</p>
+                    )}
+                    {careerProfileAvailability === 'missing' && (
+                        <p className="mt-2 pl-6 text-xs leading-5 text-zinc-500">
+                            이력서 프로필에 직무 소개·간단 소개·핵심 기술 중 하나 이상을 저장하면 선택할 수 있습니다.{' '}
+                            <Link href="/career#career-profile-title" className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">프로필 입력하기</Link>
+                        </p>
+                    )}
+                    {careerProfileAvailability === 'unavailable' && (
+                        <p className="mt-2 pl-6 text-xs leading-5 text-zinc-500">
+                            지금은 프로필 참고 기능을 확인할 수 없습니다. 일반 작성은 가능하며, 나중에 다시 확인해 주세요.{' '}
+                            <Link href="/career#career-profile-title" className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">이력서 프로필</Link>
+                        </p>
+                    )}
+                </fieldset>
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
                         <div><span className="text-sm text-zinc-300">자기소개서 문항</span><p className="mt-1 text-xs text-zinc-500">한 세션에서 여러 문항을 만들고 작업대의 탭으로 전환할 수 있습니다.</p></div>

@@ -5,9 +5,11 @@
 ## 현재 기준선
 
 - 로컬 작업 브랜치: `codex/m0-security-foundation`
-- 로컬 기능 기준: M0~M6-g, M5-l 구현 커밋까지 포함
+- 로컬 기능 기준: M0~M6-r, M5-l까지 구현. 현재 커밋은 `b176575`이며 M6-h~M6-r 누적 변경은 로컬 미커밋 상태다. 해당 변경은 아직 원격 feature branch/Preview에 반영되지 않았고, Supabase migration도 적용하지 않았다.
 - Production 프로젝트: `coverletter_vault` (`https://jobsecretary.lat`)
 - 마지막으로 확인한 Production 배포: 2026-09-14, `main` 커밋 `87d8312`
+- 2026-09-22 확인한 현재 feature branch의 최신 Preview는 `READY` (`coverlettervault-gupjoiokq-junhas-projects-a748ef77.vercel.app`, 커밋 `b176575`)다. 이 Preview는 커밋 시점까지만 포함하며 로컬 미커밋 변경은 포함하지 않는다.
+- `https://kimjunha.vercel.app/`은 별도 `portfolio` Vercel 프로젝트이며 이 저장소의 JobSecretary 배포와 구분한다.
 - Vercel Observability Plus metric API는 현재 팀 요금제에서 사용할 수 없었다. Web Analytics/Sentry와 Vercel 로그를 기본 관측 경로로 사용한다.
 - 2026-09-21 최신 로컬 커밋 Preview(`coverlettervault-pd9nfakrp-junhas-projects-a748ef77.vercel.app`)가 `READY`가 되었고, 보호를 우회한 `vercel curl`로 `/` 200, 비로그인 `/career` 307, 인증 필요 API 401을 확인했다. 활동·자료 검색 필터와 명시적 문단·활동 선택, 공개 PDF URL 수집, 레거시 계정 정리, 선택형 Upstash 공유 AI 제한기 변경을 포함한 Preview에서 `vercel logs --level error --level warning`은 조회 시점 로그가 없었고 Production alias는 변경하지 않았다.
 - Sentry 10.75.0·PostCSS 8.5.28 보안 갱신과 Sentry 권장 config import를 포함한 최신 Preview(`coverlettervault-2w7k5k0hb-junhas-projects-a748ef77.vercel.app`, deployment `dpl_7SSdBVqbcxCshWwLxAHfm6aDP8ER`)도 `READY`가 되었다. `/` 200, 비로그인 `/career` 307, 인증 필요 API 401, `vercel logs --level error --level warning` 조회 결과 없음까지 확인했으며 Production alias는 변경하지 않았다.
@@ -30,14 +32,14 @@ npm run build
 git diff --check
 ```
 
-`rollout:verify`는 migration timestamp 순서와 destructive SQL, read-only verify SQL 누락, 환경변수 템플릿, client service-role 참조, Sentry 개인정보 마스킹을 로컬 파일만으로 확인한다. 이 명령은 Supabase·Vercel 원격 상태를 읽거나 변경하지 않는다.
+`rollout:verify`는 migration timestamp 순서와 destructive SQL, read-only verify SQL 누락, career profile RLS/권한 검증 항목, 환경변수 템플릿, client service-role 참조, Sentry 개인정보 마스킹을 로컬 파일만으로 확인한다. 이 명령은 Supabase·Vercel 원격 상태를 읽거나 변경하지 않는다.
 
 운영 환경변수에는 비밀값을 저장소나 로그에 출력하지 않는다. `NEXT_PUBLIC_WRITING_STUDIO_ENABLED`는 기본값이 `true`이며, 장애 시 정확히 `false`로 설정하면 `/writing/new`가 기존 `/write`로 돌아간다. 다중 인스턴스 AI 호출·자료 등록 제한을 사용하려면 `UPSTASH_REDIS_REST_URL`과 `UPSTASH_REDIS_REST_TOKEN`을 Vercel 서버 환경변수에 함께 추가한다. 둘 중 하나가 없거나 공유 제한기가 일시 실패하면 로컬 제한기로 폴백한다. 자료 등록/공개 URL 수집은 사용자별 분당 10회로 제한되고, OCR·생성 등 AI 작업은 작업별 제한을 별도로 적용한다.
 
 ## 2. Supabase 적용 순서
 
 1. 각 migration의 `supabase/verify/*.sql`을 읽기 전용으로 실행해 기존 테이블·정책·Storage bucket을 확인한다.
-2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`)와 사용자 작성 검색 정답 라벨(`20260921010000_m5k_retrieval_labels.sql`), M2 Storage, M6 OCR 의존성을 확인한다.
+2. `20260918000000`부터 파일명 순서대로 migration을 적용한다. M4 이후에는 M5 평가/선호·기존 자기소개서 말투 자료(`20260920010000_m5j_source_style_examples.sql`)와 사용자 작성 검색 정답 라벨(`20260921010000_m5k_retrieval_labels.sql`), M2 Storage, M6 OCR 의존성을 확인한다. 개인 이력서 프로필을 배포하는 경우 `20260922010000_m6h_career_profiles.sql`을 적용한 뒤 `supabase/verify/rls-m6h-career-profiles.sql`에서 강제 RLS, anon/authenticated 유효 권한, 사용자별 정책, 사용자 키·cascade FK, 입력 길이 제한을 확인한다. `credential` 종류를 지원하는 코드를 배포할 때는 `20260922020000_m6n_career_credential_kind.sql`을 적용하고 `supabase/verify/m6n-career-credential-kind.sql`에서 `career_items.kind` 제약에 `credential`이 포함됐는지 확인한다. 활동 편집·복원 이력을 배포할 때는 `20260922030000_m6r_career_activity_revisions.sql`을 적용하고 `supabase/verify/m6r-career-activity-revisions.sql`을 실행해 revision/RPC/RLS 권한을 확인한다.
 3. 적용 직후 사용자 소유 RLS와 `style_evaluation_preferences`의 hash-only 저장을 다시 확인한다.
    `retrieval_evaluation_labels`는 활동 원문 없이 ID만 저장하고, 빈 `evidence_record_id` 행은 해당 요구사항에 관련 활동이 없다는 명시적 라벨이다.
 4. migration이 실패하면 다음 migration으로 건너뛰지 않고, 기존 사용자 데이터에 쓰기를 시작하지 않는다.
