@@ -7,13 +7,43 @@ where table_schema = 'public'
   and column_name in ('revision_number', 'revision_of', 'restored_from_id', 'career_item_snapshot');
 
 select
-    c.relrowsecurity as row_security_enabled,
+    expected_table.table_name,
+    coalesce(c.relrowsecurity, false) as row_security_enabled,
+    coalesce(c.relforcerowsecurity, false) as row_security_forced,
+    (
+        select count(*) = 1
+            and bool_and(
+                policy_row.policyname = expected_table.table_name || '_own'
+                and policy_row.roles::text = '{authenticated}'
+                and policy_row.cmd = 'ALL'
+                and policy_row.permissive = 'PERMISSIVE'
+                and policy_row.qual is not null
+                and regexp_replace(policy_row.qual, '\s', '', 'g') in ('(auth.uid()=user_id)', 'auth.uid()=user_id')
+                and policy_row.with_check is not null
+                and regexp_replace(policy_row.with_check, '\s', '', 'g') in ('(auth.uid()=user_id)', 'auth.uid()=user_id')
+            )
+        from pg_policies as policy_row
+        where policy_row.schemaname = 'public'
+          and policy_row.tablename = expected_table.table_name
+    ) as has_only_authenticated_owner_policy
+from unnest(array['career_items', 'evidence_records', 'evidence_sources']::text[]) as expected_table(table_name)
+left join pg_namespace as n
+  on n.nspname = 'public'
+left join pg_class as c
+  on c.relnamespace = n.oid
+ and c.relname = expected_table.table_name
+ and c.relkind in ('r', 'p')
+order by expected_table.table_name;
+
+-- SECURITY INVOKER RPCs need only the table privileges used by their bodies.
+select
+    has_table_privilege('authenticated', 'public.career_items', 'SELECT') as authenticated_can_read_career_items,
+    has_table_privilege('authenticated', 'public.career_items', 'UPDATE') as authenticated_can_update_career_items,
     has_table_privilege('authenticated', 'public.evidence_records', 'SELECT') as authenticated_can_read_evidence,
-    has_table_privilege('authenticated', 'public.evidence_sources', 'SELECT') as authenticated_can_read_sources
-from pg_class as c
-join pg_namespace as n on n.oid = c.relnamespace
-where n.nspname = 'public'
-  and c.relname = 'evidence_records';
+    has_table_privilege('authenticated', 'public.evidence_records', 'INSERT') as authenticated_can_insert_evidence,
+    has_table_privilege('authenticated', 'public.evidence_records', 'UPDATE') as authenticated_can_update_evidence,
+    has_table_privilege('authenticated', 'public.evidence_sources', 'SELECT') as authenticated_can_read_sources,
+    has_table_privilege('authenticated', 'public.evidence_sources', 'INSERT') as authenticated_can_restore_sources;
 
 select
     p.proname as function_name,

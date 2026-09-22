@@ -175,6 +175,12 @@ function verifyReadOnlyScripts(): void {
         && restoreFunctionSql.includes('source.evidence_record_id = v_target_record.id');
     const activityRevisionVerifyContract = [
         'has_revision_columns',
+        'row_security_enabled',
+        'row_security_forced',
+        'has_only_authenticated_owner_policy',
+        'authenticated_can_update_career_items',
+        'authenticated_can_insert_evidence',
+        'authenticated_can_restore_sources',
         'uses_security_invoker',
         'has_empty_search_path',
         'authenticated_can_execute_all',
@@ -185,7 +191,7 @@ function verifyReadOnlyScripts(): void {
         'Career activity revision migration coverage',
         activityRevisionVerifyIsReadOnly && activityRevisionSecurityContract && activityRevisionVerifyContract,
         activityRevisionVerifyIsReadOnly && activityRevisionSecurityContract && activityRevisionVerifyContract
-            ? 'revision columns, invoker-only RPC grants, and SELECT-only verification are present'
+            ? 'revision columns, forced owner RLS, required invoker table/function grants, and SELECT-only verification are present'
             : 'career activity revision migration/verify SQL의 원자성 및 권한 경계를 검토해야 함',
     );
 }

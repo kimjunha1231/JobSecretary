@@ -833,6 +833,7 @@ URL이 로그인 뒤에서만 보이거나 JavaScript 렌더링이 필수인 페
 - 사용자 소유 history API는 revision 내용·metadata snapshot·원본 연결 개수만 반환하고 quote excerpt는 조회하거나 노출하지 않는다. `/career`에서는 승인/보관 활동 모두 버전 기록을 확인할 수 있고, 승인 활동의 이전 snapshot을 새 버전으로 복원할 수 있다. 편집/복원 후 PDF 선택 ID도 새 record ID로 이어진다.
 - 기존 source-free 편집 UI 흐름은 유지하면서 저장을 revision 생성으로 전환했다. migration 미적용 시 RPC 부재를 503으로 분류해 DB 업데이트 필요 안내를 반환한다.
 - 편집 폼을 연 시점의 evidence/career 버전을 요청에 실어 보내고, service와 RPC에서 모두 최신 버전과 비교해 다른 탭의 선행 저장을 409로 거절한다. history는 100개 단위 페이지 조회 및 citation count 배치로 전체 revision chain을 반환한다. PostgreSQL status RPC의 null 입력 검증도 명시했다.
+- M6-r 읽기 전용 검증 SQL을 보강했다. SECURITY INVOKER 함수에 필요한 `career_items`·`evidence_records`·`evidence_sources`의 강제 RLS, 정확한 단일 소유자 정책, 함수 실행 및 테이블 권한을 각각 확인한다. 이 점검은 DB 메타데이터만 읽으며 실제 migration 실행을 대체하지 않는다.
 - 검증: 전체 lint, TypeScript, 64개 테스트 스위트/356개 테스트 통과. `npm run rollout:verify`의 10개 점검 통과. 더미 Supabase/AI 환경변수로 production build 성공, `git diff --check` 통과. 빌드는 기존 Supabase Edge Runtime 의존성 경고와 Edge 페이지의 정적 생성 제한 안내를 남겼다.
 - 로컬 PostgreSQL/CLI가 없어 migration SQL 자체를 DB에 적용해 파싱·실행하는 검증은 하지 않았다. 실제 Supabase migration, Vercel 배포, commit은 수행하지 않았다.
 
